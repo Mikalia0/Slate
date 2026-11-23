@@ -4,7 +4,7 @@ on:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,8 +24,16 @@ jobs:
           packages: "platform-tools platforms;android-35 build-tools;35.0.0"
       - name: Build and test
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Slate-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+      - name: Publish private prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="dev-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          cp app/build/outputs/apk/debug/app-debug.apk Slate-debug.apk
+          gh release create "$tag" Slate-debug.apk \
+            --target "$GITHUB_SHA" \
+            --title "Slate development build ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
+            --prerelease \
+            --notes "Debug APK built and tested by GitHub Actions. Commit: $GITHUB_SHA."

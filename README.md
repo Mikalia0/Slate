@@ -13,7 +13,7 @@ JDK 17, Android SDK 35 and Gradle 8.9:
 ```sh
 gradle :app:assembleDebug :app:testDebugUnitTest
 ```
-APK: app/build/outputs/apk/debug/app-debug.apk. The Android build workflow runs tests and assembles a debug APK uploaded as an Actions artifact; no public releases.
+APK: app/build/outputs/apk/debug/app-debug.apk. The Android build workflow runs tests and assembles a debug APK published as a prerelease asset in this private repository.
 
 ## Roadmap
 Storage analyzer improvements (root and Shizuku, richer storage statistics and cached browsing); app cleaner; residual files; system cleaner; duplicates; app manager; media compression; media review; scheduling; custom exclusions; accessibility-based compatibility; history and localization.
