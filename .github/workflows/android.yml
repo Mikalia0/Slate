@@ -50,7 +50,7 @@ jobs:
           apk=app/build/outputs/apk/release/app-release.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk"
           cp "$apk" Slate.apk
-      - name: Publish private prerelease
+      - name: Publish signed prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash

@@ -81,7 +81,9 @@ class MainActivity : ComponentActivity() {
                                 ThemeOptions(mode,dynamic,onMode,onDynamic)
                                 HorizontalDivider()
                                 ListItem(headlineContent={Text("Storage access")},supportingContent={Text(if(granted)"Granted" else "Not granted")},trailingContent={TextButton(onClick=::requestStorage){Text("Manage")}})
-                                Text("Slate 0.5.0-dev · GPL-3.0-only")
+                                HorizontalDivider()
+                                UpdateSettings()
+                                Text("GPL-3.0-only")
                             }
                         }
                     }
