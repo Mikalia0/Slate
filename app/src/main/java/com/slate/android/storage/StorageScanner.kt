@@ -16,6 +16,8 @@ data class Snapshot(val directory: File, val entries: List<Entry>, val rootUnrea
     val skipped = entries.sumOf { it.skipped } + if (rootUnreadable) 1 else 0
 }
 
+data class ScanProgress(val visited: Long, val path: String, val bytes: Long, val elapsedMs: Long)
+
 class StorageScanner {
     private fun children(file: File): Array<File>? = try { file.listFiles() } catch (_: SecurityException) { null }
 
@@ -23,11 +25,23 @@ class StorageScanner {
         Files.readAttributes(file.toPath(), BasicFileAttributes::class.java, LinkOption.NOFOLLOW_LINKS)
     } catch (_: java.io.IOException) { null } catch (_: SecurityException) { null }
 
-    suspend fun scan(directory: File, onProgress: (Long) -> Unit = {}): Snapshot {
+    suspend fun scan(directory: File, onProgress: (ScanProgress) -> Unit = {}): Snapshot {
         val context = currentCoroutineContext()
         if (attributes(directory)?.isDirectory != true) return Snapshot(directory, emptyList(), true)
         val roots = children(directory) ?: return Snapshot(directory, emptyList(), true)
         var visited = 0L
+        var measured = 0L
+        val started = System.nanoTime()
+        var lastReport = started
+        var lastPath = directory.path
+        fun report(force: Boolean = false) {
+            val now = System.nanoTime()
+            if (force || now - lastReport >= 200_000_000L) {
+                lastReport = now
+                onProgress(ScanProgress(visited, lastPath, measured, (now-started)/1_000_000L))
+            }
+        }
+        report(true)
         val entries = ArrayList<Entry>(roots.size)
         val largest = PriorityQueue<Entry>(compareBy<Entry> { it.bytes }.thenBy { it.file.path })
         fun record(file: File, bytes: Long) {
@@ -39,6 +53,7 @@ class StorageScanner {
             context.ensureActive()
             val rootAttributes = attributes(root)
             if (rootAttributes == null || rootAttributes.isSymbolicLink) {
+                visited++; lastPath = root.path; report()
                 entries += Entry(root, false, 0, 0, 1)
                 continue
             }
@@ -55,20 +70,21 @@ class StorageScanner {
                 val file = next.next()
                 val attr = if (file == root) rootAttributes else attributes(file)
                 visited++
-                if (visited % 256L == 0L) onProgress(visited)
+                lastPath = file.path
                 when {
                     attr == null || attr.isSymbolicLink -> skipped++
                     attr.isDirectory -> {
                         val list = children(file)
                         if (list == null) skipped++ else stack.addLast(list.iterator())
                     }
-                    attr.isRegularFile -> { bytes += attr.size(); files++; record(file, attr.size()) }
+                    attr.isRegularFile -> { bytes += attr.size(); measured += attr.size(); files++; record(file, attr.size()) }
                     else -> skipped++
                 }
+                report()
             }
             entries += Entry(root, rootAttributes.isDirectory, bytes, files, skipped)
         }
-        onProgress(visited)
+        report(true)
         return Snapshot(directory, entries.sortedByDescending { it.bytes }, largestFiles = largest.sortedWith(compareByDescending<Entry> { it.bytes }.thenBy { it.file.path }))
     }
 }

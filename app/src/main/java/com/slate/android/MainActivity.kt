@@ -15,8 +15,12 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -35,9 +39,6 @@ import com.slate.android.storage.*
 import com.slate.android.device.DeviceScreen
 import java.io.File
 
-private val Mint = Color(0xFFA7E8CF)
-private val Bg = Color(0xFF101214)
-private val Panel = Color(0xFF1B1F23)
 
 class MainActivity : ComponentActivity() {
     private var granted by mutableStateOf(false)
@@ -61,15 +62,38 @@ class MainActivity : ComponentActivity() {
         granted = hasStorageAccess()
         volumes = storageVolumes(this)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(primary = Mint, background = Bg, surface = Panel, onPrimary = Color(0xFF10251D))) {
-                Slate(granted, volumes, ::requestStorage)
+            val prefs = remember { getSharedPreferences("appearance", MODE_PRIVATE) }
+            var mode by remember { mutableStateOf(runCatching { SlateTheme.valueOf(prefs.getString("theme","SYSTEM") ?: "SYSTEM") }.getOrDefault(SlateTheme.SYSTEM)) }
+            var dynamic by remember { mutableStateOf(prefs.getBoolean("dynamic",false)) }
+            var setup by remember { mutableStateOf(prefs.getBoolean("setup",false)) }
+            var settings by rememberSaveable { mutableStateOf(false) }
+            val onMode: (SlateTheme)->Unit = { mode=it; prefs.edit().putString("theme",it.name).apply() }
+            val onDynamic: (Boolean)->Unit = { dynamic=it; prefs.edit().putBoolean("dynamic",it).apply() }
+            SlateAppearance(mode,dynamic,this@MainActivity) {
+                when {
+                    !setup -> Onboarding(granted,::requestStorage,mode,dynamic,onMode,onDynamic) { setup=true; prefs.edit().putBoolean("setup",true).apply() }
+                    settings -> {
+                        BackHandler { settings=false }
+                        Scaffold(contentWindowInsets=WindowInsets.safeDrawing) { padding ->
+                            Column(Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                                Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick={settings=false}){Icon(Icons.Default.ArrowBack,"Back")};Text("Settings",style=MaterialTheme.typography.headlineSmall)}
+                                Text("Appearance",style=MaterialTheme.typography.titleMedium)
+                                ThemeOptions(mode,dynamic,onMode,onDynamic)
+                                HorizontalDivider()
+                                ListItem(headlineContent={Text("Storage access")},supportingContent={Text(if(granted)"Granted" else "Not granted")},trailingContent={TextButton(onClick=::requestStorage){Text("Manage")}})
+                                Text("Slate 0.5.0-dev · GPL-3.0-only")
+                            }
+                        }
+                    }
+                    else -> Slate(granted, volumes, ::requestStorage, onSettings={settings=true})
+                }
             }
         }
     }
 }
 
 @Composable
-private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, model: StorageModel = viewModel()) {
+private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, onSettings: () -> Unit, model: StorageModel = viewModel()) {
     val context = LocalContext.current
     val primary = remember { Environment.getExternalStorageDirectory() }
     var selectedPath by rememberSaveable { mutableStateOf(primary.absolutePath) }
@@ -93,54 +117,22 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         else { model.cancel(); analyzer = false }
     }
     BackHandler(analyzer || device) { if (device) device = false else back() }
-    Scaffold(containerColor = Bg, contentWindowInsets = WindowInsets.safeDrawing) { padding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets.safeDrawing) { padding ->
         if (device) {
             Box(Modifier.fillMaxSize().padding(padding)) { DeviceScreen(onBack = { device = false }) }
         } else Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp)) {
             Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (analyzer) TextButton(onClick = ::back) { Text("Back") }
+                if (analyzer) IconButton(onClick = ::back) { Icon(Icons.Default.ArrowBack,"Back") }
                 else Image(painterResource(R.drawable.ic_slate), null, Modifier.size(36.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(if (analyzer) "Storage" else "Slate", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                if (analyzer) TextButton(onClick = { model.open(directory) }, enabled = granted && !state.running) { Text("Refresh") }
-                else TextButton(onClick = { about = true }) { Text("About") }
+                if (analyzer) IconButton(onClick = { model.open(directory) }, enabled = granted && !state.running) { Icon(Icons.Default.Refresh,"Refresh") }
+                else { IconButton(onClick=onSettings){Icon(Icons.Default.Settings,"Settings")}; IconButton(onClick={about=true}){Icon(Icons.Default.Info,"About")} }
             }
             if (!analyzer) {
-                val capacity = primary.totalSpace
-                val used = (capacity - primary.usableSpace).coerceAtLeast(0)
-                Text("Internal storage", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(fmt(used), color = Mint, style = MaterialTheme.typography.headlineLarge)
-                Text("of " + fmt(capacity))
-                LinearProgressIndicator(progress = { if (capacity > 0) (used.toDouble() / capacity).toFloat().coerceIn(0f, 1f) else 0f }, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp))
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(20.dp)) {
-                        Text("Storage analyzer", color = Mint, style = MaterialTheme.typography.titleLarge)
-                        Spacer(Modifier.height(8.dp))
-                        Text("Explore folders and find what takes up space.")
-                        Spacer(Modifier.height(12.dp))
-                        Button(onClick = { selectedPath = primary.absolutePath; analyzer = true; largeFiles = false; query = ""; if (granted) model.open(primary) }) { Text("Analyze storage") }
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                LazyColumn(Modifier.weight(1f)) {
-                    item {
-                        OutlinedCard(Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable { device = true }) {
-                            Column(Modifier.padding(16.dp)) {
-                                Text("Device information", style = MaterialTheme.typography.titleMedium, color = Mint)
-                                Text("Hardware, system, battery and more", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                    items(volumes.filter { it.root != primary }, key = { it.root.path }) { volume ->
-                        OutlinedCard(Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable {
-                            selectedPath = volume.root.absolutePath; analyzer = true; largeFiles = false; query = ""; if (granted) model.open(volume.root)
-                        }) { Column(Modifier.padding(16.dp)) {
-                            Text(volume.label, style = MaterialTheme.typography.titleMedium)
-                            Text(fmt(volume.root.totalSpace) + " capacity", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        } }
-                    }
-                    item { Text("Storage scanning stays on your device.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                }
+                HomeScreen(primary,volumes,analyze={file ->
+                    selectedPath=file.absolutePath; analyzer=true; largeFiles=false; query=""; if(granted)model.open(file)
+                },device={device=true})
             } else if (!granted) {
                 LaunchedEffect(granted) { model.cancel() }
                 Text("Storage access", style = MaterialTheme.typography.titleLarge)
@@ -151,17 +143,12 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     if (state.directory == null || !state.directory!!.toPath().startsWith(root.toPath()) || state.error == "Scan cancelled") model.open(root)
                 }
                 Text(if (directory == root) selectedVolume?.label ?: root.name else directory.relativeTo(root).path, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (state.running) {
-                    Spacer(Modifier.height(24.dp))
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Text("Scanning • " + state.visited + " items visited", modifier = Modifier.padding(vertical = 12.dp))
-                    OutlinedButton(onClick = model::cancel) { Text("Cancel") }
-                }
+                if (state.running) ScanLoading(state, model::cancel)
                 state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 val snapshot = state.snapshot?.takeIf { it.directory == directory }
                 if (snapshot != null) {
                     Spacer(Modifier.height(12.dp))
-                    Text(fmt(snapshot.bytes), color = Mint, style = MaterialTheme.typography.headlineLarge)
+                    Text(fmt(snapshot.bytes), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineLarge)
                     Text(snapshot.files.toString() + " files • measured logical size")
                     if (snapshot.skipped > 0) Text(snapshot.skipped.toString() + " inaccessible or skipped entries. Totals may be incomplete.", color = MaterialTheme.colorScheme.error)
                     val entries = remember(snapshot, sortName, largeFiles, query) {
@@ -190,18 +177,18 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                         items(entries, key = { it.file.path }) { entry ->
                             Column(Modifier.fillMaxWidth().clickable { selectEntry(entry) }.padding(vertical = 12.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(if (entry.directory) "▸" else "·", color = Mint)
+                                    Text(if (entry.directory) "▸" else "·", color = MaterialTheme.colorScheme.primary)
                                     Spacer(Modifier.width(10.dp))
                                     Column(Modifier.weight(1f)) {
                                         Text(entry.file.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         if (largeFiles) Text(entry.file.relativeTo(snapshot.directory).path, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
-                                    Text(fmt(entry.bytes) + if (entry.skipped > 0) " *" else "", color = Mint)
+                                    Text(fmt(entry.bytes) + if (entry.skipped > 0) " *" else "", color = MaterialTheme.colorScheme.primary)
                                 }
                                 Spacer(Modifier.height(6.dp))
                                 LinearProgressIndicator(progress = { if (snapshot.bytes > 0) (entry.bytes.toDouble() / snapshot.bytes).toFloat().coerceIn(0f, 1f) else 0f }, modifier = Modifier.fillMaxWidth().height(3.dp))
                             }
-                            HorizontalDivider(color = Panel)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
                     }
                 }
@@ -214,6 +201,6 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
             confirmButton = { TextButton(onClick = { detail = null }) { Text("Close") } })
     }
     if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text("Slate") },
-        text = { Text("0.4.0-dev • GPL-3.0-only\nProvided without warranty. SD Maid SE is a feature reference; no upstream code is included yet. See the project LICENSE for redistribution terms.") },
+        text = { Text("0.5.0-dev • GPL-3.0-only\nProvided without warranty. SD Maid SE is a feature reference; no upstream code is included yet. See the project LICENSE for redistribution terms.") },
         confirmButton = { TextButton(onClick = { about = false }) { Text("Close") } })
 }

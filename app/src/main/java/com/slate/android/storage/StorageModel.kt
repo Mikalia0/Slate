@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-data class ScanState(val directory: File? = null, val snapshot: Snapshot? = null, val running: Boolean = false, val visited: Long = 0, val error: String? = null, val scanId: Long = 0)
+data class ScanState(val directory: File? = null, val snapshot: Snapshot? = null, val running: Boolean = false, val visited: Long = 0, val error: String? = null, val scanId: Long = 0, val currentPath: String = "", val measuredBytes: Long = 0L, val elapsedMs: Long = 0L)
 
 class StorageModel : ViewModel() {
     private val scanner = StorageScanner()
@@ -29,9 +29,9 @@ class StorageModel : ViewModel() {
         job = viewModelScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    scanner.scan(directory) { count ->
+                    scanner.scan(directory) { progress ->
                         mutable.update { previous ->
-                            if (previous.scanId == id && previous.running) previous.copy(visited = count) else previous
+                            if (previous.scanId == id && previous.running) previous.copy(visited = progress.visited, currentPath = progress.path, measuredBytes = progress.bytes, elapsedMs = progress.elapsedMs) else previous
                         }
                     }
                 }
