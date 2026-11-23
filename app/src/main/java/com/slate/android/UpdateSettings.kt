@@ -138,7 +138,7 @@ private fun verifyArchive(context: Context, file: File, expected: Long) {
 
 private suspend fun download(context: Context, update: Update, progress: suspend (Long)->Unit): File = withContext(Dispatchers.IO) {
     val dir = File(context.cacheDir,"updates").apply { mkdirs() }
-    val part = File.createTempFile("slate-", ".part", dir)
+    val part = File.createTempFile("slate-part-", ".apk", dir)
     val result = File(dir,"Slate-${update.code}.apk")
     try {
         val conn = connect(update.url,"application/octet-stream")
