@@ -1,4 +1,4 @@
-name: Android debug APK
+name: Android release APK
 on:
   push:
     branches: [main]
@@ -22,8 +22,34 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: "platform-tools platforms;android-35 build-tools;35.0.0"
-      - name: Build and test
-        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Check signing configuration
+        env:
+          SLATE_KEYSTORE_BASE64: ${{ secrets.SLATE_KEYSTORE_BASE64 }}
+          SLATE_KEYSTORE_PASSWORD: ${{ secrets.SLATE_KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$SLATE_KEYSTORE_BASE64" || -z "$SLATE_KEYSTORE_PASSWORD" ]]; then
+            echo "::error::Persistent signing secrets missing. Run scripts/setup-signing.sh once with access to Mikalia0/Slate."
+            exit 1
+          fi
+      - name: Build and test signed release
+        env:
+          SLATE_KEYSTORE_BASE64: ${{ secrets.SLATE_KEYSTORE_BASE64 }}
+          SLATE_KEYSTORE_PASSWORD: ${{ secrets.SLATE_KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          export SLATE_KEYSTORE_PATH="$RUNNER_TEMP/slate-release.p12"
+          trap 'rm -f "$SLATE_KEYSTORE_PATH"' EXIT
+          printf '%s' "$SLATE_KEYSTORE_BASE64" | base64 --decode > "$SLATE_KEYSTORE_PATH"
+          unset SLATE_KEYSTORE_BASE64
+          export SLATE_VERSION_CODE="$((1000 + GITHUB_RUN_NUMBER))"
+          gradle --no-daemon :app:testReleaseUnitTest :app:assembleRelease
+          apk=app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk"
+          cp "$apk" Slate.apk
       - name: Publish private prerelease
         env:
           GH_TOKEN: ${{ github.token }}
@@ -31,9 +57,8 @@ jobs:
         run: |
           set -euo pipefail
           tag="dev-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
-          cp app/build/outputs/apk/debug/app-debug.apk Slate-debug.apk
-          gh release create "$tag" Slate-debug.apk \
+          gh release create "$tag" Slate.apk \
             --target "$GITHUB_SHA" \
             --title "Slate development build ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
             --prerelease \
-            --notes "Debug APK built and tested by GitHub Actions. Commit: $GITHUB_SHA."
+            --notes "Signed, non-debuggable release APK. Tests and APK signature verified. Commit: $GITHUB_SHA."

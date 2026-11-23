@@ -10,8 +10,26 @@ android {
         applicationId = "com.slate.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
+        versionCode = providers.environmentVariable("SLATE_VERSION_CODE").orNull?.toInt() ?: 6
         versionName = "0.5.0-dev"
+    }
+    val keystorePath = providers.environmentVariable("SLATE_KEYSTORE_PATH").orNull
+    val keystorePassword = providers.environmentVariable("SLATE_KEYSTORE_PASSWORD").orNull
+    if (keystorePath != null && keystorePassword != null) {
+        signingConfigs.create("slateRelease") {
+            storeFile = file(keystorePath)
+            storeType = "PKCS12"
+            storePassword = keystorePassword
+            keyAlias = "slate"
+            keyPassword = keystorePassword
+        }
+        buildTypes.getByName("release") {
+            signingConfig = signingConfigs.getByName("slateRelease")
+        }
+    }
+    buildTypes.getByName("release") {
+        isDebuggable = false
+        isMinifyEnabled = false
     }
     buildFeatures { compose = true }
     compileOptions {

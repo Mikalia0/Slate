@@ -4,3 +4,5 @@
 local.properties
 *.iml
 *.jks
+*.p12
+*.keystore

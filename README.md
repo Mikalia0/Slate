@@ -11,9 +11,17 @@ Independent, read-only device dashboard with hardware, Android system, battery, 
 ## Build
 JDK 17, Android SDK 35 and Gradle 8.9:
 ```sh
-gradle :app:assembleDebug :app:testDebugUnitTest
+gradle :app:assembleRelease :app:testReleaseUnitTest
 ```
-APK: app/build/outputs/apk/debug/app-debug.apk. The Android build workflow runs tests and assembles a debug APK published as a prerelease asset in this private repository.
+The CI builds a signed, non-debuggable release APK, verifies its signature, runs release unit tests and publishes `Slate.apk` to the private repository's GitHub prereleases. The package ID is unchanged; CI version codes increase with the workflow run number.
+
+One-time signing setup (run locally with JDK and GitHub CLI authenticated for the repository):
+
+```sh
+bash scripts/setup-signing.sh
+```
+
+The script creates a local PKCS12 signing identity (or reuses the existing backup), uploads the key and password directly to Actions secrets and dispatches the build. Keep the backup directory private and backed up offline. Do not rotate the key for routine updates. CI deliberately fails if signing secrets are missing. Old debug APKs signed with a different certificate must be uninstalled once before installing the signed release. For local signed builds, set SLATE_KEYSTORE_PATH and SLATE_KEYSTORE_PASSWORD; otherwise assembleRelease produces an unsigned APK.
 
 ## Roadmap
 Storage analyzer improvements (root and Shizuku, richer storage statistics and cached browsing); app cleaner; residual files; system cleaner; duplicates; app manager; media compression; media review; scheduling; custom exclusions; accessibility-based compatibility; history and localization.
