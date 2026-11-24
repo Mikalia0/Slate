@@ -27,4 +27,8 @@
     <string name="monitor_failed">Could not start overlay.</string>
     <string name="monitor_cpu_clock">CPU clock</string>
     <string name="monitor_fps_pending">Game FPS and frame times require a separate privileged compositor backend; not available yet.</string>
+    <string name="monitor_no_app">No foreground game detected</string>
+    <string name="monitor_overlay_permission">Allow floating overlay</string>
+    <string name="monitor_waiting">Waiting for presented frames from the foreground app.</string>
+    <string name="update_notes_missing">No changelog available for this build.</string>
 </resources>

@@ -205,7 +205,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                  when(destination){
                      1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()})
                      2 -> GalleryScreen(granted,request)
-                     3 -> MonitorsScreen(deviceStatus)
+                     3 -> MonitorsScreen()
                  }
              }
          } else if (device) {

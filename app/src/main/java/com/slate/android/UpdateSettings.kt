@@ -117,7 +117,26 @@ private suspend fun findUpdate(installed: Long): Update? = withContext(Dispatche
             releases += Update(code,attempt,tag,url,size,digest,release.optString("body").take(12000))
         }
     }
-    releases.maxWithOrNull(compareBy<Update>{it.code}.thenBy{it.attempt})
+    val latest=releases.maxWithOrNull(compareBy<Update>{it.code}.thenBy{it.attempt}) ?: return@withContext null
+    val notes=try{
+        val notesConn=connect("https://github.com/stevenmx2/Slate/releases/download/${latest.tag}/changelog.txt","application/octet-stream")
+        try{
+            notesConn.inputStream.buffered().use{input->
+                val output=java.io.ByteArrayOutputStream()
+                val buffer=ByteArray(4096)
+                while(true){
+                    currentCoroutineContext().ensureActive()
+                    val n=input.read(buffer)
+                    if(n<0)break
+                    check(output.size()+n<=65536)
+                    output.write(buffer,0,n)
+                }
+                output.toString("UTF-8").trim()
+            }
+        }finally{notesConn.disconnect()}
+    }catch(e:CancellationException){throw e}
+    catch(_:Exception){latest.notes}
+    latest.copy(notes=notes)
 }
 
 @Suppress("DEPRECATION")
@@ -286,10 +305,15 @@ internal fun UpdatePrompt(manualRequest: Int) {
                 candidate?.let {
                     Text(tr("A newer version of Slate is available."))
                     Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.update_build_size,it.code.toString(),Formatter.formatFileSize(context,it.size)),style=MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.update_whats_new),style=MaterialTheme.typography.titleMedium)
                     if(it.notes.isNotBlank()){
-                        Text(stringResource(R.string.update_whats_new),style=MaterialTheme.typography.titleSmall)
-                        Text(it.notes,modifier=Modifier.heightIn(max=220.dp).verticalScroll(rememberScrollState()),style=MaterialTheme.typography.bodySmall)
-                    }
+                        Column(Modifier.fillMaxWidth().heightIn(max=240.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(6.dp)){
+                            it.notes.lineSequence().map{line->line.trim()}.filter{line->line.isNotBlank()}.forEach{line->
+                                if(line.startsWith("#"))Text(line.trimStart('#').trim(),style=MaterialTheme.typography.titleSmall)
+                                else Text(if(line.startsWith("- "))"• "+line.drop(2) else line,style=MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }else Text(stringResource(R.string.update_notes_missing),style=MaterialTheme.typography.bodySmall)
                 }
                 if(checking) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())

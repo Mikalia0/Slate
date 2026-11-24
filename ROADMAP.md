@@ -45,7 +45,7 @@ Status: implemented features still need device validation. CI verifies compilati
 
 - [ ] File manager: validate basic browsing and safe operations; add tabs, multi-select, bookmarks, grid, archives, and dual pane for landscape.
 - [ ] Gallery: validate date/album browsing and permission handling; add full-screen swiping, video playback, favorites, editing and reviewed MediaStore deletion.
-- [ ] Monitors: validate hardware overlay, add configurable metrics and presets, session graphs and export; implement real game FPS/frame times via a Shizuku-compatible compositor backend with device validation. Never substitute display refresh rate for FPS.
+- [ ] Monitors: validate Shizuku FPS and foreground package detection on Android 13–16 and multiple OEMs. Improve surface selection, fallback accuracy and overhead; keep overlay limited to FPS and package. Never substitute refresh rate for FPS.
 - [ ] Add performance and memory budgets for all three tools. Keep the four-tab navigation compact.
 
 ## Progress tracking

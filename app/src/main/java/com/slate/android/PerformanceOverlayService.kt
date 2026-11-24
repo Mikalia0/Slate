@@ -12,12 +12,15 @@ import android.view.WindowManager
 import android.view.MotionEvent
 import android.widget.TextView
 import android.graphics.drawable.GradientDrawable
-import com.slate.android.device.DeviceReader
-import com.slate.android.device.reading
-import com.slate.android.device.powerReading
+import com.slate.android.storage.shizukuGranted
+import kotlin.math.roundToInt
 import kotlinx.coroutines.*
 class PerformanceOverlayService:Service(){
-    companion object{@Volatile var running=false;private set}
+    companion object{
+        @Volatile var running=false;private set
+        @Volatile var packageName:String?=null;private set
+        @Volatile var fps:String?=null;private set
+    }
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
     private var view:TextView?=null
     override fun onBind(intent:Intent?):IBinder?=null
@@ -30,12 +33,12 @@ class PerformanceOverlayService:Service(){
         val open=PendingIntent.getActivity(this,0,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val notification=Notification.Builder(this,"performance").setSmallIcon(R.drawable.ic_device_cpu).setContentTitle(getString(R.string.monitor_overlay)).setOngoing(true).setContentIntent(open).addAction(Notification.Action.Builder(android.graphics.drawable.Icon.createWithResource(this,R.drawable.ic_device_cpu),getString(R.string.monitor_stop),stop).build()).build()
         startForeground(23,notification)
-        if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY}
+        if(!Settings.canDrawOverlays(this)||!shizukuGranted()){stopSelf();return START_NOT_STICKY}
         val wm=getSystemService(WindowManager::class.java)
         val density=resources.displayMetrics.density
         val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.TOP or Gravity.START;x=12;y=(100*density).toInt()}
         val text=TextView(this).apply{
-            setTextColor(Color.WHITE);textSize=11f;typeface=Typeface.MONOSPACE
+            setTextColor(Color.WHITE);textSize=13f;typeface=Typeface.MONOSPACE;setText("— FPS")
             val pad=(8*density).toInt();setPadding(pad,pad,pad,pad)
             background=GradientDrawable().apply{setColor(0xD9222927.toInt());cornerRadius=10*density}
             var sx=0f;var sy=0f;var ox=0;var oy=0
@@ -50,27 +53,31 @@ class PerformanceOverlayService:Service(){
         }
         try{wm.addView(text,params);view=text;running=true}
         catch(_:Exception){stopSelf();return START_NOT_STICKY}
-        val reader=DeviceReader(applicationContext)
         scope.launch{
-            while(isActive){
-                if(!Settings.canDrawOverlays(this@PerformanceOverlayService)){stopSelf();break}
-                val live=withContext(Dispatchers.IO){runCatching{reader.live()}.getOrNull()}
-                if(live!=null){
-                    val clock=live.cores.mapNotNull{it.current}.maxOrNull()?.let{"${it/1000} MHz"}?:"—"
-                    val ram=live.meters.firstOrNull{it.title=="Memory"}
-                    val gpu=live.gpu.reading("Utilization")
-                    val power=live.battery.powerReading()?.value?:"—"
-                    text.text="CPU $clock  GPU $gpu\nRAM ${ram?.value?:"—"}  ${live.battery.reading("Temperature")}  $power"
+            try{
+                withFpsService(applicationContext){service->
+                    while(currentCoroutineContext().isActive){
+                        if(!shizukuGranted()||!Settings.canDrawOverlays(this@PerformanceOverlayService))break
+                        val sample=runCatching{service.sample()}.getOrNull()
+                        val app=sample?.getOrNull(0)?.takeIf{it.isNotBlank()}
+                        val rate=sample?.getOrNull(1)?.toDoubleOrNull()?.takeIf{it.isFinite()&&it in 0.0..1000.0}?.roundToInt()?.toString()
+                        withContext(Dispatchers.Main){
+                            packageName=app;fps=rate
+                            text.text=(rate?:"—")+" FPS"+(app?.let{"\n"+it}?:"")
+                        }
+                        delay(500)
+                    }
                 }
-                delay(1000)
-            }
+            }catch(e:CancellationException){throw e}
+            catch(_:Exception){withContext(Dispatchers.Main){fps=null;text.text="— FPS"}}
+            finally{stopSelf()}
         }
         return START_NOT_STICKY
     }
     override fun onDestroy(){
         scope.cancel()
         view?.let{runCatching{getSystemService(WindowManager::class.java).removeView(it)}}
-        view=null;running=false
+        view=null;running=false;packageName=null;fps=null
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }

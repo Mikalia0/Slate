@@ -27,4 +27,8 @@
     <string name="monitor_failed">Não foi possível iniciar o overlay.</string>
     <string name="monitor_cpu_clock">Clock da CPU</string>
     <string name="monitor_fps_pending">FPS e frametimes de jogos precisam de um backend privilegiado do compositor; ainda não disponíveis.</string>
+    <string name="monitor_no_app">Nenhum jogo em primeiro plano</string>
+    <string name="monitor_overlay_permission">Permitir sobreposição</string>
+    <string name="monitor_waiting">Aguardando frames apresentados pelo app em primeiro plano.</string>
+    <string name="update_notes_missing">Changelog indisponível para esta build.</string>
 </resources>

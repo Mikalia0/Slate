@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — FPS monitor and in-app update notes
+
+- Replace hardware charts and overlay with a minimal FPS counter and foreground package.
+- Read presented game frames through Shizuku and SurfaceFlinger; use TimeStats when timestamp history is unavailable.
+- Show update changelog inside Slate before downloading and installing.
+
 ## 0.5.0-dev — New tools navigation
 
 - Add bottom navigation for Home, Files, Gallery and Monitors.
