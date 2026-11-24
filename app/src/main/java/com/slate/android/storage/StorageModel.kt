@@ -21,10 +21,13 @@ class StorageModel : ViewModel() {
     val state = mutable.asStateFlow()
     private var job: Job? = null
     private var generation = 0L
+    private val cache = LinkedHashMap<File, Snapshot>()
 
-    fun open(directory: File) {
+    fun open(directory: File, refresh: Boolean = false) {
         job?.cancel()
         val id = ++generation
+        if (refresh) cache.clear()
+        cache[directory]?.let { mutable.value = ScanState(directory,it,scanId=id); return }
         mutable.value = ScanState(directory = directory, running = true, scanId = id)
         job = viewModelScope.launch {
             try {
@@ -35,7 +38,10 @@ class StorageModel : ViewModel() {
                         }
                     }
                 }
-                if (generation == id) mutable.value = ScanState(directory, result, scanId = id)
+                if (generation == id) {
+                    if (!result.rootUnreadable) { cache[directory] = result; if (cache.size > 12) cache.remove(cache.keys.first()) }
+                    mutable.value = ScanState(directory, result, scanId = id)
+                }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
                 if (generation == id) mutable.value = ScanState(directory, error = e.message ?: "Scan failed", scanId = id)
@@ -44,6 +50,7 @@ class StorageModel : ViewModel() {
     }
 
     fun cancel() {
+        if (!mutable.value.running) return
         ++generation
         job?.cancel()
         mutable.value = mutable.value.copy(running = false, error = "Scan cancelled", scanId = generation)

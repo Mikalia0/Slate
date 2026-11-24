@@ -15,6 +15,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
+import com.slate.android.device.ManufacturerIcon
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -72,11 +73,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
             Card(onClick=device,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
                     Row(verticalAlignment=Alignment.CenterVertically) {
-                        Surface(shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.primaryContainer,modifier=Modifier.size(48.dp)) {
-                            Box(contentAlignment=Alignment.Center) {
-                                Text(Build.MANUFACTURER.take(1).uppercase(),style=MaterialTheme.typography.headlineSmall)
-                            }
-                        }
+                        ManufacturerIcon()
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(Build.MANUFACTURER.replaceFirstChar { it.uppercase() },style=MaterialTheme.typography.labelMedium)
@@ -120,22 +117,23 @@ private fun HomeGauge(label: String, fraction: Float, value: String, modifier: M
 @Composable
 internal fun ScanLoading(state: com.slate.android.storage.ScanState, cancel: ()->Unit) {
     val context=LocalContext.current
-    Column(Modifier.fillMaxWidth().padding(vertical=24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        Box(Modifier.size(116.dp),contentAlignment=Alignment.Center) {
-            CircularProgressIndicator(Modifier.fillMaxSize(),strokeWidth=6.dp)
-            Icon(Icons.Default.Search,null,Modifier.size(38.dp),tint=MaterialTheme.colorScheme.primary)
-        }
-        Text("Scanning storage",style=MaterialTheme.typography.headlineSmall)
-        Text(java.text.NumberFormat.getIntegerInstance().format(state.visited)+" items visited",color=MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(Modifier.fillMaxWidth().padding(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+        LinearProgressIndicator(Modifier.fillMaxWidth())
+        Text("Analyzing storage",style=MaterialTheme.typography.headlineSmall)
+        Text("Measuring files and folders",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
         Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
-            Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                Text("Current scan",style=MaterialTheme.typography.labelLarge)
-                Text(state.currentPath.ifBlank{state.directory?.name.orEmpty()},maxLines=2,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+                Text(Formatter.formatFileSize(context,state.measuredBytes),style=MaterialTheme.typography.headlineMedium,color=MaterialTheme.colorScheme.primary)
+                Text("Measured so far",style=MaterialTheme.typography.labelMedium)
                 HorizontalDivider()
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Measured so far");Text(Formatter.formatFileSize(context,state.measuredBytes))}
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Elapsed");Text("${state.elapsedMs/60000}m ${state.elapsedMs/1000%60}s")}
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                    Column { Text("Items scanned",style=MaterialTheme.typography.labelMedium); Text(java.text.NumberFormat.getIntegerInstance().format(state.visited),style=MaterialTheme.typography.titleLarge) }
+                    Column { Text("Elapsed",style=MaterialTheme.typography.labelMedium); Text("${state.elapsedMs/60000}m ${state.elapsedMs/1000%60}s",style=MaterialTheme.typography.titleLarge) }
+                }
+                Text("Current location",style=MaterialTheme.typography.labelMedium)
+                Text(state.currentPath.ifBlank{state.directory?.path.orEmpty()},maxLines=2,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)
             }
         }
-        OutlinedButton(onClick=cancel){Text("Cancel scan")}
+        OutlinedButton(onClick=cancel,modifier=Modifier.fillMaxWidth()) { Text("Cancel scan") }
     }
 }

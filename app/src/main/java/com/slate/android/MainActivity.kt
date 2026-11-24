@@ -19,6 +19,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.vector.ImageVector
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -94,6 +101,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, onSettings: () -> Unit, model: StorageModel = viewModel()) {
     val context = LocalContext.current
@@ -105,16 +113,27 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var analyzer by rememberSaveable { mutableStateOf(false) }
     var device by rememberSaveable { mutableStateOf(false) }
     var about by rememberSaveable { mutableStateOf(false) }
-    var sortName by rememberSaveable { mutableStateOf(false) }
+    var sortMode by rememberSaveable { mutableStateOf(0) }
+    var sortMenu by remember { mutableStateOf(false) }
+    var showMap by rememberSaveable { mutableStateOf(true) }
+    var search by rememberSaveable { mutableStateOf(false) }
+    var selection by remember { mutableStateOf(setOf<String>()) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf(false) }
+    var deletionMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     var largeFiles by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var detail by remember { mutableStateOf<Entry?>(null) }
     val fmt: (Long) -> String = { Formatter.formatFileSize(context, it) }
     val directory = state.directory?.takeIf { it.toPath().startsWith(root.toPath()) } ?: root
-    fun openFolder(file: File) { largeFiles = false; query = ""; model.open(file) }
+    fun openFolder(file: File) { selection = emptySet(); largeFiles = false; query = ""; search = false; model.open(file) }
     fun selectEntry(entry: Entry) { if (entry.directory) openFolder(entry.file) else detail = entry }
     fun back() {
-        if (largeFiles) { largeFiles = false; query = "" }
+        if (deleting) return
+        if (selection.isNotEmpty()) selection = emptySet()
+        else if (search) { search = false; query = "" }
+        else if (largeFiles) { largeFiles = false; query = "" }
         else if (directory != root && directory.parentFile != null) openFolder(directory.parentFile!!)
         else { model.cancel(); analyzer = false }
     }
@@ -128,12 +147,12 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 else Image(painterResource(R.drawable.ic_slate), null, Modifier.size(36.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(if (analyzer) "Storage" else "Slate", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                if (analyzer) IconButton(onClick = { model.open(directory) }, enabled = granted && !state.running) { Icon(Icons.Default.Refresh,"Refresh") }
+                if (analyzer) IconButton(onClick = { selection = emptySet(); model.open(directory, refresh = true) }, enabled = granted && !state.running && !deleting) { Icon(Icons.Default.Refresh,"Refresh") }
                 else { IconButton(onClick=onSettings){Icon(Icons.Default.Settings,"Settings")}; IconButton(onClick={about=true}){Icon(Icons.Default.Info,"About")} }
             }
             if (!analyzer) {
                 HomeScreen(primary,volumes,analyze={file ->
-                    selectedPath=file.absolutePath; analyzer=true; largeFiles=false; query=""; if(granted)model.open(file)
+                    selectedPath=file.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query=""; search=false; if(granted)model.open(file, refresh=true)
                 },device={device=true})
             } else if (!granted) {
                 LaunchedEffect(granted) { model.cancel() }
@@ -142,58 +161,125 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 Button(onClick = request) { Text("Grant access") }
             } else {
                 LaunchedEffect(granted, analyzer, selectedPath) {
-                    if (state.directory == null || !state.directory!!.toPath().startsWith(root.toPath()) || state.error == "Scan cancelled") model.open(root)
+                    if (state.directory == null || !state.directory!!.toPath().startsWith(root.toPath())) model.open(root)
                 }
-                Text(if (directory == root) selectedVolume?.label ?: root.name else directory.relativeTo(root).path, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    if(directory != root) TextButton(onClick={openFolder(directory.parentFile ?: root)},enabled=!deleting){Text("Up")}
+                    Text(if(directory==root) selectedVolume?.label ?: "Internal storage" else directory.relativeTo(root).path,
+                        modifier=Modifier.weight(1f),maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.titleSmall)
+                }
                 if (state.running) ScanLoading(state, model::cancel)
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                if (state.error != null && !state.running) {
+                    Text(state.error.orEmpty(),style=MaterialTheme.typography.bodyMedium)
+                    Button(onClick={model.open(directory,refresh=true)}){Text("Scan again")}
+                }
                 val snapshot = state.snapshot?.takeIf { it.directory == directory }
                 if (snapshot != null) {
-                    Spacer(Modifier.height(12.dp))
-                    Text(fmt(snapshot.bytes), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineLarge)
-                    Text(snapshot.files.toString() + " files • measured logical size")
-                    if (snapshot.skipped > 0) Text(snapshot.skipped.toString() + " inaccessible or skipped entries. Totals may be incomplete.", color = MaterialTheme.colorScheme.error)
-                    val entries = remember(snapshot, sortName, largeFiles, query) {
-                        val source = if (largeFiles) snapshot.largestFiles else snapshot.entries
-                        val filtered = source.filter { it.file.name.contains(query, ignoreCase = true) || (largeFiles && it.file.relativeTo(snapshot.directory).path.contains(query, ignoreCase = true)) }
-                        if (sortName && !largeFiles) filtered.sortedBy { it.file.name.lowercase() } else filtered
-                    }
-                    LazyColumn(Modifier.weight(1f)) {
-                        item {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                FilterChip(selected = !largeFiles, onClick = { largeFiles = false; query = "" }, label = { Text("Folders") })
-                                FilterChip(selected = largeFiles, onClick = { largeFiles = true; query = "" }, label = { Text("Largest files") })
-                            }
-                            if (!largeFiles && snapshot.bytes > 0) {
-                                TreemapView(snapshot.entries, fmt, ::selectEntry)
-                                Text("Tap a tile to explore • small items grouped as Other", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(vertical = 6.dp))
-                            }
-                            if (largeFiles) Text("Up to 100 largest accessible files in this folder and its subfolders.", style = MaterialTheme.typography.bodySmall)
-                            OutlinedTextField(value = query, onValueChange = { query = it }, label = { Text("Filter") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(if (largeFiles) "Largest files" else "Contents", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                                if (!largeFiles) TextButton(onClick = { sortName = !sortName }) { Text(if (sortName) "Name" else "Size") }
-                            }
-                            if (entries.isEmpty()) Text(if (snapshot.rootUnreadable) "Folder not accessible" else "No files found")
+                    val source = if(largeFiles) snapshot.largestFiles else snapshot.entries
+                    val entries = remember(snapshot, sortMode, largeFiles, query) {
+                        val filtered=source.filter{it.file.name.contains(query,true) || (largeFiles && it.file.relativeTo(snapshot.directory).path.contains(query,true))}
+                        when(sortMode) {
+                            1 -> filtered.sortedBy{it.file.name.lowercase()}
+                            2 -> filtered.sortedBy{it.bytes}
+                            3 -> filtered.sortedBy{it.file.extension.lowercase()}
+                            else -> filtered.sortedByDescending{it.bytes}
                         }
-                        items(entries, key = { it.file.path }) { entry ->
-                            Column(Modifier.fillMaxWidth().clickable { selectEntry(entry) }.padding(vertical = 12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(if (entry.directory) "▸" else "·", color = MaterialTheme.colorScheme.primary)
-                                    Spacer(Modifier.width(10.dp))
+                    }
+                    val selected = source.filter{it.file.path in selection}
+                    fun toggle(entry:Entry) { selection = if(entry.file.path in selection) selection-entry.file.path else selection+entry.file.path }
+                    if(selection.isNotEmpty()) {
+                        Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.secondaryContainer)) {
+                            Column(Modifier.padding(12.dp)) {
+                                Row(verticalAlignment=Alignment.CenterVertically) {
+                                    IconButton(onClick={selection=emptySet()},enabled=!deleting){Icon(Icons.Default.Close,"Clear selection")}
                                     Column(Modifier.weight(1f)) {
-                                        Text(entry.file.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        if (largeFiles) Text(entry.file.relativeTo(snapshot.directory).path, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("${selected.size} selected",style=MaterialTheme.typography.titleMedium)
+                                        Text(fmt(selected.sumOf{it.bytes}),style=MaterialTheme.typography.bodySmall)
                                     }
-                                    Text(fmt(entry.bytes) + if (entry.skipped > 0) " *" else "", color = MaterialTheme.colorScheme.primary)
+                                    IconButton(onClick={confirmDelete=true},enabled=!deleting && selected.isNotEmpty()){Icon(Icons.Default.Delete,"Delete selected")}
                                 }
-                                Spacer(Modifier.height(6.dp))
-                                LinearProgressIndicator(progress = { if (snapshot.bytes > 0) (entry.bytes.toDouble() / snapshot.bytes).toFloat().coerceIn(0f, 1f) else 0f }, modifier = Modifier.fillMaxWidth().height(3.dp))
+                                TextButton(onClick={selection=entries.map{it.file.path}.toSet()},enabled=!deleting){Text("Select visible")}
                             }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
                     }
+                    if(deleting) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Deleting selected items…") }
+                    LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(bottom=16.dp)) {
+                        item {
+                            Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
+                                Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                                    Text(fmt(snapshot.bytes),style=MaterialTheme.typography.headlineMedium,color=MaterialTheme.colorScheme.primary)
+                                    Text(java.text.NumberFormat.getIntegerInstance().format(snapshot.files)+" files · "+snapshot.entries.count{it.directory}+" folders",style=MaterialTheme.typography.bodySmall)
+                                    if(snapshot.skipped>0) Text("${snapshot.skipped} items inaccessible · scan may be incomplete",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
+                                FilterChip(selected=!largeFiles,onClick={largeFiles=false;selection=emptySet();query=""},enabled=!deleting,label={Text("Folders")})
+                                FilterChip(selected=largeFiles,onClick={largeFiles=true;selection=emptySet();query=""},enabled=!deleting,label={Text("Largest files")})
+                            }
+                            if(!largeFiles && snapshot.bytes>0) {
+                                TextButton(onClick={showMap=!showMap}){Text(if(showMap)"Hide storage map" else "Show storage map")}
+                                if(showMap) TreemapView(snapshot.entries,fmt){ if(!deleting) { if(selection.isNotEmpty()) toggle(it) else selectEntry(it) } }
+                            }
+                            if(largeFiles) Text("100 largest accessible files",style=MaterialTheme.typography.bodySmall)
+                            Row(verticalAlignment=Alignment.CenterVertically) {
+                                Text(if(largeFiles)"Files" else "Contents",modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
+                                IconButton(onClick={search=!search;if(!search)query=""},enabled=!deleting){Icon(Icons.Default.Search,"Search")}
+                                Box {
+                                    TextButton(onClick={sortMenu=true},enabled=!deleting){Text(listOf("Size ↓","Name","Size ↑","Type")[sortMode])}
+                                    DropdownMenu(expanded=sortMenu,onDismissRequest={sortMenu=false}) {
+                                        listOf("Largest first","Name","Smallest first","File type").forEachIndexed{index,label->
+                                            DropdownMenuItem(text={Text(label)},onClick={sortMode=index;sortMenu=false})
+                                        }
+                                    }
+                                }
+                            }
+                            if(search) OutlinedTextField(value=query,onValueChange={query=it},placeholder={Text("Search files")},singleLine=true,modifier=Modifier.fillMaxWidth().padding(bottom=8.dp))
+                            if(entries.isEmpty()) Text(if(snapshot.rootUnreadable)"Folder not accessible" else "No matching items")
+                        }
+                        items(entries,key={it.file.path}){entry->
+                            val checked=entry.file.path in selection
+                            ListItem(
+                                modifier=Modifier.fillMaxWidth().combinedClickable(enabled=!deleting,onClick={if(selection.isNotEmpty())toggle(entry) else selectEntry(entry)},onLongClick={toggle(entry)}),
+                                headlineContent={Text(entry.file.name,maxLines=1,overflow=TextOverflow.Ellipsis)},
+                                supportingContent={
+                                    Column(verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                                        Text(if(largeFiles)entry.file.relativeTo(snapshot.directory).path else if(entry.directory)"${entry.files} files" else entry.file.extension.uppercase().ifBlank{"File"},maxLines=1,overflow=TextOverflow.Ellipsis)
+                                        LinearProgressIndicator(progress={if(snapshot.bytes>0)(entry.bytes.toDouble()/snapshot.bytes).toFloat().coerceIn(0f,1f) else 0f},modifier=Modifier.fillMaxWidth().height(3.dp))
+                                    }
+                                },
+                                leadingContent={
+                                    if(selection.isNotEmpty()) Checkbox(checked=checked,onCheckedChange={toggle(entry)},enabled=!deleting)
+                                    else Icon(painterResource(if(entry.directory)R.drawable.ic_storage_folder else R.drawable.ic_storage_file),null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(24.dp))
+                                },
+                                trailingContent={Column(horizontalAlignment=Alignment.End){Text(fmt(entry.bytes),color=MaterialTheme.colorScheme.primary);if(entry.skipped>0) Text("Incomplete",style=MaterialTheme.typography.labelSmall)}},
+                                colors=ListItemDefaults.colors(containerColor=if(checked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background)
+                            )
+                            HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+                        }
+                    }
+                    if(confirmDelete) AlertDialog(onDismissRequest={confirmDelete=false},title={Text("Permanently delete ${selected.size} items?")},
+                        text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+                            Text("Measured size: "+fmt(selected.sumOf{it.bytes}))
+                            Text("Selected files and folders will be deleted permanently. This cannot be undone. Inaccessible or incomplete items will be skipped.")
+                            selected.take(4).forEach{Text(it.file.relativeTo(root).path,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)}
+                            if(selected.size>4)Text("And ${selected.size-4} more")
+                        }},
+                        dismissButton={TextButton(onClick={confirmDelete=false}){Text("Cancel")}},
+                        confirmButton={TextButton(onClick={
+                            confirmDelete=false;deleting=true
+                            val targets=selected.toList()
+                            scope.launch {
+                                try {
+                                    val result=withContext(Dispatchers.IO){deleteSelected(root,targets)}
+                                    deletionMessage="${result.first} items deleted · ${result.second} failed or skipped. A failed folder may have been partially deleted."
+                                    selection=emptySet()
+                                    model.open(directory,refresh=true)
+                                } finally {deleting=false}
+                            }
+                        }){Text("Delete permanently",color=MaterialTheme.colorScheme.error)}})
                 }
+                deletionMessage?.let { message -> AlertDialog(onDismissRequest={deletionMessage=null},title={Text("Deletion result")},text={Text(message)},confirmButton={TextButton(onClick={deletionMessage=null}){Text("Done")}}) }
+
             }
         }
     }

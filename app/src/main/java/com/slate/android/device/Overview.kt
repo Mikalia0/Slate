@@ -126,7 +126,7 @@ internal fun LazyListScope.deviceOverview(live:LiveInfo?, fixed:StaticInfo?, nav
 }
 
 @Composable
-private fun ManufacturerIcon() {
+internal fun ManufacturerIcon() {
     val brand=Build.MANUFACTURER.lowercase(java.util.Locale.ROOT)
     val logo=when(brand) {
         "motorola"->R.drawable.brand_motorola
