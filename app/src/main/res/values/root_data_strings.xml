@@ -1,0 +1,11 @@
+<resources>
+    <string name="root_data_volume">Superuser · private files</string>
+    <string name="root_data_title">Largest files</string>
+    <string name="root_data_progress">Scanned %1$d files</string>
+    <string name="root_data_count">%1$d largest · %2$d scanned</string>
+    <string name="root_data_partial">Some paths could not be measured. Results may be incomplete.</string>
+    <string name="root_data_denied">Root access was denied or the scan could not start.</string>
+    <string name="root_data_explain">Scan regular files under /data, including private app files, using superuser access. Read-only; symbolic links and separate mounted filesystems are excluded. Shows up to 2,000 largest files by logical size. No files are deleted.</string>
+    <string name="root_data_scan">Scan with root</string>
+    <string name="root_data_copy">Copy path</string>
+</resources>

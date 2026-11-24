@@ -23,7 +23,7 @@ import kotlinx.coroutines.withContext
 
 private data class VolumeReading(val volume:Volume,val capacity:Long,val available:Long)
 @Composable
-internal fun StorageVolumesScreen(primary:File,volumes:List<Volume>,history:StorageHistory,onBack:()->Unit,onOpen:(File)->Unit){
+internal fun StorageVolumesScreen(primary:File,volumes:List<Volume>,history:StorageHistory,onBack:()->Unit,onRoot:()->Unit,onOpen:(File)->Unit){
     val context=LocalContext.current
     val listed=remember(primary,volumes){(listOf(Volume(primary,"Internal storage"))+volumes).distinctBy{it.root.absolutePath}}
     var refresh by remember{mutableIntStateOf(0)}
@@ -74,6 +74,18 @@ internal fun StorageVolumesScreen(primary:File,volumes:List<Volume>,history:Stor
                             }
                         }else Text(stringResource(R.string.volume_unavailable),style=MaterialTheme.typography.bodySmall)
                         Text(stringResource(R.string.volume_analyze),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+            item(key="root-data"){
+                OutlinedCard(onClick=onRoot,modifier=Modifier.fillMaxWidth()){
+                    Row(Modifier.fillMaxWidth().padding(16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
+                        Icon(painterResource(R.drawable.ic_device_system),null,Modifier.size(27.dp),tint=MaterialTheme.colorScheme.primary)
+                        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)){
+                            Text("/data",style=MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.root_data_volume),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Default.KeyboardArrowRight,null)
                     }
                 }
             }

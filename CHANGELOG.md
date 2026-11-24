@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Root storage analysis
+
+- Add a read-only root scan of /data to the storage volume overview.
+- Rank up to 2,000 largest regular files across private app and system data, with progress, cancellation, search and size ordering.
+- Request superuser access explicitly and never delete private files from this view.
+
 ## 0.5.0-dev — Customizable performance HUD
 
 - Replace the plain overlay with a dark compact panel, colored metric rows, fine separators, RAM usage bar and measured frame interval graph.

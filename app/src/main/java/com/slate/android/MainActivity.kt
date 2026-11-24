@@ -158,6 +158,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     val homeScroll=rememberLazyGridState()
     var about by rememberSaveable { mutableStateOf(false) }
     var showVolumes by rememberSaveable { mutableStateOf(false) }
+    var rootData by rememberSaveable { mutableStateOf(false) }
     var sortMode by rememberSaveable { mutableStateOf(0) }
     var sortMenu by remember { mutableStateOf(false) }
     var analyzerMenu by remember { mutableStateOf(false) }
@@ -190,11 +191,11 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     BackHandler(analyzer || device || apps || cleanup || showHistory) { if(showHistory)showHistory=false else if(cleanup)cleanup=false else if(apps) {apps=false;appsState.removeState("apps")} else if (device) device = false else back() }
     val config=LocalConfiguration.current
     val landscape=config.screenWidthDp>config.screenHeightDp && config.screenWidthDp>=600
-    val screenKey=when{about->"about";showVolumes->"volumes";showHistory->"history";cleanup->"cleanup";apps->"apps";device->"device";analyzer->"storage";else->"tool-$destination"}
+    val screenKey=when{about->"about";rootData->"root-data";showVolumes->"volumes";showHistory->"history";cleanup->"cleanup";apps->"apps";device->"device";analyzer->"storage";else->"tool-$destination"}
     val screenAlpha=remember{Animatable(1f)}
     var previousScreen by remember{mutableStateOf(screenKey)}
     LaunchedEffect(screenKey){if(previousScreen!=screenKey){previousScreen=screenKey;screenAlpha.snapTo(.82f);screenAlpha.animateTo(1f,tween(120))}}
-    val mainDestination=!about&&!showVolumes&&!showHistory&&!cleanup&&!apps&&!device&&!analyzer
+    val mainDestination=!about&&!rootData&&!showVolumes&&!showHistory&&!cleanup&&!apps&&!device&&!analyzer
     BackHandler(mainDestination&&destination!=0){destination=0}
     Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing,bottomBar={
         if(mainDestination)SlateBottomNavigation(destination){destination=it}
@@ -203,8 +204,10 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
             Box(Modifier.weight(1f).fillMaxHeight().graphicsLayer{alpha=screenAlpha.value}){
         if(about) {
             AboutScreen(onBack={about=false})
+        } else if(rootData) {
+            RootDataScreen(onBack={rootData=false;showVolumes=true})
         } else if(showVolumes) {
-            StorageVolumesScreen(primary,volumes,history,onBack={showVolumes=false},onOpen={file->
+            StorageVolumesScreen(primary,volumes,history,onBack={showVolumes=false},onRoot={showVolumes=false;rootData=true},onOpen={file->
                 showVolumes=false;personalOnly=false;selectedPath=file.absolutePath;analyzer=true
                 selection=emptySet();largeFiles=false;query="";search=false;expandedCategories=false
                 if(granted)model.open(file)

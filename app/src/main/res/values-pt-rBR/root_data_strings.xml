@@ -1,0 +1,11 @@
+<resources>
+    <string name="root_data_volume">Superusuário · arquivos privados</string>
+    <string name="root_data_title">Maiores arquivos</string>
+    <string name="root_data_progress">%1$d arquivos analisados</string>
+    <string name="root_data_count">%1$d maiores · %2$d analisados</string>
+    <string name="root_data_partial">Alguns caminhos não puderam ser medidos. O resultado pode estar incompleto.</string>
+    <string name="root_data_denied">O acesso root foi negado ou a análise não pôde iniciar.</string>
+    <string name="root_data_explain">Analisa arquivos em /data, inclusive arquivos privados de apps, usando acesso de superusuário. Somente leitura; links simbólicos e sistemas de arquivos montados separadamente são excluídos. Mostra até os 2.000 maiores arquivos pelo tamanho lógico. Nenhum arquivo é apagado.</string>
+    <string name="root_data_scan">Analisar com root</string>
+    <string name="root_data_copy">Copiar caminho</string>
+</resources>
