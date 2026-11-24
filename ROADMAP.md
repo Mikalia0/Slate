@@ -14,7 +14,7 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 - [ ] Detailed session comparison (implemented; verify)
 - [ ] Persistent index (implemented; verify)
 - [ ] Incremental updates (scoped subtree refresh with cached ancestor totals; cold-start reconciliation remains full)
-- [ ] Accurate user/app/system separation (partial; Android limits)
+- [ ] Accurate user/app/system separation (personal file categories, Android shared files, separate app stats; protected/system totals still subject to Android limits)
 
 ## Cleanup tools (9)
 - [ ] Duplicate finder (implemented; verify)

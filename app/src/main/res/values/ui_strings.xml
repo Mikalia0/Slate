@@ -328,4 +328,15 @@
     <string name="ui_327">"Vertex attributes"</string>
     <string name="ui_328">"Fragment uniform vectors"</string>
     <string name="ui_329">"Vertex uniform vectors"</string>
+    <string name="category_images">Images</string>
+    <string name="category_videos">Videos</string>
+    <string name="category_audio">Audio</string>
+    <string name="category_documents">Documents</string>
+    <string name="category_archives">Archives</string>
+    <string name="category_installers">Installers</string>
+    <string name="category_other_files">Other files</string>
+    <string name="category_hide_categories">Hide categories</string>
+    <string name="category_file_categories">File categories</string>
+    <string name="category_category_details_require_a_complete_index">Category details require a complete index.</string>
+    <string name="category_app_totals_are_separate_unmeasured_space_may_include_system_and_private_files">App totals are separate; unmeasured space may include system and private files.</string>
 </resources>

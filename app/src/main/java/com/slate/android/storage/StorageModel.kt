@@ -41,6 +41,11 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     private var largestJob: Job? = null
     private val partialRoots=HashSet<File>()
 
+    internal suspend fun personalCategories():List<CategoryStats>? {
+        val indexed=indexes[primary] ?: savedIndex ?: return null
+        return withContext(Dispatchers.Default){indexed.personalCategories()}
+    }
+
     fun open(directory: File, refresh: Boolean = false) {
         if(!refresh && mutable.value.directory==directory && mutable.value.running) return
         job?.cancel()

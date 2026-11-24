@@ -328,4 +328,15 @@
     <string name="ui_327">"Atributos de vértice"</string>
     <string name="ui_328">"Vetores uniformes de fragmento"</string>
     <string name="ui_329">"Vetores uniformes de vértice"</string>
+    <string name="category_images">Imagens</string>
+    <string name="category_videos">Vídeos</string>
+    <string name="category_audio">Áudio</string>
+    <string name="category_documents">Documentos</string>
+    <string name="category_archives">Compactados</string>
+    <string name="category_installers">Instaladores</string>
+    <string name="category_other_files">Outros arquivos</string>
+    <string name="category_hide_categories">Ocultar categorias</string>
+    <string name="category_file_categories">Categorias de arquivos</string>
+    <string name="category_category_details_require_a_complete_index">As categorias precisam de um índice completo.</string>
+    <string name="category_app_totals_are_separate_unmeasured_space_may_include_system_and_private_files">Os totais de apps são separados. O espaço não medido pode incluir sistema e arquivos privados.</string>
 </resources>

@@ -156,6 +156,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var query by rememberSaveable { mutableStateOf("") }
     var detail by remember { mutableStateOf<Entry?>(null) }
     val fmt: (Long) -> String = { Formatter.formatFileSize(context, it) }
+    var expandedCategories by rememberSaveable{mutableStateOf(false)}
+    var selectedCategory by remember{mutableStateOf<CategoryStats?>(null)}
     val directory = state.directory?.takeIf { it.toPath().startsWith(root.toPath()) } ?: root
     fun openFolder(file: File) { selection = emptySet(); largeFiles = false; query = ""; search = false; model.open(file) }
     fun selectEntry(entry: Entry) { if (entry.directory) openFolder(entry.file) else detail = entry }
@@ -251,6 +253,9 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     Button(onClick={model.open(directory,refresh=true)}){Text(tr("Scan again"))}
                 }
                 val snapshot = state.snapshot?.takeIf { it.directory == directory }
+                val categories by produceState<List<CategoryStats>?>(null,state.scanId,expandedCategories,analyzer){
+                    value=if(expandedCategories && directory==primary && snapshot!=null)model.personalCategories()else null
+                }
                 if (snapshot != null) {
                     val source = if(largeFiles) snapshot.largestFiles else snapshot.entries
                     val entries = remember(snapshot, sortMode, largeFiles, query) {
@@ -302,9 +307,19 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 Card(Modifier.fillMaxWidth().padding(top=8.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                                     Column {
                                         ListItem(headlineContent={Text(tr("User files"))},trailingContent={Text(fmt(personal),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_storage_folder),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                                        TextButton(onClick={expandedCategories=!expandedCategories},modifier=Modifier.padding(horizontal=8.dp)){Text(tr(if(expandedCategories)"Hide categories" else "File categories"))}
+                                        if(expandedCategories){
+                                            val breakdown=categories
+                                            if(breakdown==null)Text(tr("Category details require a complete index."),Modifier.padding(horizontal=16.dp,vertical=6.dp),style=MaterialTheme.typography.bodySmall)
+                                            else breakdown.forEach{stats->
+                                                ListItem(modifier=Modifier.clickable{selectedCategory=stats},headlineContent={Text(tr(stats.category.label))},
+                                                    trailingContent={Text(fmt(stats.bytes),color=MaterialTheme.colorScheme.primary)},
+                                                    colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                                            }
+                                        }
                                         if(android!=null) ListItem(modifier=Modifier.clickable{openFolder(android.file)},headlineContent={Text(tr("Android shared files"))},trailingContent={Text(fmt(android.bytes),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_device_system),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
                                         ListItem(modifier=Modifier.clickable{apps=true},headlineContent={Text(tr("App storage"))},trailingContent={Icon(Icons.Default.KeyboardArrowRight,"Open")},leadingContent={Icon(painterResource(R.drawable.ic_device_overview),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-                                        Text(tr("Protected files are not fully measurable."),Modifier.padding(horizontal=16.dp,vertical=8.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(tr("App totals are separate; unmeasured space may include system and private files."),Modifier.padding(horizontal=16.dp,vertical=8.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
@@ -394,6 +409,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
             }
         }
     }
+    selectedCategory?.let{stats->StorageCategoryDetails(stats,fmt,onDismiss={selectedCategory=null},onFile={detail=it})}
     detail?.let { entry ->
         AlertDialog(onDismissRequest = { detail = null }, title = { Text(entry.file.name) },
             text = { Text(entry.file.path + "\n\n" + fmt(entry.bytes) + if (entry.skipped > 0) "\nSize unavailable or incomplete" else "") },

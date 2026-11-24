@@ -337,6 +337,17 @@ internal fun tr(value:String):String {
         "Vertex attributes" -> R.string.ui_327
         "Fragment uniform vectors" -> R.string.ui_328
         "Vertex uniform vectors" -> R.string.ui_329
+        "Images" -> R.string.category_images
+        "Videos" -> R.string.category_videos
+        "Audio" -> R.string.category_audio
+        "Documents" -> R.string.category_documents
+        "Archives" -> R.string.category_archives
+        "Installers" -> R.string.category_installers
+        "Other files" -> R.string.category_other_files
+        "Hide categories" -> R.string.category_hide_categories
+        "File categories" -> R.string.category_file_categories
+        "Category details require a complete index." -> R.string.category_category_details_require_a_complete_index
+        "App totals are separate; unmeasured space may include system and private files." -> R.string.category_app_totals_are_separate_unmeasured_space_may_include_system_and_private_files
         else -> 0
     }
     return if(id==0)value else stringResource(id)
