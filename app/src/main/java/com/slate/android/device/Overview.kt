@@ -130,6 +130,16 @@ internal fun ManufacturerIcon() {
     val brand=Build.MANUFACTURER.lowercase(java.util.Locale.ROOT)
     val logo=when(brand) {
         "motorola"->R.drawable.brand_motorola
+        "redmi","poco","xiaomi"->R.drawable.brand_xiaomi
+        "samsung"->R.drawable.brand_samsung
+        "oneplus"->R.drawable.brand_oneplus
+        "google"->R.drawable.brand_google
+        "asus"->R.drawable.brand_asus
+        "sony"->R.drawable.brand_sony
+        "huawei"->R.drawable.brand_huawei
+        "honor"->R.drawable.brand_honor
+        "oppo"->R.drawable.brand_oppo
+        "vivo"->R.drawable.brand_vivo
         else->0
     }
     Surface(shape=MaterialTheme.shapes.large,color=MaterialTheme.colorScheme.surface,modifier=Modifier.size(50.dp)) {

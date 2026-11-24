@@ -28,7 +28,7 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 - [ ] Exclusion management (implemented; verify)
 
 ## Device information (7)
-- [ ] More manufacturer logos
+- [ ] More manufacturer logos (Motorola plus 10 additional marks; generic fallback; verify)
 - [ ] Detailed GPU information (GL limits, Vulkan version and GPU activity; verify)
 - [ ] Live sensors (implemented; verify)
 - [ ] Charging speed and remaining time (system estimate and watts implemented; verify)
