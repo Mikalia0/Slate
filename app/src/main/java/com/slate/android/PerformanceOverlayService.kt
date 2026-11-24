@@ -59,6 +59,8 @@ class PerformanceOverlayService:Service(){
                 while(currentCoroutineContext().isActive&&Settings.canDrawOverlays(this@PerformanceOverlayService)){
                     if(!shizukuGranted()){
                         fps=null;PerformanceOverlayService.packageName=null
+                        val mask=prefs.getInt("metrics",HUD_DEFAULT).and(HUD_ALL).let{if(it==0)HUD_MINIMAL else it}
+                        text.update(mask,HudSnapshot(),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f))
                         delay(1000);continue
                     }
                     try{

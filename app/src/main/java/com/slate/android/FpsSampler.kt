@@ -90,6 +90,7 @@ class FpsUserService:IFpsService.Stub(){
     private var lastStatsEnable=0L
     private var statsMisses=0
     private var preferredLayer:String?=null
+    private var probeOffset=0
     private var layers=emptyList<String>()
     private var layerAt=0L
     private var latencyFailures=0
@@ -117,7 +118,7 @@ class FpsUserService:IFpsService.Stub(){
     private fun dump(vararg args:String):String?=runCatching{command(*args)}.getOrNull()
     private fun reset(){
         layers=emptyList();layerAt=0;frames.clear();latencyFailures=0
-        preferredLayer=null;lastLatencyProbe=0L;statsMisses=0
+        preferredLayer=null;probeOffset=0;lastLatencyProbe=0L;statsMisses=0
         statsPrevious=emptyMap();statsAt=0;timeStats=false
     }
     private fun latency(target:String,now:Long):Double?{
@@ -134,7 +135,11 @@ class FpsUserService:IFpsService.Stub(){
         val candidates=(listOfNotNull(preferredLayer)+layers).distinct()
         val bestCandidates=mutableListOf<Pair<String,Double>>()
         // A working surface is sampled first; scan other candidates only on loss.
-        for(layer in candidates.take(if(preferredLayer!=null)1 else 8)){
+        val probes=if(preferredLayer!=null)candidates.take(1)else if(candidates.isEmpty())emptyList()else{
+            val offset=probeOffset%candidates.size
+            (candidates.drop(offset)+candidates.take(offset)).take(4).also{probeOffset=(offset+it.size)%candidates.size}
+        }
+        for(layer in probes){
             val timestamps=dump("SurfaceFlinger","--latency",layer)?.let(::presentedFrames).orEmpty()
             val clock=System.nanoTime()
             val history=frames.getOrPut(layer){mutableSetOf()}
@@ -228,7 +233,7 @@ internal suspend fun withFpsService(context:Context,block:suspend(IFpsService)->
     }
     try{
         Shizuku.bindUserService(args,connection)
-        val service=withTimeout(15000){ready.await()}
+        val service=withTimeoutOrNull(15000){ready.await()} ?: error("FPS service connection timed out")
         remote=service
         withContext(Dispatchers.IO){block(service)}
     }finally{
