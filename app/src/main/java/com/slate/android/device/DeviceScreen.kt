@@ -3,6 +3,7 @@ package com.slate.android.device
 
 import android.os.Build
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -89,7 +90,7 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
     val pageState=rememberSaveableStateHolder()
     var testMode by rememberSaveable{mutableStateOf(false)}
     if(testMode){DeviceTests(onBack={testMode=false});return}
-    fun select(page:Int){scope.launch{pager.scrollToPage(page)}}
+    fun select(page:Int){scope.launch{if(kotlin.math.abs(page-pager.currentPage)==1) pager.animateScrollToPage(page,animationSpec=tween(160)) else pager.scrollToPage(page)}}
     Column(Modifier.fillMaxSize().padding(horizontal=14.dp)) {
         Row(Modifier.fillMaxWidth().padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically) {
             IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")}

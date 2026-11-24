@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -169,9 +170,12 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     BackHandler(analyzer || device || apps || cleanup || showHistory) { if(showHistory)showHistory=false else if(cleanup)cleanup=false else if(apps) apps=false else if (device) device = false else back() }
     fun goHome(){device=false;apps=false;cleanup=false;analyzer=false;selection=emptySet();search=false;query=""}
     fun goStorage(){device=false;apps=false;cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();search=false;query="";largeFiles=false;if(granted)model.open(primary)}
+    val config=LocalConfiguration.current
+    val landscape=config.screenWidthDp>config.screenHeightDp && config.screenWidthDp>=600
+    val showNavigation=!apps && !cleanup && !showHistory && !deleting && selection.isEmpty() && (!analyzer || directory==root)
     Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar={
-            if(!apps && !cleanup && !showHistory && !deleting && selection.isEmpty() && (!analyzer || directory==root)) {
+            if(!landscape && showNavigation) {
                 NavigationBar {
                     NavigationBarItem(selected=!device&&!analyzer,onClick={goHome()},icon={Icon(Icons.Default.Home,null)},label={Text("Home")})
                     NavigationBarItem(selected=analyzer&&!device,onClick={goStorage()},icon={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},label={Text("Storage")})
@@ -179,15 +183,24 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 }
             }
         }) { padding ->
+        Row(Modifier.fillMaxSize().padding(padding)){
+            if(landscape && showNavigation) {
+                NavigationRail(windowInsets=WindowInsets(0,0,0,0)){
+                    NavigationRailItem(selected=!device&&!analyzer,onClick={goHome()},icon={Icon(Icons.Default.Home,null)},label={Text("Home")})
+                    NavigationRailItem(selected=analyzer&&!device,onClick={goStorage()},icon={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},label={Text("Storage")})
+                    NavigationRailItem(selected=device,onClick={if(!device){analyzer=false;devicePage=0;device=true}},icon={Icon(painterResource(R.drawable.ic_device_cpu),null,Modifier.size(24.dp))},label={Text("Device")})
+                }
+            }
+            Box(Modifier.weight(1f).fillMaxHeight()){
         if(showHistory) {
-            Box(Modifier.fillMaxSize().padding(padding)){HistoryScreen(history,onBack={showHistory=false})}
+            Box(Modifier.fillMaxSize()){HistoryScreen(history,onBack={showHistory=false})}
         } else if(cleanup) {
-            Box(Modifier.fillMaxSize().padding(padding)){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()},review={folder->cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();largeFiles=false;query="";search=false;model.open(folder)})}
+            Box(Modifier.fillMaxSize()){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()},review={folder->cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();largeFiles=false;query="";search=false;model.open(folder)})}
         } else if(apps) {
-            Box(Modifier.fillMaxSize().padding(padding)){AppsStorageScreen(onBack={apps=false})}
+            Box(Modifier.fillMaxSize()){AppsStorageScreen(onBack={apps=false})}
         } else if (device) {
-            Box(Modifier.fillMaxSize().padding(padding)) { DeviceScreen(onBack = { device = false },status=deviceStatus,initialPage=devicePage) }
-        } else Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 14.dp)) {
+            Box(Modifier.fillMaxSize()) { DeviceScreen(onBack = { device = false },status=deviceStatus,initialPage=devicePage) }
+        } else Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (analyzer) IconButton(onClick = ::back) { Icon(Icons.Default.ArrowBack,"Back") }
                 else Image(painterResource(R.drawable.ic_slate), null, Modifier.size(36.dp))
@@ -273,7 +286,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     key(scrollKey) {
                     val listState=rememberLazyGridState(restored.first,restored.second)
                     LaunchedEffect(listState) { snapshotFlow{listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset}.collect{scrollStates[scrollKey]=it} }
-                    LazyVerticalGrid(columns=GridCells.Fixed(if(gridView)2 else 1),state=listState,modifier=Modifier.weight(1f),contentPadding=PaddingValues(bottom=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    LazyVerticalGrid(columns=GridCells.Fixed(if(gridView)if(landscape)3 else 2 else 1),state=listState,modifier=Modifier.weight(1f),contentPadding=PaddingValues(bottom=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         item(span={GridItemSpan(maxLineSpan)}) {
                             Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                             Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
@@ -376,6 +389,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 }
                 deletionMessage?.let { message -> AlertDialog(onDismissRequest={deletionMessage=null},title={Text("Deletion result")},text={Text(message)},confirmButton={TextButton(onClick={deletionMessage=null}){Text("Done")}}) }
 
+            }
+        }
             }
         }
     }
