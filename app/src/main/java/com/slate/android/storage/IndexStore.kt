@@ -11,7 +11,8 @@ import kotlinx.coroutines.ensureActive
 internal class IndexStore(private val file:File,private val root:File) {
     private val limit=150_001
     suspend fun save(index:IndexedScan) {
-        if(index.root.directory!=root || index.root.rootUnreadable || index.folders.isEmpty())return
+        if(index.root.directory!=root || index.root.rootUnreadable)return
+        if(index.root.entries.any{it.directory && it.files>0 && it.file !in index.folders}){clear();return}
         val context=currentCoroutineContext()
         val tmp=File(file.parentFile,file.name+".tmp")
         try {

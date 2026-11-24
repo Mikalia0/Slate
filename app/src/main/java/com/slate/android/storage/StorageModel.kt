@@ -52,6 +52,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         largestJob?.cancel()
         backgroundJob?.cancel()
         val id = ++generation
+        val previous=if(refresh && directory==primary) indexes[primary] ?: savedIndex else null
         val parentIndex=if(refresh && directory!=primary) indexes.values.toList().asReversed().firstOrNull{it.folders.containsKey(directory)} else null
         if (refresh) { clearIndexes() }
         cache[directory]?.let { mutable.value = ScanState(directory,it,scanId=id,partialRefresh=partialRoots.any{root->directory.toPath().startsWith(root.toPath())}); return }
@@ -81,7 +82,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
                     if(loaded!=null && (directory==primary || loaded.folders.containsKey(directory))) {mutable.value=ScanState(directory=directory);open(directory);return@launch}
                 }
                 val result = withContext(Dispatchers.IO) {
-                    scanner.scanIndexed(directory,exclusions.absolute()) { progress ->
+                    scanner.scanIndexed(directory,exclusions.absolute(),previous=previous) { progress ->
                         mutable.update { previous ->
                             if (previous.scanId == id && previous.running) previous.copy(visited = progress.visited, currentPath = progress.path, measuredBytes = progress.bytes, elapsedMs = progress.elapsedMs) else previous
                         }
@@ -124,13 +125,18 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         saveJob=viewModelScope.launch(Dispatchers.IO){persistence.withLock{store.clear()}}
     }
     fun checkSession() {
-        if(checkedSession || history.scannedAt==0L)return
+        if(checkedSession || history.scannedAt==0L || mutable.value.running)return
         checkedSession=true
         val excluded=exclusions.absolute()
         val baseline=generation
         backgroundJob=viewModelScope.launch{
             try{
-                val result=withContext(Dispatchers.IO){scanner.scanIndexed(primary,excluded)}
+                val prior=withContext(Dispatchers.IO){persistence.withLock{store.load()}}
+                if(generation!=baseline)return@launch
+                // Publish the restored index before reconciliation. It is explicitly
+                // marked saved, and destructive actions remain unavailable on it.
+                if(prior!=null){savedIndex=prior;diskChecked=true}
+                val result=withContext(Dispatchers.IO){scanner.scanIndexed(primary,excluded,previous=prior)}
                 if(generation==baseline && !result.root.rootUnreadable){
                     history.record(result.root,++generation)
                     indexes[primary]=result

@@ -53,7 +53,7 @@ class StorageScanner {
     suspend fun scan(directory: File, onProgress: (ScanProgress) -> Unit = {}): Snapshot =
         scanIndexed(directory,onProgress=onProgress).root
 
-    internal suspend fun scanIndexed(directory: File, excluded:Set<File> = emptySet(), onProgress: (ScanProgress)->Unit = {}): IndexedScan {
+    internal suspend fun scanIndexed(directory: File, excluded:Set<File> = emptySet(), previous:IndexedScan? = null, onProgress: (ScanProgress)->Unit = {}): IndexedScan {
         val context=currentCoroutineContext()
         if(isExcluded(directory,excluded)) return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
         if(attributes(directory)?.isDirectory!=true) return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
@@ -70,18 +70,26 @@ class StorageScanner {
                 onProgress(ScanProgress(visited,lastPath,measured,(now-started)/1_000_000L))
             }
         }
+        val baseline=previous?.takeIf{it.root.directory==directory && !it.root.rootUnreadable}
         val largest=PriorityQueue<Entry>(compareBy<Entry>{it.bytes}.thenBy{it.file.path})
         val index=HashMap<File,Snapshot>()
         var retained=0L
         var indexing=true
         class Frame(val file:File,val children:Iterator<File>,val modified:Long=0L) {
             val entries=ArrayList<Entry>()
+            val old=if(file==directory)baseline?.root else baseline?.folders?.get(file)
+            val prior=old?.entries?.associateBy{it.file}.orEmpty()
+            var unchanged=old!=null && !old.rootUnreadable
             var bytes=0L
             var files=0L
             var skipped=0L
             fun add(entry:Entry) {
                 bytes+=entry.bytes; files+=entry.files; skipped+=entry.skipped
-                if(indexing || file==directory) entries.add(entry)
+                if(indexing || file==directory) {
+                    val cached=prior[entry.file]
+                    if(cached!=entry)unchanged=false
+                    entries.add(if(cached==entry)cached else entry)
+                }
                 if(indexing && ++retained>150_000) { indexing=false; index.clear() }
             }
         }
@@ -93,10 +101,11 @@ class StorageScanner {
             val frame=stack.last()
             if(!frame.children.hasNext()) {
                 stack.removeLast()
-                val snapshot=Snapshot(frame.file,if(indexing || frame.file==directory) frame.entries.sortedByDescending{it.bytes} else emptyList())
+                val snapshot=if((indexing || frame.file==directory) && frame.unchanged && frame.old?.entries?.size==frame.entries.size) frame.old!!
+                    else Snapshot(frame.file,if(indexing || frame.file==directory) frame.entries.sortedWith(compareByDescending<Entry>{it.bytes}.thenBy{it.file.path}) else emptyList())
                 if(frame.file==directory) {
                     report(true)
-                    return IndexedScan(snapshot.copy(largestFiles=largest.sortedByDescending{it.bytes}),index)
+                    return IndexedScan(snapshot.copy(largestFiles=largest.sortedWith(compareByDescending<Entry>{it.bytes}.thenBy{it.file.path})),index)
                 }
                 if(indexing) index[frame.file]=snapshot
                 stack.last().add(Entry(frame.file,true,frame.bytes,frame.files,frame.skipped,frame.modified))

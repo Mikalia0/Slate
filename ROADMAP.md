@@ -13,7 +13,7 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 - [ ] Full scan history (30 scans and folder details; verify)
 - [ ] Detailed session comparison (implemented; verify)
 - [ ] Persistent index (implemented; verify)
-- [ ] Incremental updates (scoped subtree refresh with cached ancestor totals; cold-start reconciliation remains full)
+- [ ] Incremental updates (subtree refresh and persisted-index metadata reconciliation; unchanged snapshots reused; full metadata traversal for correctness)
 - [ ] Accurate user/app/system separation (personal file categories, Android shared files, separate app stats; protected/system totals still subject to Android limits)
 
 ## Cleanup tools (9)
@@ -38,10 +38,10 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 
 ## Home and UI (8)
 - [ ] Smarter recommendations (folder growth, large folders and low-space alerts; verify)
-- [ ] Automatic folder-growth detection (automatic full scan; verify, incremental pending)
+- [ ] Automatic folder-growth detection (automatic persisted-index reconciliation; verify)
 - [ ] Custom dashboard cards (visibility controls implemented; verify)
 - [ ] Storage category shortcuts (common measured folder shortcuts; verify)
 - [ ] Scroll restoration (analyzer, Home and Device tabs; verify)
 - [ ] Landscape layouts (adaptive Home grid, landscape navigation rail and three-column file grid; verify)
 - [ ] Smooth transitions (short adjacent Device tab animations, immediate distant jumps; further polish pending)
-- [ ] Brazilian Portuguese localization (main screens and device labels localized; dynamic messages and runtime review pending)
+- [ ] Brazilian Portuguese localization (main screens, device labels and dynamic messages; runtime review pending)
