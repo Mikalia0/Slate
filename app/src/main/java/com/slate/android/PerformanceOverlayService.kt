@@ -62,7 +62,7 @@ class PerformanceOverlayService:Service(){
                         val app=sample?.getOrNull(0)?.takeIf{it.isNotBlank()}
                         val rate=sample?.getOrNull(1)?.toDoubleOrNull()?.takeIf{it.isFinite()&&it in 0.0..1000.0}?.roundToInt()?.toString()
                         withContext(Dispatchers.Main){
-                            packageName=app;fps=rate
+                            PerformanceOverlayService.packageName=app;fps=rate
                             text.text=(rate?:"—")+" FPS"+(app?.let{"\n"+it}?:"")
                         }
                         delay(500)
@@ -77,7 +77,7 @@ class PerformanceOverlayService:Service(){
     override fun onDestroy(){
         scope.cancel()
         view?.let{runCatching{getSystemService(WindowManager::class.java).removeView(it)}}
-        view=null;running=false;packageName=null;fps=null
+        view=null;running=false;PerformanceOverlayService.packageName=null;fps=null
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }
