@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Shizuku protected storage
+
+- Browse Android/data and Android/obb through a read-only Shizuku user service, including file sizes, directory traversal and opening files with explicit URI read grants.
+- Include protected files in storage scans when Shizuku is authorized; do not persist privileged indexes to disk.
+- Restrict the privileged backend to the current user's emulated protected directories and reject symbolic links and write operations.
+
 ## 0.5.0-dev — Classic performance monitor
 
 - Add an independently implemented classic circular-gauge monitor inspired by Scene, with CPU/GPU/battery rings, CPU cluster frequencies and per-core utilization.

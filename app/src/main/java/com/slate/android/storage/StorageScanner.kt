@@ -53,11 +53,25 @@ class StorageScanner {
     suspend fun scan(directory: File, onProgress: (ScanProgress) -> Unit = {}): Snapshot =
         scanIndexed(directory,onProgress=onProgress).root
 
-    internal suspend fun scanIndexed(directory: File, excluded:Set<File> = emptySet(), previous:IndexedScan? = null, onProgress: (ScanProgress)->Unit = {}): IndexedScan {
+    internal suspend fun scanIndexed(directory: File, excluded:Set<File> = emptySet(), previous:IndexedScan? = null, protectedReader:ProtectedReadClient?=null, onProgress: (ScanProgress)->Unit = {}): IndexedScan {
         val context=currentCoroutineContext()
         if(isExcluded(directory,excluded)) return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
-        if(attributes(directory)?.isDirectory!=true) return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
-        val rootChildren=children(directory) ?: return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
+        val protectedEntries=HashMap<File,ProtectedReadEntry>()
+        fun listChildren(dir:File):Array<File>?{
+            val relative=if(protectedReader!=null)protectedRelative(dir)else null
+            if(relative!=null){
+                val rows=runCatching{protectedReader!!.list(relative)}.getOrNull()?:return null
+                return rows.map{row->File(dir,row.name).also{protectedEntries[it]=row}}.toTypedArray()
+            }
+            val normal=children(dir)?:return null
+            // Some Android versions hide these directory entries even from their parent.
+            return if(protectedReader!=null&&dir==File(android.os.Environment.getExternalStorageDirectory(),"Android"))
+                (normal.toList()+listOf(File(dir,"data"),File(dir,"obb"))).distinct().toTypedArray() else normal
+        }
+        if(protectedRelative(directory)==null||protectedReader==null){
+            if(attributes(directory)?.isDirectory!=true)return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
+        }
+        val rootChildren=listChildren(directory) ?: return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
         var visited=0L
         var measured=0L
         val started=System.nanoTime()
@@ -113,19 +127,24 @@ class StorageScanner {
             }
             val file=frame.children.next()
             if(isExcluded(file,excluded)) { frame.add(Entry(file,false,0,0,1)); continue }
-            val attr=attributes(file)
+            val remote=protectedEntries.remove(file)
+            val protectedRoot=protectedReader!=null&&protectedRelative(file) in listOf("Android/data","Android/obb")
+            val attr=if(remote==null&&!protectedRoot)attributes(file)else null
+            val isDir=remote?.directory?: (protectedRoot||attr?.isDirectory==true)
+            val isRegular=remote?.let{it.readable&&!it.directory}?: (attr?.isRegularFile==true)
+            val modified=remote?.modified?:attr?.lastModifiedTime()?.toMillis()?:0L
             visited++;lastPath=file.path
             when {
-                attr==null || attr.isSymbolicLink -> frame.add(Entry(file,false,0,0,1))
-                attr.isDirectory -> {
-                    val list=children(file)
+                remote?.readable==false || (!protectedRoot&&remote==null&&(attr==null||attr.isSymbolicLink)) -> frame.add(Entry(file,false,0,0,1))
+                isDir -> {
+                    val list=listChildren(file)
                     if(list==null) {
                         frame.add(Entry(file,true,0,0,1))
                         if(indexing) index[file]=Snapshot(file,emptyList(),true)
-                    } else stack.addLast(Frame(file,list.iterator(),attr.lastModifiedTime().toMillis()))
+                    } else stack.addLast(Frame(file,list.iterator(),modified))
                 }
-                attr.isRegularFile -> {
-                    val entry=Entry(file,false,attr.size(),1,0,attr.lastModifiedTime().toMillis())
+                isRegular -> {
+                    val entry=Entry(file,false,remote?.size?:attr?.size()?:0L,1,0,modified)
                     measured+=entry.bytes
                     frame.add(entry)
                     if(largest.size<100) largest.add(entry)

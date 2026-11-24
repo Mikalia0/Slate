@@ -32,6 +32,14 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     private var backgroundJob:Job?=null
     private var checkedSession=false
     private val scanner = StorageScanner()
+    private var privilegedIndex=false
+    private suspend fun scanWithAccess(directory:File,excluded:Set<File>,previous:IndexedScan?,onProgress:(ScanProgress)->Unit={}):IndexedScan{
+        if(shizukuGranted()&&directory.toPath().startsWith(primary.toPath())){
+            try{return withProtectedRead(getApplication<Application>()){scanner.scanIndexed(directory,excluded,previous,protectedReader=it,onProgress=onProgress)}}
+            catch(e:CancellationException){throw e}catch(_:Exception){}
+        }
+        return scanner.scanIndexed(directory,excluded,previous,onProgress=onProgress)
+    }
     private val mutable = MutableStateFlow(ScanState())
     val state = mutable.asStateFlow()
     private var job: Job? = null
@@ -47,6 +55,8 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     }
 
     fun open(directory: File, refresh: Boolean = false) {
+        val allowed=shizukuGranted()
+        if(allowed!=privilegedIndex){clearIndexes();privilegedIndex=allowed;checkedSession=false}
         if(!refresh && mutable.value.directory==directory && mutable.value.running) return
         job?.cancel()
         largestJob?.cancel()
@@ -83,7 +93,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
                     if(loaded!=null && (directory==primary || loaded.folders.containsKey(directory))) {mutable.value=ScanState(directory=directory);open(directory);return@launch}
                 }
                 val result = withContext(Dispatchers.IO) {
-                    scanner.scanIndexed(directory,exclusions.absolute(),previous=previous) { progress ->
+                    scanWithAccess(directory,exclusions.absolute(),previous) { progress ->
                         mutable.update { previous ->
                             if (previous.scanId == id && previous.running) previous.copy(visited = progress.visited, currentPath = progress.path, measuredBytes = progress.bytes, elapsedMs = progress.elapsedMs) else previous
                         }
@@ -103,7 +113,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
                         savedIndex=null
                         checkedSession=true
                         history.record(result.root,id)
-                        persist(result)
+                        if(!privilegedIndex)persist(result)
 
                     }
                 }
@@ -127,6 +137,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         saveJob=viewModelScope.launch(Dispatchers.IO){persistence.withLock{store.clear()}}
     }
     fun checkSession() {
+        if(shizukuGranted()||privilegedIndex)return
         if(checkedSession || backgroundJob?.isActive==true || history.scannedAt==0L || mutable.value.running)return
         val excluded=exclusions.absolute()
         val existing=savedIndex ?: indexes[primary]

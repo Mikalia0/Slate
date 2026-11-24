@@ -19,6 +19,15 @@ internal fun fileIcon(entry:Entry):Int=if(entry.directory)R.drawable.ic_storage_
     else->R.drawable.ic_storage_file
 }
 internal fun openSharedFile(context:Context,root:File,file:File,share:Boolean):Boolean=runCatching {
+    val relative=com.slate.android.storage.protectedRelative(file)
+    if(relative!=null&&com.slate.android.storage.shizukuGranted()){
+        val uri=android.net.Uri.Builder().scheme("content").authority(context.packageName+".protected").apply{relative.split('/').forEach{appendPath(it)}}.build()
+        val mime=MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase())?:"application/octet-stream"
+        val intent=if(share)Intent(Intent.ACTION_SEND).apply{type=mime;putExtra(Intent.EXTRA_STREAM,uri)}else Intent(Intent.ACTION_VIEW).apply{setDataAndType(uri,mime)}
+        intent.clipData=ClipData.newRawUri(file.name,uri);intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        context.startActivity(Intent.createChooser(intent,if(share)"Share file" else "Open with"))
+        return@runCatching true
+    }
     val canonicalRoot=root.canonicalFile
     val target=file.canonicalFile
     require(target.toPath().startsWith(canonicalRoot.toPath()) && target!=canonicalRoot && target.isFile)

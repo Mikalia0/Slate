@@ -30,6 +30,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.slate.android.storage.Entry
 import com.slate.android.storage.Volume
+import com.slate.android.storage.protectedRelative
+import com.slate.android.storage.protectedAppPath
+import com.slate.android.storage.shizukuGranted
+import com.slate.android.storage.withProtectedRead
 import kotlinx.coroutines.*
 import java.io.File
 import java.nio.file.Files
@@ -53,6 +57,9 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     val (root,folder)=tabFiles(tabs[tab.coerceIn(tabs.indices)])
     val rootPath=root.path
     val path=folder.path
+    val protected=protectedRelative(folder,primary)!=null
+    var shizuku by remember{mutableStateOf(shizukuGranted())}
+    LaunchedEffect(Unit){while(true){shizuku=shizukuGranted();delay(1000)}}
     var bookmarks by remember{mutableStateOf(prefs.getStringSet("bookmarks",emptySet()).orEmpty().toSet())}
     var grid by rememberSaveable{mutableStateOf(prefs.getBoolean("grid",false))}
     var searching by rememberSaveable{mutableStateOf(false)}
@@ -80,6 +87,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         prefs.edit().putStringSet("bookmarks",bookmarks).apply()
     }
     fun runOperation(block:()->Unit){
+        if(protected){message=context.getString(R.string.protected_read_only);return}
         busy=true;message=null
         scope.launch{
             try{withContext(Dispatchers.IO){block()};selected=null;marked=emptySet()}
@@ -88,12 +96,16 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
             finally{busy=false;revision++;onChanged()}
         }
     }
-    LaunchedEffect(path,rootPath,revision,granted,hidden){
+    LaunchedEffect(path,rootPath,revision,granted,hidden,shizuku){
+        message=null
         rows=emptyList()
-        if(!granted)return@LaunchedEffect
+        if(!granted&&!shizuku)return@LaunchedEffect
         loading=true
         try{
-            rows=withContext(Dispatchers.IO){
+            val relative=protectedRelative(folder,primary)
+            rows=if(relative!=null&&shizuku)withProtectedRead(context){client->
+                client.list(relative).filter{it.readable&&(hidden||!it.name.startsWith("."))}.map{FileRow(File(folder,it.name),it.directory,it.size,it.modified)}
+            }else withContext(Dispatchers.IO){
                 check(safeFile(root,folder))
                 val list=folder.listFiles()?:error("unreadable")
                 list.asSequence().filter{hidden||!it.name.startsWith(".")}.filter{safeFile(root,it)}.map{FileRow(it,it.isDirectory,if(it.isFile)it.length()else 0L,it.lastModified())}.toList()
@@ -111,6 +123,10 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
             Box{
                 IconButton(onClick={volumeMenu=true},enabled=!busy){Icon(Icons.Default.Menu,stringResource(R.string.file_volumes))}
                 DropdownMenu(expanded=volumeMenu,onDismissRequest={volumeMenu=false}){
+                    if(shizuku){
+                        listOf("Android/data","Android/obb").forEach{relative->DropdownMenuItem(text={Text(relative)},onClick={go(File(primary,relative),primary);volumeMenu=false})}
+                        HorizontalDivider()
+                    }
                     (volumes.ifEmpty{listOf(Volume(primary,"Internal storage"))}).forEach{volume->
                         DropdownMenuItem(text={Text(tr(volume.label))},onClick={go(volume.root,volume.root);volumeMenu=false})
                     }
@@ -118,7 +134,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                         HorizontalDivider()
                         bookmarks.sorted().forEach{key->
                             val (volume,dir)=tabFiles(key)
-                            DropdownMenuItem(text={Text(dir.name.ifBlank{dir.path})},onClick={if(safeFile(volume,dir)&&dir.isDirectory){go(dir,volume);volumeMenu=false}})
+                            DropdownMenuItem(text={Text(dir.name.ifBlank{dir.path})},onClick={if((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null)){go(dir,volume);volumeMenu=false}})
                         }
                     }
                 }
@@ -126,7 +142,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
             Box{
                 IconButton(onClick={menu=true},enabled=!busy&&granted){Icon(Icons.Default.MoreVert,null)}
                 DropdownMenu(expanded=menu,onDismissRequest={menu=false}){
-                    DropdownMenuItem(text={Text(stringResource(R.string.file_new_folder))},onClick={menu=false;name="";operation="mkdir"})
+                    DropdownMenuItem(text={Text(stringResource(R.string.file_new_folder))},enabled=!protected,onClick={menu=false;name="";operation="mkdir"})
                     DropdownMenuItem(text={Text(stringResource(R.string.file_hidden))},onClick={hidden=!hidden;menu=false},trailingIcon={Checkbox(checked=hidden,onCheckedChange=null)})
                     DropdownMenuItem(text={Text(stringResource(R.string.file_sort))},onClick={sorting=true;menu=false})
                     DropdownMenuItem(text={Text(stringResource(if(tabKey(root,folder) in bookmarks)R.string.file_unbookmark else R.string.file_bookmark))},onClick={saveBookmark();menu=false})
@@ -134,7 +150,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 }
             }
         }
-        if(!granted){Text(tr("Storage access"));Button(onClick=request){Text(tr("Grant access"))};return@Column}
+        if(!granted&&!(protected&&shizuku)){Text(tr("Storage access"));Button(onClick=request){Text(tr("Grant access"))};return@Column}
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)){
             tabs.forEachIndexed{index,key->
                 val (_,dir)=tabFiles(key)
@@ -155,15 +171,17 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
             }
         }
         if(searching)OutlinedTextField(value=query,onValueChange={query=it},modifier=Modifier.fillMaxWidth(),singleLine=true,leadingIcon={Icon(Icons.Default.Search,null)},placeholder={Text(stringResource(R.string.file_search))})
+        if(protected&&shizuku)Text(stringResource(R.string.protected_read_only),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)
+        if(protected&&!shizuku)com.slate.android.storage.ShizukuAccessRow()
         if(marked.isNotEmpty()){
             Surface(color=MaterialTheme.colorScheme.secondaryContainer,shape=MaterialTheme.shapes.medium){
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),verticalAlignment=Alignment.CenterVertically){
                     Text(stringResource(R.string.tool_selected,marked.size),Modifier.padding(horizontal=8.dp))
                     TextButton(onClick={marked=rows.filter{it.file.name.contains(query,true)}.map{it.file.path}.toSet()},enabled=!busy){Text(stringResource(R.string.cache_select_all))}
                     val chosen=rows.filter{it.file.path in marked}
-                    TextButton(enabled=!busy&&chosen.all{!it.directory},onClick={clipboard=ClipboardFile(root,chosen.map{it.file},false);marked=emptySet()}){Text(stringResource(R.string.file_copy))}
-                    TextButton(enabled=!busy&&chosen.all{!it.directory},onClick={clipboard=ClipboardFile(root,chosen.map{it.file},true);marked=emptySet()}){Text(stringResource(R.string.file_move))}
-                    TextButton(enabled=!busy,onClick={operation="batch_delete"}){Text(tr("Delete"))}
+                    TextButton(enabled=!busy&&!protected&&chosen.all{!it.directory&&!protectedAppPath(it.file.toPath())},onClick={clipboard=ClipboardFile(root,chosen.map{it.file},false);marked=emptySet()}){Text(stringResource(R.string.file_copy))}
+                    TextButton(enabled=!busy&&!protected&&chosen.all{!it.directory&&!protectedAppPath(it.file.toPath())},onClick={clipboard=ClipboardFile(root,chosen.map{it.file},true);marked=emptySet()}){Text(stringResource(R.string.file_move))}
+                    TextButton(enabled=!busy&&!protected&&chosen.none{protectedAppPath(it.file.toPath())},onClick={operation="batch_delete"}){Text(tr("Delete"))}
                     IconButton(onClick={marked=emptySet()}){Icon(Icons.Default.Close,null)}
                 }
             }
@@ -171,7 +189,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         clipboard?.let{clip->
             Row(verticalAlignment=Alignment.CenterVertically){
                 Text(stringResource(R.string.tool_selected,clip.files.size),Modifier.weight(1f),maxLines=1,overflow=TextOverflow.Ellipsis)
-                TextButton(enabled=!busy,onClick={
+                TextButton(enabled=!busy&&!protected,onClick={
                     runOperation{
                         check(safeFile(root,folder))
                         val targets=clip.files.map{File(folder,it.name)}
@@ -227,12 +245,12 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         if(operation==null)AlertDialog(onDismissRequest={selected=null},title={Text(row.file.name)},text={
             Column{
                 if(!row.directory){
-                    TextButton(onClick={clipboard=ClipboardFile(root,listOf(row.file),false);selected=null}){Text(stringResource(R.string.file_copy))}
-                    TextButton(onClick={clipboard=ClipboardFile(root,listOf(row.file),true);selected=null}){Text(stringResource(R.string.file_move))}
+                    TextButton(enabled=!protected,onClick={clipboard=ClipboardFile(root,listOf(row.file),false);selected=null}){Text(stringResource(R.string.file_copy))}
+                    TextButton(enabled=!protected,onClick={clipboard=ClipboardFile(root,listOf(row.file),true);selected=null}){Text(stringResource(R.string.file_move))}
                     TextButton(onClick={openSharedFile(context,root,row.file,true);selected=null}){Text(tr("Share"))}
                 }
-                TextButton(onClick={name=row.file.name;operation="rename"}){Text(stringResource(R.string.file_rename))}
-                TextButton(onClick={operation="delete"}){Text(tr("Delete"),color=MaterialTheme.colorScheme.error)}
+                TextButton(enabled=!protected&&!protectedAppPath(row.file.toPath()),onClick={name=row.file.name;operation="rename"}){Text(stringResource(R.string.file_rename))}
+                TextButton(enabled=!protected&&!protectedAppPath(row.file.toPath()),onClick={operation="delete"}){Text(tr("Delete"),color=MaterialTheme.colorScheme.error)}
             }
         },confirmButton={TextButton(onClick={selected=null}){Text(tr("Close"))}})
     }

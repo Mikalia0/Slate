@@ -312,7 +312,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     }
                     val largestBytes=remember(source){source.maxOfOrNull{it.bytes}?:0L}
                     val selected = source.filter{it.file.path in selection}
-                    fun toggle(entry:Entry) { selection = if(entry.file.path in selection) selection-entry.file.path else selection+entry.file.path }
+                    fun toggle(entry:Entry) { if(protectedAppPath(entry.file.toPath())||entry.file.name=="Android")return; selection = if(entry.file.path in selection) selection-entry.file.path else selection+entry.file.path }
                     if(selection.isNotEmpty()) {
                         Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.secondaryContainer)) {
                             Column(Modifier.padding(12.dp)) {
@@ -324,7 +324,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                     }
                                     IconButton(onClick={confirmDelete=true},enabled=!returnToApps && !deleting && !state.saved && !state.partialRefresh && selected.isNotEmpty()){Icon(Icons.Default.Delete,"Delete selected")}
                                 }
-                                TextButton(onClick={selection=entries.map{it.file.path}.toSet()},enabled=!deleting){Text(tr("Select visible"))}
+                                TextButton(onClick={selection=entries.filterNot{protectedAppPath(it.file.toPath())||it.file.name=="Android"}.map{it.file.path}.toSet()},enabled=!deleting){Text(tr("Select visible"))}
                             }
                         }
                     }
