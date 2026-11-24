@@ -2,6 +2,13 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Storage analyzer layout
+
+- Redesign the analyzer as a compact continuous list with proportional size backgrounds and thin separators.
+- Remove repeated size summary, large shortcut cards and fixed folder/largest-file filters.
+- Show the current folder path in the header and move secondary analysis actions into the overflow menu.
+- Preserve search, sorting, grid view, selection, and incomplete-size warnings.
+
 ## 0.5.0-dev — File manager and gallery expansion
 
 - Add folder tabs, persistent bookmarks, breadcrumbs, list/grid views and batch file operations.

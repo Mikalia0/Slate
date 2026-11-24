@@ -17,7 +17,7 @@ Status: implemented features still need device validation. CI verifies compilati
 ## P1 — Storage analyzer and app management
 
 - [ ] Fast incremental scanning with benchmarks for 10k/100k files, memory use and repeated scans.
-- [ ] Improve folder drill-down, visual size distribution, breadcrumbs and sorting; preserve scroll position.
+- [ ] Validate compact proportional analyzer rows, folder navigation, sorting and restored scroll position on real devices.
 - [ ] Better category accounting and adopted/removable storage support; avoid double-counting app and shared storage.
 - [ ] Storage growth history, largest files, duplicate groups, and clear before/after comparisons.
 - [ ] App manager: permissions, installer, target SDK, split APKs, signing details, last update and install date.

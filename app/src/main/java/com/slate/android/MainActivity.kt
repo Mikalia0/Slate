@@ -48,6 +48,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
@@ -154,6 +157,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var about by rememberSaveable { mutableStateOf(false) }
     var sortMode by rememberSaveable { mutableStateOf(0) }
     var sortMenu by remember { mutableStateOf(false) }
+    var analyzerMenu by remember { mutableStateOf(false) }
     var gridView by rememberSaveable { mutableStateOf(false) }
     val scrollStates=remember{mutableMapOf<String,Pair<Int,Int>>()}
     var search by rememberSaveable { mutableStateOf(false) }
@@ -210,14 +214,32 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
              }
          } else if (device) {
             Box(Modifier.fillMaxSize()) { DeviceScreen(onBack = { device = false },status=deviceStatus,initialPage=devicePage) }
-        } else Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        } else Column(Modifier.fillMaxSize().padding(horizontal = if(analyzer)0.dp else 14.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal=if(analyzer)8.dp else 0.dp,vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (analyzer) IconButton(onClick = ::back) { Icon(Icons.Default.ArrowBack,"Back") }
                 else Image(painterResource(R.drawable.ic_slate), null, Modifier.size(36.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(if (analyzer) tr("Storage") else "Slate", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                if (analyzer) IconButton(onClick = { selection = emptySet(); model.open(directory, refresh = true) }, enabled = granted && !state.running && !deleting) { Icon(Icons.Default.Refresh,"Refresh") }
-                else { IconButton(onClick=onSettings){Icon(Icons.Default.Settings,"Settings")}; IconButton(onClick={about=true}){Icon(Icons.Default.Info,"About")} }
+                if(analyzer){
+                    Column(Modifier.weight(1f)){
+                        Text(tr(if(largeFiles)"Largest files" else if(personalOnly)"User files" else "Storage"),style=MaterialTheme.typography.headlineSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        Text(directory.path,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    }
+                    IconButton(onClick={gridView=!gridView},enabled=!deleting){Icon(painterResource(if(gridView)R.drawable.ic_device_storage else R.drawable.ic_device_overview),tr("Change layout"),Modifier.size(22.dp))}
+                    Box{
+                        IconButton(onClick={analyzerMenu=true},enabled=granted&&!deleting){Icon(Icons.Default.MoreVert,null)}
+                        DropdownMenu(expanded=analyzerMenu,onDismissRequest={analyzerMenu=false}){
+                            DropdownMenuItem(text={Text(tr("Refresh"))},enabled=!state.running,onClick={analyzerMenu=false;selection=emptySet();model.open(directory,refresh=true)})
+                            DropdownMenuItem(text={Text(tr(if(largeFiles)"Folders" else "Largest files"))},onClick={analyzerMenu=false;largeFiles=!largeFiles;selection=emptySet();query=""})
+                            if(directory!=root)DropdownMenuItem(text={Text(tr("Internal storage"))},onClick={analyzerMenu=false;openFolder(root)})
+                            if(directory==primary&&!returnToApps){
+                                DropdownMenuItem(text={Text(tr("App storage"))},onClick={analyzerMenu=false;appCacheSort=false;appsState.removeState("apps");apps=true})
+                                DropdownMenuItem(text={Text(tr(if(personalOnly)"Folders" else "User files"))},onClick={analyzerMenu=false;personalOnly=!personalOnly;selection=emptySet()})
+                                DropdownMenuItem(text={Text(tr(if(expandedCategories)"Hide categories" else "File categories"))},onClick={analyzerMenu=false;expandedCategories=!expandedCategories})
+                            }
+                        }
+                    }
+                }else Text("Slate",style=MaterialTheme.typography.headlineSmall,modifier=Modifier.weight(1f))
+                if (!analyzer) { IconButton(onClick=onSettings){Icon(Icons.Default.Settings,"Settings")}; IconButton(onClick={about=true}){Icon(Icons.Default.Info,"About")} }
             }
             if (!analyzer) {
                 HomeScreen(primary,volumes,analyze={file ->
@@ -234,18 +256,6 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
             } else {
                 LaunchedEffect(granted, analyzer, selectedPath) {
                     if (state.directory == null || !state.directory!!.toPath().startsWith(root.toPath())) model.open(root)
-                }
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),verticalAlignment=Alignment.CenterVertically) {
-                    TextButton(onClick={openFolder(root)},enabled=!deleting){Text(if(returnToApps)root.name else selectedVolume?.label?.let{tr(it)} ?: tr("Internal storage"))}
-                    if(directory!=root) {
-                        var ancestor=root
-                        directory.relativeTo(root).path.split(File.separatorChar).forEach { part ->
-                            val next=File(ancestor,part)
-                            Text("›",color=MaterialTheme.colorScheme.onSurfaceVariant)
-                            TextButton(onClick={openFolder(next)},enabled=!deleting){Text(part)}
-                            ancestor=next
-                        }
-                    }
                 }
                 if(state.partialRefresh && !state.saved) Row(verticalAlignment=Alignment.CenterVertically){
                     Text(tr("Partially refreshed index"),Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -277,6 +287,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                             else -> filtered.sortedByDescending{it.bytes}
                         }
                     }
+                    val largestBytes=remember(source){source.maxOfOrNull{it.bytes}?:0L}
                     val selected = source.filter{it.file.path in selection}
                     fun toggle(entry:Entry) { selection = if(entry.file.path in selection) selection-entry.file.path else selection+entry.file.path }
                     if(selection.isNotEmpty()) {
@@ -303,43 +314,17 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     LazyVerticalGrid(columns=GridCells.Fixed(if(gridView)if(landscape)3 else 2 else 1),state=listState,modifier=Modifier.weight(1f),contentPadding=PaddingValues(bottom=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         item(span={GridItemSpan(maxLineSpan)}) {
                             Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                            Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
-                                Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                                    Text(tr("Measured size"),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(fmt(if(personalOnly && directory==primary)measuredEntries.sumOf{it.bytes}else snapshot.bytes),style=MaterialTheme.typography.titleLarge,color=MaterialTheme.colorScheme.primary)
-                                    Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.files_folders_count,java.text.NumberFormat.getIntegerInstance().format(measuredEntries.sumOf{it.files}),measuredEntries.count{it.directory}),style=MaterialTheme.typography.bodySmall)
-                                    if(measuredEntries.sumOf{it.skipped}>0 || snapshot.rootUnreadable) Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.inaccessible_count,measuredEntries.sumOf{it.skipped}+if(snapshot.rootUnreadable)1L else 0L),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            if(expandedCategories && directory==primary && !returnToApps){
+                                val breakdown=categories
+                                if(breakdown==null)Text(tr("Category details require a complete index."),Modifier.padding(horizontal=16.dp,vertical=6.dp),style=MaterialTheme.typography.bodySmall)
+                                else breakdown.forEach{stats->
+                                    ListItem(modifier=Modifier.clickable{selectedCategory=stats},headlineContent={Text(tr(stats.category.label))},trailingContent={Text(fmt(stats.bytes),color=MaterialTheme.colorScheme.primary)})
                                 }
                             }
-                            if(directory==primary && selection.isEmpty() && !largeFiles && !personalOnly) {
-                                val android=snapshot.entries.firstOrNull{it.file.name=="Android" && it.directory}
-                                val personal=snapshot.entries.filter{it.file.name!="Android"}.sumOf{it.bytes}
-                                Card(Modifier.fillMaxWidth().padding(top=8.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
-                                    Column {
-                                        ListItem(modifier=Modifier.clickable{personalOnly=true;selection=emptySet()},headlineContent={Text(tr("User files"))},trailingContent={Row(verticalAlignment=Alignment.CenterVertically){Text(fmt(personal),color=MaterialTheme.colorScheme.primary);Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(18.dp))}},leadingContent={Icon(painterResource(R.drawable.ic_storage_folder),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-                                        TextButton(onClick={expandedCategories=!expandedCategories},modifier=Modifier.padding(horizontal=8.dp)){Text(tr(if(expandedCategories)"Hide categories" else "File categories"))}
-                                        if(expandedCategories){
-                                            val breakdown=categories
-                                            if(breakdown==null)Text(tr("Category details require a complete index."),Modifier.padding(horizontal=16.dp,vertical=6.dp),style=MaterialTheme.typography.bodySmall)
-                                            else breakdown.forEach{stats->
-                                                ListItem(modifier=Modifier.clickable{selectedCategory=stats},headlineContent={Text(tr(stats.category.label))},
-                                                    trailingContent={Text(fmt(stats.bytes),color=MaterialTheme.colorScheme.primary)},
-                                                    colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-                                            }
-                                        }
-                                        if(android!=null) ListItem(modifier=Modifier.clickable{openFolder(android.file)},headlineContent={Text(tr("Android shared files"))},trailingContent={Text(fmt(android.bytes),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_device_system),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-                                        ListItem(modifier=Modifier.clickable{appCacheSort=false;appsState.removeState("apps");apps=true},headlineContent={Text(tr("App storage"))},trailingContent={Icon(Icons.Default.KeyboardArrowRight,"Open")},leadingContent={Icon(painterResource(R.drawable.ic_device_overview),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-                                        
-                                    }
-                                }
-                            }
-                            Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
-                                FilterChip(selected=!largeFiles,onClick={largeFiles=false;selection=emptySet();query=""},enabled=!deleting,label={Text(tr("Folders"))})
-                                FilterChip(selected=largeFiles,onClick={largeFiles=true;selection=emptySet();query=""},enabled=!deleting,label={Text(tr("Largest files"))})
-                            }
-                            Row(verticalAlignment=Alignment.CenterVertically) {
+                            val skipped=measuredEntries.sumOf{it.skipped}+if(snapshot.rootUnreadable)1L else 0L
+                            if(skipped>0)Text(androidx.compose.ui.res.stringResource(R.string.inaccessible_count,skipped),Modifier.padding(horizontal=16.dp,vertical=4.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(Modifier.fillMaxWidth().padding(start=16.dp,end=8.dp),verticalAlignment=Alignment.CenterVertically) {
                                 Text(tr(if(personalOnly && directory==primary)"User files" else if(largeFiles)"Files" else "Contents"),modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
-                                IconButton(onClick={gridView=!gridView}){Icon(painterResource(if(gridView)R.drawable.ic_device_storage else R.drawable.ic_device_overview),"Change layout",Modifier.size(22.dp))}
                                 IconButton(onClick={search=!search;if(!search)query=""},enabled=!deleting){Icon(Icons.Default.Search,"Search")}
                                 Box {
                                     TextButton(onClick={sortMenu=true},enabled=!deleting){Text(tr(listOf("Size ↓","Name","Size ↑","Type","Date ↓")[sortMode]))}
@@ -350,9 +335,9 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                     }
                                 }
                             }
-                            if(search) OutlinedTextField(value=query,onValueChange={query=it},placeholder={Text(tr("Search files"))},singleLine=true,modifier=Modifier.fillMaxWidth().padding(bottom=8.dp))
+                            if(search) OutlinedTextField(value=query,onValueChange={query=it},placeholder={Text(tr("Search files"))},singleLine=true,modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp).padding(bottom=8.dp))
                             if(largeFiles && state.largestLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
-                            else if(entries.isEmpty()) Text(tr(if(snapshot.rootUnreadable)"Folder not accessible" else "No matching items"))
+                            else if(entries.isEmpty()) Text(tr(if(snapshot.rootUnreadable)"Folder not accessible" else "No matching items"),Modifier.padding(16.dp))
                             }
                         }
                         items(entries,key={it.file.path}){entry->
@@ -370,22 +355,9 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                         Text(fmt(entry.bytes),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
-                            } else Card(Modifier.fillMaxWidth().padding(vertical=2.dp),colors=CardDefaults.cardColors(containerColor=if(checked)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)) {
-                            ListItem(
-                                modifier=Modifier.fillMaxWidth().combinedClickable(enabled=!deleting,onClick={if(selection.isNotEmpty())toggle(entry) else selectEntry(entry)},onLongClick={toggle(entry)}),
-                                headlineContent={Text(entry.file.name,maxLines=1,overflow=TextOverflow.Ellipsis)},
-                                supportingContent={
-                                    Column(verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                                        Text(if(largeFiles)entry.file.relativeTo(snapshot.directory).path else if(entry.directory)androidx.compose.ui.res.stringResource(com.slate.android.R.string.files_count,java.text.NumberFormat.getIntegerInstance().format(entry.files)) else entry.file.extension.uppercase().ifBlank{"File"},maxLines=1,overflow=TextOverflow.Ellipsis)
-                                    }
-                                },
-                                leadingContent={
-                                    if(selection.isNotEmpty()) Checkbox(checked=checked,onCheckedChange={toggle(entry)},enabled=!deleting)
-                                    else Icon(painterResource(fileIcon(entry)),null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(24.dp))
-                                },
-                                trailingContent={Column(horizontalAlignment=Alignment.End){Text(fmt(entry.bytes),color=MaterialTheme.colorScheme.primary);if(entry.skipped>0) Text(tr("Incomplete"),style=MaterialTheme.typography.labelSmall)}},
-                                colors=ListItemDefaults.colors(containerColor=if(checked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)
-                            )
+                            } else {
+                                val fraction=if(largestBytes>0)(entry.bytes.toDouble()/largestBytes).toFloat().coerceIn(0f,1f)else 0f
+                                AnalyzerListRow(entry=entry,fraction=fraction,checked=checked,selecting=selection.isNotEmpty(),enabled=!deleting,largestMode=largeFiles,directory=snapshot.directory,formattedSize=fmt(entry.bytes),onClick={if(selection.isNotEmpty())toggle(entry)else selectEntry(entry)},onLongClick={if(!returnToApps)toggle(entry)},onToggle={toggle(entry)})
                             }
                         }
                     }
@@ -428,4 +400,34 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text("Slate") },
         text = { Text("0.5.0-dev • GPL-3.0-only\nProvided without warranty. SD Maid SE is a feature reference; no upstream code is included yet. See the project LICENSE for redistribution terms.") },
         confirmButton = { TextButton(onClick = { about = false }) { Text(tr("Close")) } })
+}
+
+// A continuous, compact proportional list. The fill is relative to the largest
+// entry in the current folder (not the total device capacity).
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AnalyzerListRow(entry:Entry,fraction:Float,checked:Boolean,selecting:Boolean,enabled:Boolean,largestMode:Boolean,directory:File,formattedSize:String,onClick:()->Unit,onLongClick:()->Unit,onToggle:()->Unit){
+    val colors=MaterialTheme.colorScheme
+    val supporting=if(largestMode)entry.file.relativeTo(directory).path else if(entry.directory)
+        androidx.compose.ui.res.stringResource(R.string.files_count,java.text.NumberFormat.getIntegerInstance().format(entry.files))
+    else entry.file.extension.uppercase().ifBlank{tr("File")}
+    Box(Modifier.fillMaxWidth().clipToBounds().background(if(checked)colors.secondaryContainer else colors.surface)
+        .combinedClickable(enabled=enabled,onClick=onClick,onLongClick=onLongClick)){
+        if(!checked&&fraction>0f)Box(Modifier.matchParentSize().padding(end=0.dp)){
+            Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(colors.primary.copy(alpha=.16f)))
+        }
+        Row(Modifier.fillMaxWidth().heightIn(min=58.dp).padding(horizontal=16.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
+            if(selecting)Checkbox(checked=checked,onCheckedChange={onToggle()},enabled=enabled,modifier=Modifier.size(24.dp))
+            else Icon(painterResource(fileIcon(entry)),null,Modifier.size(25.dp),tint=colors.onSurfaceVariant)
+            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)){
+                Text(entry.file.name,style=MaterialTheme.typography.bodyLarge,fontWeight=FontWeight.Medium,maxLines=1,overflow=TextOverflow.Ellipsis,color=colors.onSurface)
+                Text(supporting,style=MaterialTheme.typography.bodySmall,maxLines=1,overflow=TextOverflow.Ellipsis,color=colors.onSurfaceVariant)
+            }
+            Column(horizontalAlignment=Alignment.End){
+                Text(formattedSize,style=MaterialTheme.typography.bodyMedium,fontWeight=FontWeight.Medium,color=colors.onSurface,textAlign=TextAlign.End,maxLines=1)
+                if(entry.skipped>0)Text(tr("Incomplete"),style=MaterialTheme.typography.labelSmall,color=colors.onSurfaceVariant)
+            }
+        }
+    }
+    HorizontalDivider(thickness=0.5.dp,color=colors.outlineVariant.copy(alpha=.65f))
 }
