@@ -298,6 +298,10 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
     val visible=remember(media,bucket,filter,favorites,query){media.filter{(bucket==null||it.bucket==bucket)&&(query.isBlank()||it.name.contains(query,true)||it.folder.contains(query,true))&&when(filter){1->!it.video;2->it.video;3->it.uri.toString() in favorites;else->true}}}
     val groups=remember(media,query){media.groupBy{it.bucket}.values.filter{group->query.isBlank()||group.any{it.folder.contains(query,true)||it.name.contains(query,true)}}.sortedByDescending{it.first().date}}
     val days=remember(visible){val format=DateFormat.getDateInstance();visible.groupBy{format.format(Date(it.date*1000))}}
+    val scrollAnchors=remember(albumGrid,groups,days,currentColumns){
+        galleryRowAnchors(if(albumGrid)listOf(groups.size)else days.values.map{it.size},currentColumns,!albumGrid)
+    }
+    val gridState=if(albumGrid)albumGridState else photoGridState
     Column(Modifier.fillMaxSize()){
         Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){
             if(bucket!=null||selected.isNotEmpty())IconButton(onClick={if(selected.isNotEmpty())selected=emptySet()else bucket=null}){Icon(Icons.Default.ArrowBack,null)}
@@ -346,7 +350,8 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
                 }
             }
         }
-        if(if(albums&&bucket==null)groups.isNotEmpty()||loading else visible.isNotEmpty()||loading)LazyVerticalGrid(columns=GridCells.Fixed(currentColumns),state=if(albumGrid)albumGridState else photoGridState,modifier=Modifier.weight(1f).pointerInput(albumGrid){
+        if(if(albums&&bucket==null)groups.isNotEmpty()||loading else visible.isNotEmpty()||loading)Box(Modifier.fillMaxWidth().weight(1f)){
+        LazyVerticalGrid(columns=GridCells.Fixed(currentColumns),state=gridState,modifier=Modifier.fillMaxSize().pointerInput(albumGrid){
             awaitEachGesture{
                 awaitFirstDown(requireUnconsumed=false,pass=PointerEventPass.Initial)
                 var pinching=false
@@ -368,7 +373,7 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
                     if(pinching)event.changes.forEach{it.consume()}
                 }while(event.changes.any{it.pressed})
             }
-        },horizontalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)12.dp else 3.dp),verticalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)14.dp else 3.dp),contentPadding=PaddingValues(if(albums&&bucket==null)14.dp else 4.dp)){
+        },horizontalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)12.dp else 3.dp),verticalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)14.dp else 3.dp),contentPadding=PaddingValues(start=if(albumGrid)14.dp else 4.dp,top=if(albumGrid)14.dp else 4.dp,end=24.dp,bottom=if(albumGrid)14.dp else 4.dp)){
             if(albums&&bucket==null){
                 items(groups,key={it.first().bucket}){group->
                     Column(Modifier.fillMaxWidth().clickable{bucket=group.first().bucket;filter=0;query=""}){
@@ -408,6 +413,8 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
                     }
                 }
             }
+        }
+        GalleryFastScrollbar(gridState,scrollAnchors,Modifier.align(Alignment.CenterEnd).fillMaxHeight(),enabled=!deleting)
         }
     }
     preview?.let{key->
