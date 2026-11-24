@@ -111,75 +111,54 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
             LazyColumn(Modifier.fillMaxSize(),state=rememberLazyListState(),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=12.dp)) {
                 if(page==0) deviceOverview(live,fixed,::select)
                 else {
+                    val processor=fixed?.hardware?.firstOrNull()
+                    val graphics=fixed?.hardware?.getOrNull(1)
+                    val display=fixed?.hardware?.getOrNull(2)
                     when(page) {
-                        1 -> item(key="hardware-hero") {
-                            val processor=fixed?.hardware?.firstOrNull()
-                            val gpu=fixed?.hardware?.getOrNull(1)
-                            FeaturePanel(R.drawable.ic_device_cpu,processor.reading("SoC").takeUnless{it=="—"} ?: processor.reading("Hardware"),"Processor") {
-                                Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                                    Metric("Cores",live?.cores?.size?.toString() ?: processor.reading("Detected cores"),Modifier.weight(1f))
-                                    Metric("GPU",gpu.reading("GPU renderer").removeSuffix(" (TM)"),Modifier.weight(1f))
-                                }
-                                if(live!=null) {
-                                    HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
-                                    live.cores.chunked(2).forEach { cores ->
-                                        Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                                            cores.forEach { core ->
-                                                Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                                                    Row(verticalAlignment=Alignment.CenterVertically) {
-                                                        Text("CPU ${core.id}",Modifier.weight(1f),style=MaterialTheme.typography.labelMedium)
-                                                        Text(if(core.online==false)"Offline" else core.current?.let{"${it/1000} MHz"} ?: "—",style=MaterialTheme.typography.labelMedium)
-                                                    }
-                                                    if(core.current!=null && core.maximum!=null && core.maximum>0) LinearProgressIndicator(progress={(core.current.toDouble()/core.maximum).toFloat().coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().height(4.dp))
-                                                }
-                                            }
-                                            if(cores.size==1) Spacer(Modifier.weight(1f))
-                                        }
-                                    }
+                        1 -> {
+                            item(key="processor"){ProcessorPanel(processor,live?.cores.orEmpty())}
+                            item(key="graphics"){GraphicsPanel(graphics,live?.gpu)}
+                            item(key="memory"){MemoryPanel(live?.memory,live?.meters?.firstOrNull{it.title=="Memory"})}
+                            item(key="display"){DisplayPanel(display,live?.display)}
+                            live?.thermal?.let{thermal->item(key="thermal"){ThermalPanel(thermal)}}
+                        }
+                        2 -> {
+                            item(key="system-hero"){
+                                FeaturePanel(R.drawable.ic_device_system,"Android "+Build.VERSION.RELEASE,"API "+Build.VERSION.SDK_INT){
+                                    MetricGrid(listOf(Info("Security patch",Build.VERSION.SECURITY_PATCH),Info("Uptime",live?.uptime.reading("Since boot"))))
                                 }
                             }
-                        }
-                        2 -> item(key="system-hero") {
-                            FeaturePanel(R.drawable.ic_device_system,"Android "+Build.VERSION.RELEASE,"API "+Build.VERSION.SDK_INT) {
-                                Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){
-                                    Metric("Security patch",Build.VERSION.SECURITY_PATCH.ifBlank{"—"},Modifier.weight(1f))
-                                    Metric("Uptime",live?.uptime.reading("Since boot"),Modifier.weight(1f))
+                            item(key="uptime"){
+                                val meter=live?.meters?.firstOrNull{it.title=="Uptime"}
+                                FeaturePanel(R.drawable.ic_device_system,live?.uptime.reading("Deep sleep (estimate)"),"Deep sleep"){
+                                    meter?.fraction?.let{UsageBar(it)}
+                                    MetricGrid(listOf(Info("Awake",live?.uptime.reading("Awake")),Info("Deep sleep (estimate)",live?.uptime.reading("Deep sleep (estimate)"))))
                                 }
                             }
-                        }
-                        3 -> item(key="battery-hero"){BatteryPanel(live)}
-                        4 -> item(key="storage-hero") {
-                            val meter=live?.meters?.firstOrNull{it.title=="Storage"}
-                            FeaturePanel(R.drawable.ic_device_storage,meter?.value ?: "—","Internal storage") {
-                                meter?.fraction?.let{fraction ->
-                                    LinearProgressIndicator(progress={fraction},modifier=Modifier.fillMaxWidth().height(6.dp))
-                                    Text("${(fraction*100).toInt()}% · ${meter.subtitle}",style=MaterialTheme.typography.bodySmall)
-                                }
+                            fixed?.system.orEmpty().forEachIndexed{index,section->
+                                val trimmed=section.copy(rows=section.rows.filterNot{it.label in setOf("Android version","API level","Security patch")})
+                                item(key="system-$index"){InfoCard(trimmed,sectionIcon(section,page),initiallyExpanded=false)}
                             }
                         }
-                        5 -> item(key="network-hero") {
-                            FeaturePanel(R.drawable.ic_device_network,live?.connection.reading("Connection"),"Connection") {
-                                val rows=live?.connection?.rows.orEmpty().filter{it.label!="Connection" && it.value!=UNKNOWN}.take(2)
-                                rows.forEach{Metric(it.label,it.value,Modifier.fillMaxWidth())}
-                            }
+                        3 -> item(key="battery"){BatteryPanel(live)}
+                        4 -> {
+                            status.storage.forEachIndexed{index,section->item(key="volume-$index"){VolumePanel(section)}}
+                            if(status.storage.isEmpty())item(key="storage-loading"){Text(tr("Loading…"))}
                         }
-                        6 -> item(key="sensor-hero"){FeaturePanel(R.drawable.ic_device_sensors,fixed?.sensors?.size?.toString() ?: "—","Sensors"){}}
-
-                        7 -> item(key="camera-hero"){FeaturePanel(R.drawable.ic_device_camera,fixed?.cameras?.size?.toString() ?: "—","Cameras"){}}
+                        5 -> item(key="connection"){NetworkPanel(live?.connection)}
+                        6,7 -> {
+                            val sections=if(page==6)fixed?.sensors.orEmpty() else fixed?.cameras.orEmpty()
+                            item(key="count"){
+                                FeaturePanel(tabIcons[page],if(fixed==null)"—" else sections.size.toString(),if(page==6)"Sensors" else "Cameras"){}
+                            }
+                            if(page==6&&pager.settledPage==6)item(key="live-sensors"){LiveSensors()}
+                            itemsIndexed(sections,key={index,section->"$index:${section.title}"}){_,section->
+                                if(page==7) CameraPanel(section) else InfoCard(section,tabIcons[page],initiallyExpanded=false)
+                            }
+                            if(fixed!=null&&sections.isEmpty())item(key="empty"){Text(tr("No information available"))}
+                        }
                     }
-                    if(page==6 && pager.settledPage==6) item(key="live-sensors"){LiveSensors()}
-                    val sections=when(page) {
-                        1 -> fixed?.hardware.orEmpty()+listOfNotNull(live?.memory,live?.cpu,live?.gpu,live?.thermal,live?.display)
-                        2 -> fixed?.system.orEmpty()+listOfNotNull(live?.uptime,live?.thermal)
-                        3 -> listOfNotNull(live?.battery)
-                        4 -> status.storage
-                        5 -> listOfNotNull(live?.connection)
-                        6 -> fixed?.sensors.orEmpty()
-                        7 -> fixed?.cameras.orEmpty()
-                        else -> emptyList()
-                    }
-                    if(sections.isEmpty()) item {Text(tr(if(status.error || fixed!=null)"No information available" else "Loading…"),style=MaterialTheme.typography.bodyMedium)}
-                    itemsIndexed(sections,key={index,section->"$index:${section.title}"}){_,section->InfoCard(section,sectionIcon(section,page),initiallyExpanded=page!=6 && page!=7)}
+                    if(status.error && fixed==null)item(key="error"){Text(tr("No information available"),style=MaterialTheme.typography.bodySmall)}
                 }
             }
             }
@@ -205,7 +184,7 @@ private fun FeaturePanel(icon:Int,value:String,label:String,content:@Composable 
                 }
                 Column(Modifier.weight(1f)){
                     Text(tr(label),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(value,style=MaterialTheme.typography.titleLarge,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    Text(tr(value),style=MaterialTheme.typography.titleLarge,maxLines=2,overflow=TextOverflow.Ellipsis)
                 }
             }
             content()
@@ -215,8 +194,8 @@ private fun FeaturePanel(icon:Int,value:String,label:String,content:@Composable 
 @Composable
 private fun Metric(label:String,value:String,modifier:Modifier) {
     Column(modifier,verticalArrangement=Arrangement.spacedBy(3.dp)) {
-        Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value,style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
+        Text(tr(label),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(tr(value),style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
     }
 }
 @Composable
@@ -255,39 +234,182 @@ private fun BatteryPanel(live:LiveInfo?) {
                 Metric(if(full!="—")"Full capacity" else "Estimated capacity",if(full!="—")full else approximate,Modifier.weight(1f))
                 if(health!="—")Metric("Capacity health",health,Modifier.weight(1f))else Spacer(Modifier.weight(1f))
             }
-            
+
+            val shown=setOf("Level","Status","Charging power","Discharge power","Battery power","Temperature","Voltage","Instant current (+ charging)","Time to full (system estimate)","Capacity health (reported)")+if(full!="—")setOf("Full capacity (reported)") else setOf("Estimated full capacity")
+            DetailsRows(battery?.rows.orEmpty().filterNot{it.label in shown})
+        }
+    }
+}
+
+internal fun visibleReadings(rows:List<Info>):List<Info> =
+    rows.filter{it.value.isNotBlank() && it.value!=UNKNOWN && it.value!="—"}.distinctBy{it.label}
+
+private fun Section?.metrics(vararg labels:String):List<Info> =
+    labels.mapNotNull{label->this?.rows?.firstOrNull{it.label==label}}.let(::visibleReadings)
+
+@Composable
+private fun UsageBar(fraction:Float){
+    LinearProgressIndicator(progress={fraction.coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().height(7.dp),trackColor=MaterialTheme.colorScheme.surfaceContainerHigh)
+}
+
+@Composable
+private fun MetricGrid(rows:List<Info>){
+    visibleReadings(rows).chunked(2).forEach{pair->
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
+            pair.forEach{info->
+                Surface(modifier=Modifier.weight(1f),shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.surfaceContainerHigh){
+                    Metric(info.label,info.value,Modifier.padding(10.dp))
+                }
+            }
+            if(pair.size==1)Spacer(Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun InfoCard(section:Section,icon:Int,initiallyExpanded:Boolean) {
-    var expanded by rememberSaveable(section.title){mutableStateOf(initiallyExpanded)}
-    val preview=section.rows.firstOrNull{it.value!=UNKNOWN}?.value.orEmpty()
-    Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.padding(horizontal=14.dp,vertical=8.dp)) {
-            Row(Modifier.fillMaxWidth().clickable{expanded=!expanded}.heightIn(min=44.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                DeviceGlyph(icon)
-                Column(Modifier.weight(1f)) {
-                    Text(tr(section.title),style=MaterialTheme.typography.titleMedium)
-                    if(!expanded && preview.isNotBlank()) Text(preview,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
-                }
-                Icon(if(expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,if(expanded)"Collapse" else "Expand")
-            }
-            if(expanded) section.rows.forEachIndexed { index,info ->
-                if(index>0) HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=.45f))
-                if(info.value.length>100 || info.value.contains('\n')) {
-                    var full by rememberSaveable(info.label){mutableStateOf(false)}
-                    Column(Modifier.fillMaxWidth().clickable{full=!full}.padding(vertical=8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){
-                        Text(tr(info.label),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(info.value,style=MaterialTheme.typography.bodyMedium,maxLines=if(full)Int.MAX_VALUE else 3,overflow=TextOverflow.Ellipsis)
-                        Text(tr(if(full)"Show less" else "Show all"),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+private fun ProcessorPanel(section:Section?,cores:List<CoreReading>){
+    val name=section.reading("SoC").takeUnless{it=="—"}?:section.reading("Hardware")
+    FeaturePanel(R.drawable.ic_device_cpu,name,"Processor"){
+        MetricGrid(listOf(Info("Cores",if(cores.isNotEmpty())cores.size.toString() else section.reading("Detected cores")),Info("Maximum frequency",cores.mapNotNull{it.maximum}.maxOrNull()?.let{"${it/1000} MHz"}?:"—")))
+        if(cores.isNotEmpty()){
+            Text(tr("CPU frequencies"),style=MaterialTheme.typography.titleSmall)
+            cores.chunked(2).forEach{group->
+                Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){
+                    group.forEach{core->
+                        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)){
+                            Row(verticalAlignment=Alignment.CenterVertically){
+                                Text("CPU ${core.id}",Modifier.weight(1f),style=MaterialTheme.typography.labelMedium)
+                                Text(if(core.online==false)tr("Offline") else core.current?.let{"${it/1000} MHz"}?:"—",style=MaterialTheme.typography.labelMedium)
+                            }
+                            val max=core.maximum
+                            if(max!=null&&max>0&&core.current!=null)UsageBar((core.current.toDouble()/max).toFloat())
+                        }
                     }
-                } else Row(Modifier.fillMaxWidth().padding(vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=Alignment.CenterVertically) {
-                    Text(info.label,Modifier.weight(.46f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(tr(info.value.takeUnless{it==UNKNOWN} ?: "—"),Modifier.weight(.54f),style=MaterialTheme.typography.bodyMedium,fontWeight=FontWeight.Medium,textAlign=TextAlign.End)
+                    if(group.size==1)Spacer(Modifier.weight(1f))
                 }
             }
+        }
+        DetailsRows(section?.rows.orEmpty().filterNot{it.label in setOf("SoC","Detected cores") || (it.label=="Hardware" && it.value==name)})
+    }
+}
+
+@Composable
+private fun GraphicsPanel(section:Section?,live:Section?){
+    FeaturePanel(R.drawable.ic_device_gpu,section.reading("GPU renderer").removeSuffix(" (TM)"),"Graphics"){
+        val rows=live.metrics("Frequency","Maximum frequency","Utilization")
+        MetricGrid(rows+section.metrics("Vulkan API (reported)"))
+        val load=live.reading("Utilization").substringBefore(' ').replace(',','.').toFloatOrNull()
+        if(load!=null && load in 0f..100f)UsageBar(load/100f)
+        val gl=section.reading("OpenGL ES")
+        val shortGl=Regex("OpenGL ES [0-9]+[.][0-9]+").find(gl)?.value
+        if(shortGl!=null)Text(shortGl,style=MaterialTheme.typography.titleSmall)
+        DetailsRows(section?.rows.orEmpty().filterNot{it.label in setOf("GPU renderer","Vulkan API (reported)")})
+    }
+}
+
+@Composable
+private fun MemoryPanel(section:Section?,meter:Meter?){
+    FeaturePanel(R.drawable.ic_device_cpu,section.reading("Total RAM"),"Memory"){
+        meter?.fraction?.let{fraction->
+            UsageBar(fraction)
+            Text(tr("Used")+" · "+(fraction*100).toInt()+"%",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+        }
+        MetricGrid(section.metrics("Used RAM (estimate)","Available RAM","Cached RAM","Free RAM","Swap used","Swap total","zRAM capacity"))
+        DetailsRows(section.metrics("Low memory"))
+    }
+}
+
+@Composable
+private fun DisplayPanel(section:Section?,live:Section?){
+    val resolution=live.reading("Resolution").takeUnless{it=="—"}?:section.reading("Physical mode")
+    FeaturePanel(R.drawable.ic_device_display,resolution,"Display"){
+        MetricGrid(listOf(Info("Refresh rate",live.reading("Refresh rate").takeUnless{it=="—"}?:section.reading("Refresh rate")))+section.metrics("Density","HDR formats"))
+        DetailsRows(section?.rows.orEmpty().filterNot{it.label in setOf("Physical mode","Refresh rate","Density","HDR formats")})
+    }
+}
+
+@Composable
+private fun ThermalPanel(section:Section){
+    val readings=visibleReadings(section.rows).filterNot{it.label=="Thermal throttling status"}
+    FeaturePanel(R.drawable.ic_device_thermal,section.reading("Thermal throttling status"),"Thermals"){
+        MetricGrid(readings.filter{it.label.contains("cpu",true)||it.label.contains("gpu",true)||it.label.contains("battery",true)}.take(4))
+        DetailsRows(readings)
+    }
+}
+
+@Composable
+private fun VolumePanel(section:Section){
+    FeaturePanel(R.drawable.ic_device_storage,section.reading("Capacity"),section.title){
+        section.fraction?.let{fraction->
+            UsageBar(fraction)
+            Text(tr("Used")+" · "+(fraction*100).toInt()+"%",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+        }
+        MetricGrid(section.metrics("Used","Available"))
+        DetailsRows(section.metrics("Mount path"))
+    }
+}
+
+@Composable
+private fun NetworkPanel(section:Section?){
+    val primary=section.metrics("Wi-Fi standard","Wi-Fi signal","Link speed","Frequency","Operator","Radio access","Signal level","Estimated downlink","Estimated uplink")
+    FeaturePanel(R.drawable.ic_device_network,section.reading("Connection"),"Connection"){
+        MetricGrid(primary)
+        DetailsRows(section?.rows.orEmpty().filterNot{it.label=="Connection"||primary.any{p->p.label==it.label}})
+    }
+}
+
+@Composable
+private fun CameraPanel(section:Section){
+    FeaturePanel(R.drawable.ic_device_camera,section.reading("Megapixels"),section.title){
+        MetricGrid(section.metrics("Sensor resolution","Apertures","Focal lengths","Sensor size"))
+        DetailsRows(section.rows.filterNot{it.label in setOf("Megapixels","Sensor resolution","Apertures","Focal lengths","Sensor size")})
+    }
+}
+
+@Composable
+private fun DetailsRows(rows:List<Info>){
+    val valid=visibleReadings(rows)
+    if(valid.isEmpty())return
+    var expanded by rememberSaveable{mutableStateOf(false)}
+    HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+    Row(Modifier.fillMaxWidth().clickable{expanded=!expanded}.heightIn(min=40.dp),verticalAlignment=Alignment.CenterVertically){
+        Text(tr("Technical details"),Modifier.weight(1f),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
+        Icon(if(expanded)Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,null)
+    }
+    if(expanded)valid.forEach{ReadingRow(it)}
+}
+
+@Composable
+private fun ReadingRow(info:Info){
+    if(info.value.length>100||info.value.contains('\n')){
+        var full by rememberSaveable(info.label){mutableStateOf(false)}
+        Column(Modifier.fillMaxWidth().clickable{full=!full}.padding(vertical=5.dp),verticalArrangement=Arrangement.spacedBy(3.dp)){
+            Text(tr(info.label),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(info.value,style=MaterialTheme.typography.bodySmall,maxLines=if(full)Int.MAX_VALUE else 2,overflow=TextOverflow.Ellipsis)
+            Text(tr(if(full)"Show less" else "Show all"),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+        }
+    }else Row(Modifier.fillMaxWidth().padding(vertical=5.dp),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically){
+        Text(tr(info.label),Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(tr(info.value),Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium,textAlign=TextAlign.End)
+    }
+}
+
+@Composable
+private fun InfoCard(section:Section,icon:Int,initiallyExpanded:Boolean){
+    var expanded by rememberSaveable(section.title){mutableStateOf(initiallyExpanded)}
+    val rows=visibleReadings(section.rows)
+    if(rows.isEmpty())return
+    Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+        Column(Modifier.padding(horizontal=14.dp,vertical=8.dp)){
+            Row(Modifier.fillMaxWidth().clickable{expanded=!expanded}.heightIn(min=44.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
+                DeviceGlyph(icon)
+                Column(Modifier.weight(1f)){
+                    Text(tr(section.title),style=MaterialTheme.typography.titleMedium)
+                    if(!expanded)Text(rows.first().value,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+                }
+                Icon(if(expanded)Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,null)
+            }
+            if(expanded)rows.forEach{ReadingRow(it)}
         }
     }
 }

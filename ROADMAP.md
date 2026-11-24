@@ -26,7 +26,7 @@ Status: implemented features still need device validation. CI verifies compilati
 
 ## P2 — Device diagnostics
 
-- [ ] Expand RAM breakdown (available, cached, swap/zRAM where exposed) and storage details (volumes, filesystem, free/used).
+- [ ] Validate redesigned RAM breakdown (available, cached, swap/zRAM where exposed) and per-volume storage usage on real devices; add filesystem details where exposed.
 - [ ] Improve CPU cluster topology, frequencies, GPU identification, Vulkan/OpenGL capabilities and thermal accuracy.
 - [ ] Battery health/capacity, charging power and estimated time with source/availability indicators.
 - [ ] Faster Device tabs, responsive live readings and optional hardware tests; avoid polling off-screen.
@@ -35,7 +35,7 @@ Status: implemented features still need device validation. CI verifies compilati
 ## P3 — Interface, automation and release quality
 
 - [ ] Keep Home minimal: storage summary, existing graph, relevant actions and optional insights; no redundant quick folders.
-- [ ] Polish Material 3 layouts, typography, icons, accessibility, landscape and smooth navigation.
+- [ ] Validate redesigned Material 3 hardware cards and expandable technical details; polish typography, accessibility, landscape and smooth navigation.
 - [ ] Improve permission onboarding, optional Shizuku setup and clear unsupported-state explanations.
 - [ ] Scheduled scans with review notifications; destructive actions remain explicit.
 - [ ] Localization review (English/PT-BR), actionable changelogs, update history and reproducible release checks.

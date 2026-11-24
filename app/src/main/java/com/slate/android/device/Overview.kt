@@ -45,8 +45,8 @@ internal fun LazyListScope.deviceOverview(live:LiveInfo?, fixed:StaticInfo?, nav
                 SummaryTile("Graphics",gpu.value("GPU renderer").removeSuffix(" (TM)"),live?.gpu.value("Frequency"),Modifier.weight(1f)){navigate(1)}
             }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                SummaryTile("Display",live?.display.value("Resolution").takeUnless{it==UNKNOWN}?:display.value("Physical mode"),live?.display.value("Refresh rate")+" · "+display.value("Density"),Modifier.weight(1f)){navigate(1)}
-                SummaryTile("Battery temperature",live?.battery.value("Temperature"),live?.thermal.value("Thermal throttling status").let{"Thermal status: "+it},Modifier.weight(1f)){navigate(3)}
+                SummaryTile("Display",live?.display.value("Resolution").takeUnless{it==UNKNOWN}?:display.value("Physical mode"),listOf(live?.display.value("Refresh rate"),display.value("Density")).filter{it!=UNKNOWN}.joinToString(" · "),Modifier.weight(1f)){navigate(1)}
+                SummaryTile("Battery temperature",live?.battery.value("Temperature"),live?.thermal.value("Thermal throttling status"),Modifier.weight(1f)){navigate(3)}
             }
         }
     }
@@ -69,62 +69,8 @@ internal fun LazyListScope.deviceOverview(live:LiveInfo?, fixed:StaticInfo?, nav
                 SummaryTile("Deep sleep",live.uptime.value("Deep sleep (estimate)"),"Estimated",Modifier.weight(1f)){navigate(2)}
             }
         }
-        item(key="cores") {
-            Panel("CPU frequencies","Hardware",{navigate(1)}) {
-                
-                live.cores.chunked(2).forEach { cores ->
-                    Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                        cores.forEach { core ->
-                            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)) {
-                                Row(verticalAlignment=Alignment.CenterVertically) {
-                                    Text("CPU ${core.id}",modifier=Modifier.weight(1f),style=MaterialTheme.typography.labelMedium)
-                                    Text(if(core.online==false)"Offline" else core.current?.let{"${it/1000} MHz"}?:"—",style=MaterialTheme.typography.labelMedium)
-                                }
-                                val fraction=if(core.current!=null&&core.maximum!=null&&core.maximum>0)(core.current.toDouble()/core.maximum).toFloat().coerceIn(0f,1f) else null
-                                if(fraction!=null) LinearProgressIndicator(progress={fraction},modifier=Modifier.fillMaxWidth().height(4.dp))
-                                Text(core.maximum?.let{"Max ${it/1000} MHz"}?:"Max unavailable",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        if(cores.size==1) Spacer(Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-        item(key="battery") {
-            Panel("Battery details","Battery",{navigate(3)}) {
-                DataLine("Power source",live.battery.value("Power source"))
-                live.battery.powerReading()?.let{DataLine(it.label,it.value)}
-                DataLine("Voltage",live.battery.value("Voltage"))
-                DataLine("Current",live.battery.value("Instant current (+ charging)"))
-                DataLine("Remaining charge",live.battery.value("Remaining charge"))
-                DataLine("Health",live.battery.value("Health (system status)"))
-            }
-        }
-        item(key="graphics") {
-            Panel("Graphics & display","Hardware",{navigate(1)}) {
-                DataLine("OpenGL ES",gpu.value("OpenGL ES"))
-                DataLine("Vulkan",gpu.value("Vulkan API (reported)"))
-                DataLine("GPU utilization",live.gpu.value("Utilization"))
-                DataLine("Maximum clock",live.gpu.value("Maximum frequency"))
-                DataLine("Refresh rates",display.value("Supported refresh rates"))
-            }
-        }
-        item(key="thermal") {
-            Panel("Thermals & connection","System",{navigate(2)}) {
-                DataLine("Thermal status",live.thermal.value("Thermal throttling status"))
-                live.thermal.rows.drop(1).take(4).forEach{DataLine(it.label,it.value)}
-                DataLine("Network",live.connection.value("Connection"))
-            }
-        }
     }
-    item(key="quick") {
-        Panel("Quick details","System",{navigate(2)}) {
-            DataLine("Device",Build.DEVICE)
-            DataLine("Build",Build.DISPLAY)
-            DataLine("Security patch",Build.VERSION.SECURITY_PATCH)
-            DataLine("ABI",Build.SUPPORTED_ABIS.firstOrNull()?:UNKNOWN)
-        }
-    }
+
 }
 
 @Composable
@@ -160,8 +106,8 @@ private fun SummaryTile(label:String,value:String,subtitle:String,modifier:Modif
                 DeviceGlyph(when(label){"Processor"->R.drawable.ic_device_cpu;"Graphics"->R.drawable.ic_device_gpu;"Display"->R.drawable.ic_device_display;else->R.drawable.ic_device_thermal},modifier=Modifier.size(18.dp))
                 Text(tr(label),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(value,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Medium)
-            Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tr(value.takeUnless{it==UNKNOWN}?:"—"),style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Medium,maxLines=2,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            if(subtitle.isNotBlank()&&subtitle!=UNKNOWN)Text(tr(subtitle),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2)
         }
     }
 }

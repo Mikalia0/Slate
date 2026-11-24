@@ -8,6 +8,13 @@ import androidx.compose.ui.res.stringResource
 @Composable
 internal fun tr(value:String):String {
     val id=when(value){
+        "Technical details" -> R.string.hardware_technical
+        "Cached RAM" -> R.string.hardware_cached
+        "Free RAM" -> R.string.hardware_free
+        "Swap used" -> R.string.hardware_swap_used
+        "Swap total" -> R.string.hardware_swap_total
+        "zRAM capacity" -> R.string.hardware_zram
+        "HDR formats" -> R.string.hardware_hdr
         "Dynamic colors" -> R.string.ui_001
         "Use your wallpaper colors" -> R.string.ui_002
         "Welcome to Slate" -> R.string.ui_003

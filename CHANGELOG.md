@@ -2,6 +2,13 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Device information redesign
+
+- Redesign CPU, GPU, memory, display, thermal, storage and network sections around visual summaries and compact metrics.
+- Move verbose driver, system and sensor details behind expandable sections and hide unavailable readings.
+- Remove duplicated detail panels from device overview while preserving live usage indicators.
+- Show cached/free RAM, swap and zRAM when the OS exposes them; show storage usage per volume and named HDR formats.
+
 ## 0.5.0-dev — Cache review and update notes
 
 - Analyze app caches and review each app, estimated size and selection before cleaning.

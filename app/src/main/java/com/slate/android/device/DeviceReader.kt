@@ -27,7 +27,7 @@ internal fun batteryWatts(currentUa:Int?, voltageMv:Int?):Double? =
     if(currentUa==null || currentUa==Int.MIN_VALUE || voltageMv==null || voltageMv<=0) null
     else kotlin.math.abs(currentUa.toDouble())*voltageMv/1_000_000_000.0
 internal data class Info(val label: String, val value: String)
-internal data class Section(val title: String, val rows: List<Info>)
+internal data class Section(val title: String, val rows: List<Info>, val fraction:Float?=null)
 internal data class Meter(val title: String, val value: String, val subtitle: String, val fraction: Float?)
 internal data class LiveInfo(val meters: List<Meter>, val cpu: Section, val memory: Section, val battery: Section, val uptime: Section, val gpu: Section, val thermal: Section, val connection: Section, val display: Section, val cores: List<CoreReading>)
 internal data class StaticInfo(val hardware: List<Section>, val system: List<Section>, val sensors: List<Section>, val cameras: List<Section>)
@@ -112,6 +112,27 @@ internal class DeviceReader(private val context: Context) {
     }
     private fun Intent?.int(key: String): Int? = this?.takeIf { it.hasExtra(key) }?.getIntExtra(key, Int.MIN_VALUE)?.takeUnless { it == Int.MIN_VALUE }
 
+    private fun memoryDetails():List<Info> {
+        val values=runCatching {
+            File("/proc/meminfo").useLines { lines ->
+                lines.mapNotNull { line ->
+                    val key=line.substringBefore(':')
+                    val kb=line.substringAfter(':',"").trim().substringBefore(' ').toLongOrNull()
+                    if(kb!=null && kb>=0 && kb<=Long.MAX_VALUE/1024) key to kb*1024 else null
+                }.toMap()
+            }
+        }.getOrDefault(emptyMap())
+        val swap=values["SwapTotal"]
+        val swapFree=values["SwapFree"]
+        val zram=number("/sys/block/zram0/disksize")?.takeIf{it>0}
+        return listOf(
+            info("Cached RAM",values["Cached"]?.let(::fmt)),
+            info("Free RAM",values["MemFree"]?.let(::fmt)),
+            info("Swap used",if(swap!=null&&swapFree!=null&&swap>0)fmt((swap-swapFree).coerceAtLeast(0)) else null),
+            info("Swap total",swap?.takeIf{it>0}?.let(::fmt)),
+            info("zRAM capacity",zram?.let(::fmt))
+        )
+    }
     fun live(): LiveInfo {
         val activity = context.getSystemService(ActivityManager::class.java)
         val memory = ActivityManager.MemoryInfo()
@@ -173,7 +194,7 @@ internal class DeviceReader(private val context: Context) {
             Meter("Storage", if (total > 0) fmt(storageUsed) else UNKNOWN, "of " + fmt(total), ratio(storageUsed, total)),
             Meter("Battery", percent?.let { "$it%" } ?: UNKNOWN, listOfNotNull(temp, status(intent.int(BatteryManager.EXTRA_STATUS))).joinToString(" · "), percent?.div(100f)),
             Meter("Uptime", duration(elapsed), "Deep sleep " + duration(elapsed - awake), ratio((elapsed - awake).coerceAtLeast(0), elapsed))
-        ), Section("CPU frequencies", cpu), Section("Memory", listOf(info("Total RAM", fmt(memory.totalMem)), info("Available RAM", fmt(memory.availMem)), info("Used RAM (estimate)", fmt(used)), info("Low memory", memory.lowMemory))),
+        ), Section("CPU frequencies", cpu), Section("Memory", listOf(info("Total RAM", fmt(memory.totalMem)), info("Available RAM", fmt(memory.availMem)), info("Used RAM (estimate)", fmt(used)), info("Low memory", memory.lowMemory))+memoryDetails()),
             Section("Battery", batteryRows), Section("Uptime", listOf(info("Since boot", duration(elapsed)), info("Awake", duration(awake)), info("Deep sleep (estimate)", duration(elapsed - awake)))), gpuLive(), thermalLive(), network(), displayLive(), cores)
     }
 
@@ -194,7 +215,7 @@ internal class DeviceReader(private val context: Context) {
         display?.getRealMetrics(metrics)
         val displays = listOf(info("Physical mode", mode?.let { "${it.physicalWidth} × ${it.physicalHeight}" }), info("Refresh rate", mode?.let { decimal(it.refreshRate.toDouble(), "Hz") }),
             info("Supported refresh rates", display?.supportedModes?.map { it.refreshRate }?.distinct()?.sorted()?.joinToString { decimal(it.toDouble(), "Hz") }),
-            info("Density", metrics.densityDpi.takeIf { it > 0 }?.let { "$it dpi" }), info("HDR types (Android IDs)", display?.hdrCapabilities?.supportedHdrTypes?.joinToString()))
+            info("Density", metrics.densityDpi.takeIf { it > 0 }?.let { "$it dpi" }), info("HDR formats", display?.hdrCapabilities?.supportedHdrTypes?.map { when(it){1->"Dolby Vision";2->"HDR10";3->"HLG";4->"HDR10+";else->"HDR ($it)"} }?.joinToString()?.ifBlank { "None" }))
         val hardware = listOf(Section("Processor", cpu), Section("Graphics", listOf(info("GPU renderer", gpu.renderer), info("Vendor", gpu.vendor),
             info("OpenGL ES", gpu.version), info("GL extensions (current context)", gpu.extensions),
             info("Vulkan support", context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_VULKAN_HARDWARE_VERSION)),
@@ -236,7 +257,7 @@ internal class DeviceReader(private val context: Context) {
         val total = volume.root.totalSpace
         val available = volume.root.usableSpace
         Section(volume.label, listOf(info("Capacity", if (total > 0) fmt(total) else null), info("Used", if (total > 0) fmt((total - available).coerceAtLeast(0)) else null),
-            info("Available", if (total > 0) fmt(available) else null), info("Mount path", volume.root.path)))
+            info("Available", if (total > 0) fmt(available) else null), info("Mount path", volume.root.path)),ratio((total-available).coerceAtLeast(0),total))
     }
 
     fun network(): Section {
