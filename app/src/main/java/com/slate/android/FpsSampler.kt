@@ -10,11 +10,12 @@ import com.slate.android.storage.shizukuGranted
 import kotlinx.coroutines.*
 import rikka.shizuku.Shizuku
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.FutureTask
 
 internal fun focusedPackage(dump:String):String? {
     val component=Regex("""(?:^|[ {])([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+)/[A-Za-z0-9_.$]+""")
-    return dump.lineSequence().filter{it.contains("mCurrentFocus=")||it.contains("mFocusedApp=")}
-        .sortedBy{if(it.contains("mCurrentFocus="))0 else 1}
+    return dump.lineSequence().filter{it.contains("mCurrentFocus=")||it.contains("mFocusedApp=")||it.contains("mResumedActivity")||it.contains("topResumedActivity")}
+        .sortedBy{when{it.contains("mCurrentFocus=")->0;it.contains("mFocusedApp=")->1;else->2}}
         .mapNotNull{component.find(it)?.groupValues?.get(1)}.firstOrNull()
 }
 internal fun belongsToLayer(layer:String,pkg:String):Boolean =
@@ -23,7 +24,23 @@ internal fun presentedFrames(raw:String):List<Long> = raw.lineSequence().mapNotN
     val columns=line.trim().split(Regex("\\s+"))
     if(columns.size!=3)null else columns[1].toLongOrNull()?.takeIf{it>0&&it<Long.MAX_VALUE}
 }.distinct().sorted().toList()
-internal fun layerPriority(layer:String):Int = if(layer.contains("SurfaceView",true)) 2 else if(layer.contains("BLAST",true)) 1 else 0
+internal fun layerPriority(layer:String):Int = when {
+    layer.contains("SurfaceView",true)&&layer.contains("BLAST",true)->3
+    layer.contains("SurfaceView",true)->2
+    layer.contains("BLAST",true)->1
+    else->0
+}
+internal fun renderLayer(layer:String,pkg:String):Boolean=belongsToLayer(layer,pkg)&&
+    listOf("Background for","Splash Screen","Input Consumer","Dim Layer","SnapshotStartingWindow","TaskSnapshot","Letterbox").none{layer.contains(it,true)}
+internal fun recentFrames(timestamps:Collection<Long>,now:Long):List<Long> =
+    timestamps.filter{it in (now-1_000_000_000L)..(now+50_000_000L)}.distinct().sorted()
+internal fun measuredFrameRate(timestamps:Collection<Long>,now:Long):Double?{
+    val recent=recentFrames(timestamps,now)
+    if(recent.size<2||now-recent.last()>350_000_000L)return null
+    val span=recent.last()-recent.first()
+    if(span<100_000_000L)return null
+    return ((recent.size-1)*1_000_000_000.0/span).takeIf{it.isFinite()&&it in 0.0..1000.0}
+}
 internal data class LayerCount(val name:String,val count:Long)
 internal fun timeStatsLayers(raw:String):List<LayerCount>{
     val output=mutableListOf<LayerCount>()
@@ -68,6 +85,11 @@ class FpsUserService:IFpsService.Stub(){
     private var wantsFrames=false
     private var pkg:String?=null
     private var focusAt=0L
+    private var lastFocusSuccess=0L
+    private var lastLatencyProbe=0L
+    private var lastStatsEnable=0L
+    private var statsMisses=0
+    private var preferredLayer:String?=null
     private var layers=emptyList<String>()
     private var layerAt=0L
     private var latencyFailures=0
@@ -79,19 +101,63 @@ class FpsUserService:IFpsService.Stub(){
     private fun command(vararg args:String):String{
         check(android.os.Process.myUid() in listOf(0,2000))
         val proc=ProcessBuilder(listOf("/system/bin/dumpsys","-t","2")+args).redirectErrorStream(true).start()
-        return try{
-            val text=proc.inputStream.bufferedReader().use{reader->
+        val reader=FutureTask<String>{
+            proc.inputStream.bufferedReader().use{input->
                 val out=StringBuilder();val buf=CharArray(4096)
-                while(true){val n=reader.read(buf);if(n<0)break;if(out.length+n>2_000_000)error("dump too large");out.append(buf,0,n)}
+                while(true){val n=input.read(buf);if(n<0)break;if(out.length+n>4_000_000)error("dump too large");out.append(buf,0,n)}
                 out.toString()
             }
+        }
+        Thread(reader,"slate-fps-dump").apply{isDaemon=true;start()}
+        return try{
             check(proc.waitFor(3,TimeUnit.SECONDS)&&proc.exitValue()==0)
-            text
-        }finally{if(proc.isAlive)proc.destroyForcibly()}
+            reader.get(500,TimeUnit.MILLISECONDS)
+        }finally{if(proc.isAlive)proc.destroyForcibly();reader.cancel(true)}
     }
+    private fun dump(vararg args:String):String?=runCatching{command(*args)}.getOrNull()
     private fun reset(){
         layers=emptyList();layerAt=0;frames.clear();latencyFailures=0
-        statsPrevious=emptyMap();statsAt=0
+        preferredLayer=null;lastLatencyProbe=0L;statsMisses=0
+        statsPrevious=emptyMap();statsAt=0;timeStats=false
+    }
+    private fun latency(target:String,now:Long):Double?{
+        if(layerAt==0L||now-layerAt>=2500){
+            val listed=dump("SurfaceFlinger","--list")
+            if(listed!=null){
+                layers=listed.lineSequence().map{it.trim()}.filter{renderLayer(it,target)}
+                    .distinct().sortedByDescending(::layerPriority).take(16).toList()
+                frames.keys.retainAll(layers.toSet())
+                if(preferredLayer !in layers)preferredLayer=null
+                layerAt=now
+            }
+        }
+        val candidates=(listOfNotNull(preferredLayer)+layers).distinct()
+        val bestCandidates=mutableListOf<Pair<String,Double>>()
+        // A working surface is sampled first; scan other candidates only on loss.
+        for(layer in candidates.take(if(preferredLayer!=null)1 else 8)){
+            val timestamps=dump("SurfaceFlinger","--latency",layer)?.let(::presentedFrames).orEmpty()
+            val clock=System.nanoTime()
+            val history=frames.getOrPut(layer){mutableSetOf()}
+            history.addAll(recentFrames(timestamps,clock))
+            history.retainAll(recentFrames(history,clock).toSet())
+            val rate=measuredFrameRate(history,clock)
+            if(rate!=null)bestCandidates.add(layer to rate)
+        }
+        val best=bestCandidates.maxWithOrNull(compareBy<Pair<String,Double>>{layerPriority(it.first)}.thenBy{it.second})
+        if(best==null){
+            if(preferredLayer!=null){frames.remove(preferredLayer);preferredLayer=null}
+            layerAt=0
+            return null
+        }
+        preferredLayer=best.first
+        if(wantsFrames)frameHistory=frameIntervals(frames[best.first].orEmpty())
+        return best.second
+    }
+    private fun ensureStats(now:Long){
+        if(lastStatsEnable!=0L&&now-lastStatsEnable<8000)return
+        lastStatsEnable=now
+        // Do not disable or clear counters already owned by another consumer.
+        if(dump("SurfaceFlinger","--timestats","-enable")!=null)startedStats=true
     }
     @Synchronized override fun sample(includeCpu:Boolean,includeFrames:Boolean):Array<String>{
         wantsFrames=includeFrames;frameHistory=emptyList()
@@ -103,41 +169,36 @@ class FpsUserService:IFpsService.Stub(){
     private fun sampleFps():Array<String>{
         val now=SystemClock.elapsedRealtime()
         if(focusAt==0L||now-focusAt>=1000){
-            val found=focusedPackage(command("window","displays"))?:focusedPackage(command("window","windows"))
-            if(found!=pkg){pkg=found;reset()}
+            val found=dump("window","displays")?.let(::focusedPackage)
+                ?:dump("window","windows")?.let(::focusedPackage)
+                ?:dump("activity","activities")?.let(::focusedPackage)
+            if(found!=null){
+                lastFocusSuccess=now
+                if(found!=pkg){pkg=found;reset()}
+            }else if(now-lastFocusSuccess>4000){pkg=null;reset()}
             focusAt=now
         }
         val target=pkg?:return arrayOf("","")
         if(target=="com.slate.android"||target=="moe.shizuku.privileged.api")return arrayOf(target,"")
-        if(!timeStats){
-            if(layerAt==0L||now-layerAt>=3000){
-                layers=command("SurfaceFlinger","--list").lineSequence().map{it.trim()}
-                    .filter{belongsToLayer(it,target)&&!it.contains("Background for")&&!it.contains("Splash Screen")&&!it.contains("Input Consumer")}
-                    .sortedByDescending(::layerPriority).take(4).toList()
-                frames.keys.retainAll(layers.toSet());layerAt=now
+        // Retry the primary source even after switching to cumulative counters.
+        if(!timeStats||lastLatencyProbe==0L||now-lastLatencyProbe>=5000){
+            lastLatencyProbe=now
+            val rate=latency(target,now)
+            if(rate!=null){
+                latencyFailures=0;timeStats=false;statsMisses=0
+                statsPrevious=emptyMap();statsAt=0
+                return arrayOf(target,rate.toString())
             }
-            val result=mutableListOf<Pair<String,Double>>()
-            for(layer in layers){
-                val timestamps=presentedFrames(command("SurfaceFlinger","--latency",layer))
-                if(timestamps.isEmpty())continue
-                val current=System.nanoTime()
-                val history=frames.getOrPut(layer){mutableSetOf()}
-                history.addAll(timestamps.filter{it<=current+50_000_000L&&it>=current-1_100_000_000L})
-                history.removeAll{it<current-1_000_000_000L}
-                if(history.isNotEmpty())result.add(layer to history.size.toDouble())
-            }
-            val best=result.filter{it.second>0}.maxWithOrNull(compareBy<Pair<String,Double>>{layerPriority(it.first)}.thenBy{it.second})
-            if(best!=null){latencyFailures=0;if(wantsFrames)frameHistory=frameIntervals(frames[best.first].orEmpty());return arrayOf(target,best.second.toString())}
-            if(++latencyFailures<3)return arrayOf(target,"")
-            timeStats=true
-            val existing=timeStatsLayers(command("SurfaceFlinger","--timestats","-dump"))
-            if(existing.isEmpty()){
-                command("SurfaceFlinger","--timestats","-enable")
-                startedStats=true
-            }
+            if(++latencyFailures>=2)timeStats=true
         }
-        val current=timeStatsLayers(command("SurfaceFlinger","--timestats","-dump"))
-            .filter{belongsToLayer(it.name,target)&&!it.name.contains("Background for")&&!it.name.contains("Splash Screen")}
+        if(!timeStats)return arrayOf(target,"")
+        val current=dump("SurfaceFlinger","--timestats","-dump")?.let(::timeStatsLayers)
+            ?.filter{renderLayer(it.name,target)}.orEmpty()
+        if(current.isEmpty()){
+            statsPrevious=emptyMap();statsAt=0
+            ensureStats(now)
+            return arrayOf(target,"")
+        }
         val sampleAt=System.nanoTime()
         val elapsed=sampleAt-statsAt
         val values=if(statsAt==0L)emptyList()else current.mapNotNull{layer->
@@ -145,17 +206,20 @@ class FpsUserService:IFpsService.Stub(){
         }
         statsPrevious=current.associate{it.name to it.count};statsAt=sampleAt
         val best=values.filter{it.second>0}.maxWithOrNull(compareBy<Pair<String,Double>>{layerPriority(it.first)}.thenBy{it.second})
-        return arrayOf(target,best?.second?.toString()?:"")
+        if(best!=null){statsMisses=0;return arrayOf(target,best.second.toString())}
+        if(++statsMisses>=3){ensureStats(now);statsMisses=0;lastLatencyProbe=0L}
+        // A measured unchanged counter is zero, not an unavailable sample.
+        return arrayOf(target,if(values.any{it.second==0.0})"0"else "")
     }
     @Synchronized override fun finish(){
-        if(startedStats)runCatching{command("SurfaceFlinger","--timestats","-disable")}
-        startedStats=false;timeStats=false;reset();pkg=null;focusAt=0;previousCpu=null;frameHistory=emptyList()
+        // TimeStats is shared system state. Leave it intact instead of disabling another monitor.
+        startedStats=false;timeStats=false;reset();pkg=null;focusAt=0;lastFocusSuccess=0;lastStatsEnable=0;previousCpu=null;frameHistory=emptyList()
     }
     override fun destroy(){finish();kotlin.system.exitProcess(0)}
 }
 internal suspend fun withFpsService(context:Context,block:suspend(IFpsService)->Unit){
     check(shizukuGranted())
-    val args=Shizuku.UserServiceArgs(ComponentName(context,FpsUserService::class.java)).daemon(false).processNameSuffix("fps_service").version(2)
+    val args=Shizuku.UserServiceArgs(ComponentName(context,FpsUserService::class.java)).daemon(false).processNameSuffix("fps_service").version(3)
     val ready=CompletableDeferred<IFpsService>()
     var remote:IFpsService?=null
     val connection=object:ServiceConnection{

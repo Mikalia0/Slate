@@ -54,26 +54,41 @@ class PerformanceOverlayService:Service(){
         try{wm.addView(text,params);view=text;running=true}
         catch(_:Exception){stopSelf();return START_NOT_STICKY}
         scope.launch{
+            var retryMs=500L
             try{
-                withFpsService(applicationContext){service->
+                while(currentCoroutineContext().isActive&&Settings.canDrawOverlays(this@PerformanceOverlayService)){
+                    if(!shizukuGranted()){
+                        fps=null;PerformanceOverlayService.packageName=null
+                        delay(1000);continue
+                    }
+                    try{
+                        withFpsService(applicationContext){service->
                     while(currentCoroutineContext().isActive){
                         if(!shizukuGranted()||!Settings.canDrawOverlays(this@PerformanceOverlayService))break
                         val mask=prefs.getInt("metrics",HUD_DEFAULT).and(HUD_ALL).let{if(it==0)HUD_MINIMAL else it}
-                        val sample=runCatching{service.sample(mask.shows(HudMetric.CPU),mask.shows(HudMetric.FRAMES))}.getOrNull()
+                        if(!service.asBinder().isBinderAlive)throw android.os.DeadObjectException()
+                        val sample=service.sample(mask.shows(HudMetric.CPU),mask.shows(HudMetric.FRAMES))
+                        retryMs=500L
                         val app=sample?.getOrNull(0)?.takeIf{it.isNotBlank()}
                         val rate=sample?.getOrNull(1)?.toDoubleOrNull()?.takeIf{it.isFinite()&&it in 0.0..1000.0}?.roundToInt()?.toString()
                         val intervals=sample?.getOrNull(3)?.split(',')?.mapNotNull{it.toDoubleOrNull()?.takeIf{n->n.isFinite()&&n>0&&n<=1000}}.orEmpty()
-                        val rows=metrics.read(mask,sample?.getOrNull(2))
+                        val rows=runCatching{metrics.read(mask,sample?.getOrNull(2))}.getOrDefault(emptyList())
                         withContext(Dispatchers.Main){
                             PerformanceOverlayService.packageName=app;fps=rate
                             text.update(mask,HudSnapshot(rate,app,intervals,rows),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f))
                         }
-                        delay(500)
+                        delay(350)
+                    }
+                        }
+                    }catch(e:CancellationException){throw e}
+                    catch(_:Exception){
+                        fps=null;PerformanceOverlayService.packageName=null
+                        val mask=prefs.getInt("metrics",HUD_DEFAULT).and(HUD_ALL).let{if(it==0)HUD_MINIMAL else it}
+                        text.update(mask,HudSnapshot(),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f))
+                        delay(retryMs);retryMs=(retryMs*2).coerceAtMost(8000L)
                     }
                 }
-            }catch(e:CancellationException){throw e}
-            catch(_:Exception){withContext(Dispatchers.Main){fps=null}}
-            finally{stopSelf()}
+            }finally{stopSelf()}
         }
         return START_NOT_STICKY
     }

@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — FPS monitor recovery
+
+- Re-discover changed game surfaces and periodically retry presentation timestamps after falling back to cumulative counters.
+- Recover from missing focus, failed dumps and disconnected Shizuku services without closing the floating HUD.
+- Reject stale timestamps and distinguish measured zero FPS from unavailable samples.
+
 ## 0.5.0-dev — App language
 
 - Add a persistent per-app language selector with system default, English, Brazilian Portuguese, Spanish, French, Italian and Russian.
