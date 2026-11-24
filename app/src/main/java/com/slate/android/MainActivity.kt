@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
             var dynamic by remember { mutableStateOf(prefs.getBoolean("dynamic",false)) }
             var setup by remember { mutableStateOf(prefs.getBoolean("setup",false)) }
             var settings by rememberSaveable { mutableStateOf(false) }
+            var manualUpdateRequest by remember { mutableIntStateOf(0) }
             val onMode: (SlateTheme)->Unit = { mode=it; prefs.edit().putString("theme",it.name).apply() }
             val onDynamic: (Boolean)->Unit = { dynamic=it; prefs.edit().putBoolean("dynamic",it).apply() }
             SlateAppearance(mode,dynamic,this@MainActivity) {
@@ -89,13 +90,14 @@ class MainActivity : ComponentActivity() {
                                 HorizontalDivider()
                                 ListItem(headlineContent={Text("Storage access")},supportingContent={Text(if(granted)"Granted" else "Not granted")},trailingContent={TextButton(onClick=::requestStorage){Text("Manage")}})
                                 HorizontalDivider()
-                                UpdateSettings()
+                                UpdateSettings(onCheck={manualUpdateRequest++})
                                 Text("GPL-3.0-only")
                             }
                         }
                     }
                     else -> Slate(granted, volumes, ::requestStorage, onSettings={settings=true})
                 }
+                if(setup) UpdatePrompt(manualUpdateRequest)
             }
         }
     }

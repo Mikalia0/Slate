@@ -11,6 +11,11 @@ import android.os.Build
 import android.provider.Settings
 import android.text.format.Formatter
 import androidx.core.content.FileProvider
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.withResumed
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
@@ -184,75 +189,139 @@ private fun openInstaller(context: Context, apk: File) {
 }
 
 @Composable
-internal fun UpdateSettings() {
+internal fun UpdateSettings(onCheck: () -> Unit) {
     val context = LocalContext.current
     val installed = remember { context.packageManager.getPackageInfo(context.packageName,0) }
-    val version = packageVersion(installed)
-    val scope = rememberCoroutineScope()
-    var update by remember { mutableStateOf<Update?>(null) }
-    var apk by remember { mutableStateOf<File?>(null) }
-    var busy by remember { mutableStateOf(false) }
-    var received by remember { mutableLongStateOf(0L) }
-    var downloading by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<String?>(null) }
-    var job by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     Text("Updates",style=MaterialTheme.typography.titleMedium)
     Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Text("Slate ${installed.versionName.orEmpty()}",style=MaterialTheme.typography.titleMedium)
-            Text("Build $version · GitHub releases",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            update?.let { candidate ->
-                Text("Update available · build ${candidate.code}",style=MaterialTheme.typography.titleSmall,color=MaterialTheme.colorScheme.primary)
-                Text(Formatter.formatFileSize(context,candidate.size),style=MaterialTheme.typography.bodySmall)
+            Text("Build ${packageVersion(installed)} · GitHub releases",style=MaterialTheme.typography.bodySmall)
+            Text("Checks for updates when Slate opens.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedButton(onClick=onCheck,modifier=Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.Refresh,null,Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Check for updates")
             }
-            if(busy) {
-                if(downloading && update!=null) {
-                    LinearProgressIndicator(progress={ (received.toDouble()/update!!.size).toFloat().coerceIn(0f,1f) },modifier=Modifier.fillMaxWidth())
-                    Text(Formatter.formatFileSize(context,received)+" / "+Formatter.formatFileSize(context,update!!.size),style=MaterialTheme.typography.bodySmall)
-                } else LinearProgressIndicator(Modifier.fillMaxWidth())
-            }
-            message?.let { Text(it,style=MaterialTheme.typography.bodySmall) }
-            if(!busy) {
-                if(apk!=null && update!=null) {
-                    Button(onClick={
-                        try {
-                            if(!context.packageManager.canRequestPackageInstalls()) {
-                                context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+context.packageName)))
-                                message="Allow Slate to install apps, then return and tap Install."
-                            } else {
-                                openInstaller(context,apk!!)
-                                message="Confirm the update in Android's installer."
-                            }
-                        } catch(e:Exception) { message=e.message ?: "Unable to open installer" }
-                    },modifier=Modifier.fillMaxWidth()) { Text("Install update") }
-                } else if(update!=null) {
-                    Button(onClick={
-                        val candidate=update!!
-                        busy=true; downloading=true; received=0L; message=null
-                        job=scope.launch {
-                            try {
-                                apk=download(context,candidate){ bytes -> withContext(Dispatchers.Main.immediate){received=bytes} }
-                                message="Download verified. Ready to install."
-                            } catch(e:CancellationException){throw e}
-                            catch(e:Exception){message=e.message ?: "Download failed"}
-                            finally{busy=false;downloading=false}
-                        }
-                    },modifier=Modifier.fillMaxWidth()){Text("Download update")}
-                }
-                OutlinedButton(onClick={
-                    busy=true;downloading=false;message=null;update=null;apk=null
-                    job=scope.launch {
-                        try {
-                            update=findUpdate(version)
-                            if(update==null) message="You're up to date."
-                        } catch(e:CancellationException){throw e}
-                        catch(e:Exception){message=e.message ?: "Unable to check for updates"}
-                        finally{busy=false}
-                    }
-                },modifier=Modifier.fillMaxWidth()){
-                    Icon(Icons.Default.Refresh,null,Modifier.size(18.dp));Spacer(Modifier.width(8.dp));Text("Check for updates")
-                }
-            } else OutlinedButton(onClick={job?.cancel();message="Cancelled"}){Text("Cancel")}
         }
     }
+}
+
+@Composable
+internal fun UpdatePrompt(manualRequest: Int) {
+    val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val installed = remember { packageVersion(context.packageManager.getPackageInfo(context.packageName,0)) }
+    val scope = rememberCoroutineScope()
+    var candidate by remember { mutableStateOf<Update?>(null) }
+    var apk by remember { mutableStateOf<File?>(null) }
+    var visible by remember { mutableStateOf(false) }
+    var checking by remember { mutableStateOf(false) }
+    var downloading by remember { mutableStateOf(false) }
+    var received by remember { mutableLongStateOf(0L) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var job by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+    fun installVerified(file: File) {
+        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            message = "Download verified. Tap Install to continue."
+            return
+        }
+        try {
+            openInstaller(context,file)
+            message = "Confirm the update in Android's installer."
+        } catch(e:Exception) {
+            message = e.message ?: "Unable to open installer"
+        }
+    }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if(context.packageManager.canRequestPackageInstalls()) {
+            // The settings activity may deliver its result before ON_RESUME.
+            val file=apk
+            if(file!=null) scope.launch {
+                try {
+                    lifecycle.withResumed { openInstaller(context,file) }
+                    message="Confirm the update in Android's installer."
+                } catch(e:CancellationException){throw e}
+                catch(e:Exception){message=e.message ?: "Unable to open installer"}
+            }
+        } else message="Allow app installation to continue."
+    }
+    fun install(file: File) {
+        try {
+            if(!context.packageManager.canRequestPackageInstalls()) {
+                message="Allow Slate to install apps, then return to continue."
+                permission.launch(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+context.packageName)))
+            } else installVerified(file)
+        } catch(e:Exception) { message=e.message ?: "Unable to open installer" }
+    }
+    fun check(manual: Boolean) {
+        if(checking || downloading) { if(manual) visible=true; return }
+        if(manual && candidate!=null) { visible=true; return }
+        checking=true
+        message=null
+        if(manual)visible=true
+        job=scope.launch {
+            try {
+                candidate=findUpdate(installed)
+                apk=null
+                if(candidate!=null) visible=true
+                else if(manual) message="You're up to date."
+            } catch(e:CancellationException){throw e}
+            catch(e:Exception){ if(manual || visible) message=e.message ?: "Unable to check for updates" }
+            finally{checking=false}
+        }
+    }
+    // One quiet startup check per Activity composition; explicit checks remain available.
+    LaunchedEffect(manualRequest) { check(manualRequest>0) }
+
+    if(visible) AlertDialog(
+        onDismissRequest={if(!downloading && !checking) visible=false},
+        title={Text(if(candidate!=null) "Update available" else "Slate updates")},
+        text={
+            Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                candidate?.let {
+                    Text("A newer version of Slate is available.")
+                    Text("Build ${it.code} · ${Formatter.formatFileSize(context,it.size)}",style=MaterialTheme.typography.bodyMedium)
+                }
+                if(checking) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                    Text("Checking for updates…")
+                }
+                if(downloading) {
+                    val total=candidate?.size ?: 1L
+                    LinearProgressIndicator(progress={(received.toDouble()/total).toFloat().coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())
+                    Text(Formatter.formatFileSize(context,received)+" / "+Formatter.formatFileSize(context,total))
+                }
+                message?.let { Text(it,style=MaterialTheme.typography.bodySmall) }
+            }
+        },
+        confirmButton={
+            if(!checking && !downloading) {
+                val file=apk
+                val update=candidate
+                if(file!=null) TextButton(onClick={install(file)}){Text("Install")}
+                else if(update!=null) TextButton(onClick={
+                    received=0L; downloading=true; message=null
+                    job=scope.launch {
+                        try {
+                            val result=download(context,update){bytes->withContext(Dispatchers.Main.immediate){received=bytes}}
+                            apk=result
+                            message="Download verified."
+                            install(result)
+                        } catch(e:CancellationException){throw e}
+                        catch(e:Exception){message=e.message ?: "Download failed"}
+                        finally{downloading=false}
+                    }
+                }){Text("Download & install")}
+                else TextButton(onClick={visible=false}){Text("OK")}
+            }
+        },
+        dismissButton={
+            TextButton(onClick={
+                if(downloading || checking){job?.cancel();message="Cancelled"}
+                else visible=false
+            }){Text(if(downloading || checking)"Cancel" else if(candidate!=null)"Later" else "Close")}
+        }
+    )
 }
