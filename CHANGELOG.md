@@ -1,0 +1,18 @@
+# Changelog
+
+Changes are listed newest first. Each signed development release also includes changes since the previous build.
+
+## 0.5.0-dev — Cache review and update notes
+
+- Analyze app caches and review each app, estimated size and selection before cleaning.
+- Show unmeasured apps, require a separate confirmation and report cleanup progress/results.
+- Remove fixed 1/2/5 GB cache trimming controls.
+- Include app storage on adopted volumes when Android exposes statistics.
+- Show release changelogs in the in-app updater and publish notes with every new signed APK.
+- Refresh the development roadmap with priorities for cleanup, app management, storage and diagnostics.
+
+## 0.5.0-dev — Shizuku access
+
+- Add optional Shizuku setup to onboarding and Settings.
+- Add app-cache cleanup using Android cache-only operations with Shizuku.
+- Improve the Home dashboard and storage/device navigation.

@@ -12,7 +12,23 @@
     <string name="cache_requires_shizuku">Requer Shizuku (ADB ou root).</string>
     <string name="cache_progress">%1$d de %2$d apps</string>
     <string name="cache_all_confirmation">Limpar o cache de todos os apps instalados, incluindo os do sistema, neste perfil do Android? Dados, contas e configurações não serão limpos. Os apps podem recriar seus caches.</string>
-    <string name="cache_only_unsupported">Esta versão do Android não oferece limpeza individual apenas de cache. Use a limpeza avançada nas Configurações.</string>
+    <string name="cache_only_unsupported">Esta versão do Android não oferece limpeza individual apenas de cache. Nenhum arquivo foi apagado.</string>
     <string name="cache_all_result">%1$d apps processados com sucesso · %2$d falharam. Espaço livre aumentou em %3$s.</string>
     <string name="cache_all_interrupted">Limpeza interrompida após %1$d de %2$d apps. Verifique o Shizuku e tente novamente.</string>
+    <string name="cache_analyze">Analisar cache dos apps</string>
+    <string name="cache_scanning">Analisando cache dos apps…</string>
+    <string name="cache_review">Revisar cache dos apps</string>
+    <string name="cache_selected">%1$d selecionados · %2$s estimados</string>
+    <string name="cache_estimate">Somente os apps selecionados serão limpos. O Android informa tamanhos de cache, não arquivos privados individuais. Os tamanhos podem mudar antes da limpeza.</string>
+    <string name="cache_skipped">%1$d apps não puderam ser medidos ou selecionados com segurança e serão ignorados.</string>
+    <string name="cache_select_all">Selecionar todos</string>
+    <string name="cache_select_none">Desmarcar todos</string>
+    <string name="cache_system_app">App do sistema</string>
+    <string name="cache_continue">Continuar</string>
+    <string name="cache_confirm_title">Limpar caches selecionados</string>
+    <string name="cache_confirm_selected">Limpar o cache destes %1$d apps (estimativa de %2$s)? Dados, contas e configurações não serão limpos. Os caches podem ser recriados.</string>
+    <string name="cache_back">Voltar à revisão</string>
+    <string name="cache_none">Nenhum cache mensurável encontrado. Apps não medidos: %1$d.</string>
+    <string name="cache_scan_failed">Não foi possível analisar os caches. Verifique o acesso de uso e o Shizuku.</string>
+    <string name="update_whats_new">Novidades da atualização</string>
 </resources>

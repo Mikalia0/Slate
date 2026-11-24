@@ -12,7 +12,23 @@
     <string name="cache_requires_shizuku">Requires Shizuku (ADB or root).</string>
     <string name="cache_progress">%1$d of %2$d apps</string>
     <string name="cache_all_confirmation">Clear caches of all installed apps, including system apps, in this Android profile? App data, accounts and settings are not targeted. Apps may recreate their caches.</string>
-    <string name="cache_only_unsupported">This Android build does not expose cache-only clearing. Use advanced cache cleanup in Settings instead.</string>
+    <string name="cache_only_unsupported">This Android build does not expose cache-only clearing. No files were deleted.</string>
     <string name="cache_all_result">%1$d apps processed successfully · %2$d failed. Free space increased by %3$s.</string>
     <string name="cache_all_interrupted">Cleanup interrupted after %1$d of %2$d apps. Check Shizuku and try again.</string>
+    <string name="cache_analyze">Analyze app caches</string>
+    <string name="cache_scanning">Analyzing app caches…</string>
+    <string name="cache_review">Review app caches</string>
+    <string name="cache_selected">%1$d selected · %2$s estimated</string>
+    <string name="cache_estimate">Only selected apps will be targeted. Android reports cache sizes, not individual private files. Sizes may change before cleanup.</string>
+    <string name="cache_skipped">%1$d apps could not be measured or safely selected and will be skipped.</string>
+    <string name="cache_select_all">Select all</string>
+    <string name="cache_select_none">Deselect all</string>
+    <string name="cache_system_app">System app</string>
+    <string name="cache_continue">Continue</string>
+    <string name="cache_confirm_title">Clear selected caches</string>
+    <string name="cache_confirm_selected">Clear cache for these %1$d apps (estimated %2$s)? App data, accounts and settings are not targeted. Caches may be recreated.</string>
+    <string name="cache_back">Back to review</string>
+    <string name="cache_none">No measurable cache found. Apps not measured: %1$d.</string>
+    <string name="cache_scan_failed">Unable to analyze caches. Check usage access and Shizuku.</string>
+    <string name="update_whats_new">What is new</string>
 </resources>

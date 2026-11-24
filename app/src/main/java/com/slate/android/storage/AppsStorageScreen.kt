@@ -54,22 +54,21 @@ import kotlinx.coroutines.withContext
 internal data class AppUsage(val packageName:String,val label:String,val system:Boolean,val appBytes:Long,val dataBytes:Long,val cacheBytes:Long,val version:String="",val installedAt:Long=0) {
     val total:Long get()=appBytes+dataBytes
 }
-private fun usageAllowed(context:Context):Boolean {
+internal fun usageAllowed(context:Context):Boolean {
     val manager=context.getSystemService(AppOpsManager::class.java) ?: return false
     @Suppress("DEPRECATION")
     return manager.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,Process.myUid(),context.packageName)==AppOpsManager.MODE_ALLOWED
 }
 @Suppress("DEPRECATION")
-private suspend fun readAppUsage(context:Context):Pair<List<AppUsage>,Int> = withContext(Dispatchers.IO) {
+internal suspend fun readAppUsage(context:Context):Pair<List<AppUsage>,Int> = withContext(Dispatchers.IO) {
     val manager=context.getSystemService(StorageStatsManager::class.java) ?: error("Storage statistics unavailable")
     val pm=context.packageManager
     val entries=ArrayList<AppUsage>()
     var skipped=0
     for(app in pm.getInstalledApplications(0)) {
         currentCoroutineContext().ensureActive()
-        if(app.storageUuid!=StorageManager.UUID_DEFAULT)continue
         try {
-            val stats=manager.queryStatsForPackage(StorageManager.UUID_DEFAULT,app.packageName,Process.myUserHandle())
+            val stats=manager.queryStatsForPackage(app.storageUuid ?: StorageManager.UUID_DEFAULT,app.packageName,Process.myUserHandle())
             entries.add(AppUsage(app.packageName,pm.getApplicationLabel(app).toString(),app.flags and ApplicationInfo.FLAG_SYSTEM !=0,
                 stats.appBytes.coerceAtLeast(0),stats.dataBytes.coerceAtLeast(0),stats.cacheBytes.coerceAtLeast(0),
                 runCatching{pm.getPackageInfo(app.packageName,0).versionName.orEmpty()}.getOrDefault(""),
@@ -113,7 +112,7 @@ internal fun rememberAppUsage():AppsUsageModel{
     return model
 }
 @Composable
-internal fun AppsStorageScreen(onBack:()->Unit,reviewFolder:(File)->Unit,initialCacheSort:Boolean=false) {
+internal fun AppsStorageScreen(onBack:()->Unit,reviewFolder:(File)->Unit,initialCacheSort:Boolean=false,onCacheChanged:()->Unit={}) {
     val context=LocalContext.current
     val usage=rememberAppUsage()
     val data=usage.snapshot
@@ -143,7 +142,7 @@ internal fun AppsStorageScreen(onBack:()->Unit,reviewFolder:(File)->Unit,initial
             Text(tr("App storage"),modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
             IconButton(onClick={usage.refresh(true)},enabled=allowed&&!busy){Icon(Icons.Default.Refresh,"Refresh")}
         }
-        ClearAllAppCaches(enabled=!busy,onChanged={usage.invalidate();usage.refresh(true)})
+        ClearAllAppCaches(enabled=!busy,onChanged={usage.invalidate();usage.refresh(true);onCacheChanged()})
         if(!allowed) {
             Card(Modifier.fillMaxWidth().padding(top=12.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {

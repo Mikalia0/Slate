@@ -17,6 +17,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.withResumed
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
@@ -38,7 +41,7 @@ import org.json.JSONArray
 
 private const val RELEASES = "https://api.github.com/repos/stevenmx2/Slate-1/releases?per_page=30"
 private const val MAX_APK_BYTES = 200L * 1024 * 1024
-private data class Update(val code: Long, val attempt: Long, val tag: String, val url: String, val size: Long, val digest: String?)
+private data class Update(val code: Long, val attempt: Long, val tag: String, val url: String, val size: Long, val digest: String?, val notes: String)
 
 internal fun updateVersion(tag: String): Pair<Long,Long>? {
     val m = Regex("""dev-([1-9][0-9]*)-([1-9][0-9]*)""").matchEntire(tag) ?: return null
@@ -111,7 +114,7 @@ private suspend fun findUpdate(installed: Long): Update? = withContext(Dispatche
             val url = asset.optString("browser_download_url")
             if(url != "https://github.com/stevenmx2/Slate-1/releases/download/$tag/Slate.apk" || size !in 1..MAX_APK_BYTES) continue
             val digest = asset.optString("digest").takeIf { it.matches(Regex("sha256:[0-9a-fA-F]{64}")) }?.substringAfter(":")
-            releases += Update(code,attempt,tag,url,size,digest)
+            releases += Update(code,attempt,tag,url,size,digest,release.optString("body").take(12000))
         }
     }
     releases.maxWithOrNull(compareBy<Update>{it.code}.thenBy{it.attempt})
@@ -283,6 +286,10 @@ internal fun UpdatePrompt(manualRequest: Int) {
                 candidate?.let {
                     Text(tr("A newer version of Slate is available."))
                     Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.update_build_size,it.code.toString(),Formatter.formatFileSize(context,it.size)),style=MaterialTheme.typography.bodyMedium)
+                    if(it.notes.isNotBlank()){
+                        Text(stringResource(R.string.update_whats_new),style=MaterialTheme.typography.titleSmall)
+                        Text(it.notes,modifier=Modifier.heightIn(max=220.dp).verticalScroll(rememberScrollState()),style=MaterialTheme.typography.bodySmall)
+                    }
                 }
                 if(checking) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())

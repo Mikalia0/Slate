@@ -24,7 +24,7 @@ Slate brings storage analysis, app management and device information together in
 | Browse internal and removable storage | Find duplicate files by content |
 | List and grid views, search and sorting | Review temporary files and empty folders |
 | File categories and largest-file lists | Find possible remnants of uninstalled apps |
-| Persistent indexes and scan history | System-managed cache trimming with Shizuku or root |
+| Persistent indexes and scan history | Review and selectively clear app caches with Shizuku |
 | Compare folder growth between sessions | Scheduled reviews and custom exclusions |
 
 | App management | Device information |
@@ -84,7 +84,7 @@ GitHub Actions runs release unit tests, verifies the signed APK and publishes de
 
 </details>
 
-Report reproducible bugs or suggest improvements through [GitHub Issues](https://github.com/stevenmx2/Slate-1/issues). See the [development tracker](ROADMAP.md) for implementation and validation status.
+Report reproducible bugs or suggest improvements through [GitHub Issues](https://github.com/stevenmx2/Slate-1/issues). See [release changes](CHANGELOG.md) and the [development tracker](ROADMAP.md) for implementation and validation status.
 
 ## License and acknowledgements
 

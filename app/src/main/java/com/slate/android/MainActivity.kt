@@ -110,8 +110,6 @@ class MainActivity : ComponentActivity() {
                                 HorizontalDivider()
                                 DashboardSettings(dashboard)
                                 HorizontalDivider()
-                                AdvancedCacheSettings(onChanged={storageModel.invalidate()})
-                                HorizontalDivider()
                                 ScheduledCleanupSettings()
                                 HorizontalDivider()
                                 ExclusionEditor(storageModel.exclusions,onChanged={storageModel.invalidate()})
@@ -195,7 +193,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         } else if(cleanup) {
             Box(Modifier.fillMaxSize()){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()},review={folder->cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();largeFiles=false;query="";search=false;model.open(folder)})}
         } else if(apps) {
-            appsState.SaveableStateProvider("apps"){Box(Modifier.fillMaxSize()){AppsStorageScreen(onBack={apps=false},reviewFolder={folder->returnToApps=true;apps=false;analyzer=true;personalOnly=false;selectedPath=folder.absolutePath;openFolder(folder)},initialCacheSort=appCacheSort)}}
+            appsState.SaveableStateProvider("apps"){Box(Modifier.fillMaxSize()){AppsStorageScreen(onBack={apps=false},reviewFolder={folder->returnToApps=true;apps=false;analyzer=true;personalOnly=false;selectedPath=folder.absolutePath;openFolder(folder)},initialCacheSort=appCacheSort,onCacheChanged={model.invalidate()})}}
         } else if (device) {
             Box(Modifier.fillMaxSize()) { DeviceScreen(onBack = { device = false },status=deviceStatus,initialPage=devicePage) }
         } else Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {

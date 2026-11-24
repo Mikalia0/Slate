@@ -16,7 +16,7 @@ O Slate reúne análise de armazenamento, gerenciamento de aplicativos e informa
 - **Limpeza:** arquivos duplicados por conteúdo, temporários, pastas vazias, possíveis resíduos de apps desinstalados, exclusões personalizadas e análises agendadas.
 - **Aplicativos:** tamanho do app, dados e cache, filtros de apps do usuário e do sistema, detalhes, pastas acessíveis, abertura e desinstalação pelo Android.
 - **Dispositivo:** CPU, GPU, RAM, bateria, potência de carregamento, sistema, rede, tela, temperaturas, sensores em tempo real e testes de tela e toque.
-- **Acesso avançado:** limpeza de cache pelo Android via Shizuku/root e revisão de resíduos protegidos, quando o acesso estiver disponível.
+- **Acesso avançado:** análise e limpeza seletiva do cache via Shizuku (ADB ou root) e revisão de resíduos protegidos, quando o acesso estiver disponível.
 - **Interface:** temas claro, escuro e AMOLED, cores dinâmicas e português brasileiro.
 
 ## Instalação
@@ -35,7 +35,7 @@ A limpeza exige revisão antes da exclusão; análises agendadas não apagam aut
 
 ## Desenvolvimento
 
-Código escrito em Kotlin com Jetpack Compose e Material 3. Consulte o [README em inglês](README.md#development) para compilar e o [roteiro de desenvolvimento](ROADMAP.md) para acompanhar a validação dos recursos.
+Código escrito em Kotlin com Jetpack Compose e Material 3. Consulte o [README em inglês](README.md#development) para compilar e o [changelog](CHANGELOG.md) e o [roteiro de desenvolvimento](ROADMAP.md) para acompanhar a validação dos recursos.
 
 Relate problemas em [Issues](https://github.com/stevenmx2/Slate-1/issues).
 

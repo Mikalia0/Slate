@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -57,8 +59,26 @@ jobs:
         run: |
           set -euo pipefail
           tag="dev-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          previous="$(git describe --tags --match 'dev-*' --abbrev=0 HEAD^ 2>/dev/null || true)"
+          notes="$RUNNER_TEMP/slate-notes.md"
+          {
+            if [[ -z "$previous" ]] || ! git diff --quiet "$previous" HEAD -- CHANGELOG.md; then
+              awk '/^## /{if(seen++) exit; next} seen{print}' CHANGELOG.md
+              echo
+            fi
+            echo '## Changes in this build'
+            if [[ -n "$previous" ]]; then
+              git log --no-merges --format='- %s (%h)' "$previous"..HEAD
+              echo
+              echo "Full comparison: https://github.com/$GITHUB_REPOSITORY/compare/$previous...$GITHUB_SHA"
+            else
+              git log -10 --no-merges --format='- %s (%h)'
+            fi
+            echo
+            echo "Signed release APK · Unit tests and signature verified."
+          } > "$notes"
           gh release create "$tag" Slate.apk \
             --target "$GITHUB_SHA" \
             --title "Slate development build ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
             --prerelease \
-            --notes "Signed, non-debuggable release APK. Tests and APK signature verified. Commit: $GITHUB_SHA."
+            --notes-file "$RUNNER_TEMP/slate-notes.md"

@@ -1,47 +1,46 @@
-# Slate development tracker
+# Slate roadmap
 
-Scope: 36 requested features, grouped into four workstreams. A feature is complete only when the implementation is verified by CI and the applicable runtime behavior is tested; partial and pending features do not count toward the completion percentage. The following is a living checklist, not a promise of platform capabilities. Android restrictions may require explicit user approval, Shizuku or root; do not silently bypass them.
+Goal: a fast, focused Material 3 Android utility that combines the strongest storage and cleanup workflows of SD Maid SE, app inspection capabilities of App Manager and useful device diagnostics without clutter. Prioritize correctness and real-device reliability over feature count.
 
-## Storage analyzer (12)
-- [ ] Grid view (implemented; verify)
-- [ ] Real app icons (implemented; verify)
-- [ ] File type icons (implemented; verify)
-- [ ] Open/share files (primary shared storage implemented; verify other volumes)
-- [ ] Clickable breadcrumbs (implemented; verify)
-- [ ] Modification date sorting (implemented; verify)
-- [ ] Custom exclusions (implemented; verify)
-- [ ] Full scan history (30 scans and folder details; verify)
-- [ ] Detailed session comparison (implemented; verify)
-- [ ] Persistent index (implemented; verify)
-- [ ] Incremental updates (subtree refresh and persisted-index metadata reconciliation; unchanged snapshots reused; full metadata traversal for correctness)
-- [ ] Accurate user/app/system separation (personal file categories, Android shared files, separate app stats; protected/system totals still subject to Android limits)
+Status: implemented features still need device validation. CI verifies compilation, unit tests and signing, not Android/OEM behavior. Items below are future work or validation gates, not claims of completion.
 
-## Cleanup tools (9)
-- [ ] Duplicate finder (implemented; verify)
-- [ ] Uninstalled app remnants (media review plus protected data/obb candidate listing and empty-only deletion; verify)
-- [ ] Cache cleanup (OS-managed trim via Shizuku/root; individual app settings; verify)
-- [ ] Temporary files (implemented; verify)
-- [ ] App manager (open, version, install date, settings, system uninstall flow; verify)
-- [ ] Empty folders (implemented; verify)
-- [ ] Scheduled scans/cleanup (daily/weekly review scans while charging; manual deletion; verify)
-- [ ] Shizuku/root (cache trim, protected remnant discovery and empty-only removal; verify)
-- [ ] Exclusion management (implemented; verify)
+## P0 — Cleanup safety and reliability
 
-## Device information (7)
-- [ ] More manufacturer logos (Motorola plus 10 additional marks; generic fallback; verify)
-- [ ] Detailed GPU information (GL limits, Vulkan version and GPU activity; verify)
-- [ ] Live sensors (implemented; verify)
-- [ ] Charging speed and remaining time (system estimate and watts implemented; verify)
-- [ ] Battery capacity and wear (reported sysfs values and approximate capacity, if exposed; verify)
-- [ ] Detailed Wi-Fi/mobile network (signal, frequency, link speeds and available cellular info; verify)
-- [ ] Display/touch/sensor tests (implemented; verify)
+- [ ] Validate cache-only cleaning with Shizuku ADB and root on Android 13–16, including Motorola, Samsung and Xiaomi.
+- [ ] Investigate a safe package-manager backend for older Android builds; never fall back to clearing app data.
+- [ ] Per-app cache cleanup in app details; optional filters for user/system apps in the review.
+- [ ] Add cache cleanup history with selected packages, estimated vs measured space and failures.
+- [ ] Add a shared cleanup review/result flow for duplicate files, temporary files, empty folders and remnants.
+- [ ] Improve remnant detection and exclusions; verify paths, symlinks and protected storage behavior.
+- [ ] Add cancellation, lifecycle resilience, large-app-list performance and device test coverage.
 
-## Home and UI (8)
-- [ ] Smarter recommendations (folder growth, large folders and low-space alerts; verify)
-- [ ] Automatic folder-growth detection (automatic persisted-index reconciliation; verify)
-- [ ] Custom dashboard cards (optional insights and external storage; essential entry points remain accessible)
-- [ ] Storage category shortcuts (available in analyzer; Home quick folders removed by request)
-- [ ] Scroll restoration (analyzer, Home and Device tabs; verify)
-- [ ] Landscape layouts (adaptive Home grid and three-column file grid; redundant navigation rail removed by request)
-- [ ] Smooth transitions (short screen fades, adjacent Device tab animations, settings state restoration; verify)
-- [ ] Brazilian Portuguese localization (main screens, device labels and dynamic messages; runtime review pending)
+## P1 — Storage analyzer and app management
+
+- [ ] Fast incremental scanning with benchmarks for 10k/100k files, memory use and repeated scans.
+- [ ] Improve folder drill-down, visual size distribution, breadcrumbs and sorting; preserve scroll position.
+- [ ] Better category accounting and adopted/removable storage support; avoid double-counting app and shared storage.
+- [ ] Storage growth history, largest files, duplicate groups, and clear before/after comparisons.
+- [ ] App manager: permissions, installer, target SDK, split APKs, signing details, last update and install date.
+- [ ] Export installed APKs and split sets, batch uninstall through Android or explicitly authorized Shizuku, with review.
+- [ ] Inspect app components, trackers and libraries using locally available metadata; explain incomplete results.
+
+## P2 — Device diagnostics
+
+- [ ] Expand RAM breakdown (available, cached, swap/zRAM where exposed) and storage details (volumes, filesystem, free/used).
+- [ ] Improve CPU cluster topology, frequencies, GPU identification, Vulkan/OpenGL capabilities and thermal accuracy.
+- [ ] Battery health/capacity, charging power and estimated time with source/availability indicators.
+- [ ] Faster Device tabs, responsive live readings and optional hardware tests; avoid polling off-screen.
+- [ ] Export a privacy-reviewed device report; no identifiers by default.
+
+## P3 — Interface, automation and release quality
+
+- [ ] Keep Home minimal: storage summary, existing graph, relevant actions and optional insights; no redundant quick folders.
+- [ ] Polish Material 3 layouts, typography, icons, accessibility, landscape and smooth navigation.
+- [ ] Improve permission onboarding, optional Shizuku setup and clear unsupported-state explanations.
+- [ ] Scheduled scans with review notifications; destructive actions remain explicit.
+- [ ] Localization review (English/PT-BR), actionable changelogs, update history and reproducible release checks.
+- [ ] Establish a stable-release checklist: CI, device matrix, migration/signature checks, cleanup safety, performance and regressions.
+
+## Progress tracking
+
+Track each item as planned, implemented, CI-verified or device-verified in GitHub issues. Only count an item complete after the applicable acceptance tests pass. Keep scope lean: no ads, analytics, RAM boosters, artificial speed claims or automatic deletion of personal files.
