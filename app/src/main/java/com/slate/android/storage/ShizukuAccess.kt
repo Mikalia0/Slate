@@ -93,6 +93,7 @@ internal fun ClearAllAppCaches(enabled:Boolean,onChanged:()->Unit){
     val state=rememberAccess(context)
     var review by remember{mutableStateOf(false)}
     var globalMode by remember{mutableStateOf(false)}
+    var selectiveAvailable by remember{mutableStateOf(false)}
     var globalAvailable by remember{mutableStateOf(false)}
     var globalConfirm by remember{mutableStateOf(false)}
     var confirm by remember{mutableStateOf(false)}
@@ -122,7 +123,8 @@ internal fun ClearAllAppCaches(enabled:Boolean,onChanged:()->Unit){
                             val canSelect=Shizuku.checkRemotePermission(individualPermission)==android.content.pm.PackageManager.PERMISSION_GRANTED
                             globalAvailable=Shizuku.checkRemotePermission("android.permission.CLEAR_APP_CACHE")==android.content.pm.PackageManager.PERMISSION_GRANTED
                             val supported=canSelect && withCacheService(context){it.supportsCacheOnly()}
-                            globalMode=!supported
+                            selectiveAvailable=supported
+                            globalMode=globalAvailable
                             if(!supported&&!globalAvailable){message=context.getString(R.string.cache_only_unsupported);return@launch}
                             val (rows,unavailable)=readAppUsage(context)
                             candidates=cacheCandidates(rows)
@@ -154,6 +156,10 @@ internal fun ClearAllAppCaches(enabled:Boolean,onChanged:()->Unit){
                 Text(stringResource(if(globalMode)R.string.cache_global_estimate_total else R.string.cache_selected,chosen.size,fmt(chosen.sumOf{it.cacheBytes})),style=MaterialTheme.typography.titleMedium)
                 Text(stringResource(if(globalMode)R.string.cache_global_explanation else R.string.cache_estimate),style=MaterialTheme.typography.bodySmall)
                 if(skipped>0)Text(stringResource(if(globalMode)R.string.cache_global_unmeasured else R.string.cache_skipped,skipped),style=MaterialTheme.typography.bodySmall)
+                if(globalAvailable&&selectiveAvailable)TextButton(onClick={
+                    globalMode=!globalMode
+                    selected=candidates.map{it.packageName}.toSet()
+                }){Text(stringResource(if(globalMode)R.string.cache_use_selective else R.string.cache_global_title))}
                 if(!globalMode)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
                     TextButton(onClick={selected=candidates.map{it.packageName}.toSet()}){Text(stringResource(R.string.cache_select_all))}
                     TextButton(onClick={selected=emptySet()}){Text(stringResource(R.string.cache_select_none))}
@@ -186,7 +192,7 @@ internal fun ClearAllAppCaches(enabled:Boolean,onChanged:()->Unit){
                     check(shizukuGranted())
                     val before=withContext(Dispatchers.IO){StatFs(Environment.getDataDirectory().path).availableBytes}
                     // Android's global cache trim expects a free-space target, not bytes to delete.
-                    val result=withCacheService(context){it.trim(1024L*1024*1024*1024)}
+                    val result=withCacheService(context){it.trim(GLOBAL_CACHE_TARGET)}
                     val after=withContext(Dispatchers.IO){StatFs(Environment.getDataDirectory().path).availableBytes}
                     val delta=fmt((after-before).coerceAtLeast(0))
                     message=context.getString(if(result==0)R.string.cache_global_result else R.string.cache_global_incomplete,delta)

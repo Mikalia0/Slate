@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Direct cache cleanup
+
+- Use Android Package Manager freeStorageAndNotify with the full reserved-cache allocation flag for global cleanup.
+- Use the per-package cache deletion API for selective cleanup when permitted.
+- Preserve the cache estimate, explicit confirmation, and actual completion callback.
+
 ## 0.5.0-dev — Shizuku cache compatibility
 
 - Detect actual remote cache permissions instead of requiring per-package cache clearing.

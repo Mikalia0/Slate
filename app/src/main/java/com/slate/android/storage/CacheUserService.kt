@@ -20,30 +20,17 @@ internal fun validCachePackage(name:String):Boolean =
 
 class CacheUserService:ICacheService.Stub(){
     private fun privileged()=android.os.Process.myUid() in listOf(0,2000)
-    private val cacheOnlySupported by lazy {
-        if(!privileged()) false else runCatching {
-            val process=ProcessBuilder("/system/bin/pm","help").redirectErrorStream(true).start()
-            try {
-                val help=process.inputStream.bufferedReader().use{it.readText()}
-                process.waitFor(10,TimeUnit.SECONDS) &&
-                    help.lineSequence().any{it.trimStart().startsWith("clear ") && it.contains("--cache-only")}
-            } finally { if(process.isAlive)process.destroyForcibly() }
-        }.getOrDefault(false)
-    }
-    override fun supportsCacheOnly():Boolean=cacheOnlySupported
+    private val cacheApi by lazy { runCatching { PackageCacheApi() }.getOrNull() }
+    override fun supportsCacheOnly():Boolean =
+        privileged() && cacheApi?.supportsSelective()==true
     override fun clearCache(user:Int,packageName:String):Boolean {
-        if(!privileged() || user !in 0..99999 || !validCachePackage(packageName) || !cacheOnlySupported)return false
-        // Never fall back to pm clear without the cache-only flag.
-        return runCatching {
-            val process=ProcessBuilder("/system/bin/pm","clear","--user",user.toString(),"--cache-only",packageName)
-                .redirectErrorStream(true).redirectOutput(File("/dev/null")).start()
-            try { process.waitFor(30,TimeUnit.SECONDS) && process.exitValue()==0 }
-            finally { if(process.isAlive)process.destroyForcibly() }
-        }.getOrDefault(false)
+        if(!privileged() || user !in 0..99999 || !validCachePackage(packageName))return false
+        return runCatching { cacheApi?.clearPackage(packageName,user)==true }.getOrDefault(false)
     }
-    override fun trim(target:Long):Int = try {
-        if(android.os.Process.myUid() !in listOf(0,2000)) -1 else trimCaches(target,false)
-    }catch(_:Exception){-1}
+    override fun trim(target:Long):Int {
+        if(!privileged() || target!=GLOBAL_CACHE_TARGET)return -1
+        return runCatching { cacheApi?.trimAll() ?: -1 }.getOrDefault(-1)
+    }
     override fun listProtected(user:Int):Array<String> {
         check(android.os.Process.myUid() in listOf(0,2000))
         return listProtectedCandidates(user,false).map{(if(it.empty)"1" else "0")+"\t"+it.relative}.toTypedArray()

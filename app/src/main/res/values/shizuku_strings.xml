@@ -32,11 +32,12 @@
     <string name="cache_scan_failed">Unable to analyze caches. Check usage access and Shizuku.</string>
     <string name="update_whats_new">What is new</string>
     <string name="cache_global_estimate_total">%1$d apps measured · %2$s estimated</string>
-    <string name="cache_global_explanation">Shizuku can request Android to trim all internal storage caches, but cannot select individual apps on this device. Android decides what to remove. This may include caches outside the list.</string>
+    <string name="cache_global_explanation">Android decides which internal caches to trim. This may include caches outside the list.</string>
     <string name="cache_global_unmeasured">%1$d apps could not be measured and may also be affected.</string>
     <string name="cache_global_title">Trim all app caches</string>
     <string name="cache_global_confirm">Ask Android to trim caches across internal storage, including system apps and potentially other profiles? Measured cache: %1$s. The amount actually freed may differ. App data and accounts are not targeted.</string>
     <string name="cache_global_running">Android is trimming caches…</string>
     <string name="cache_global_result">Cache trim completed. Observed free-space increase: %1$s.</string>
     <string name="cache_global_incomplete">Android did not confirm completion. Observed free-space increase: %1$s.</string>
+    <string name="cache_use_selective">Select individual apps</string>
 </resources>
