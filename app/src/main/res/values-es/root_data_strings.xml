@@ -1,0 +1,17 @@
+<resources>
+    <string name="root_data_volume">"Superusuario · archivos privados"</string>
+    <string name="root_data_title">"Archivos más grandes"</string>
+    <string name="root_data_progress">"%1$d archivos analizados"</string>
+    <string name="root_data_count">"%1$d más grandes · %2$d analizados"</string>
+    <string name="root_data_partial">"No se pudieron medir algunas rutas. Los resultados pueden estar incompletos."</string>
+    <string name="root_data_denied">"Acceso root denegado o no se pudo iniciar el análisis."</string>
+    <string name="root_data_explain">"Analiza archivos normales en /data, incluidos archivos privados de aplicaciones, con acceso de superusuario. Solo lectura; se excluyen enlaces simbólicos y sistemas de archivos montados por separado. Muestra hasta los 2.000 archivos más grandes por tamaño lógico. No elimina archivos."</string>
+    <string name="root_data_scan">"Analizar con root"</string>
+    <string name="root_data_copy">"Copiar ruta"</string>
+    <string name="root_access_title">"Acceso de superusuario"</string>
+    <string name="root_access_checking">"Verificando permiso…"</string>
+    <string name="root_access_granted">"Autorizado para esta sesión"</string>
+    <string name="root_access_optional">"Acceso opcional para analizar almacenamiento privado"</string>
+    <string name="root_access_allow">"Autorizar"</string>
+    <string name="root_access_disable">"Desactivar"</string>
+</resources>

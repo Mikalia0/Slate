@@ -1,0 +1,9 @@
+<resources>
+    <string name="protected_0">"Résidus protégés"</string>
+    <string name="protected_1">"Android/data et obb · seuls les dossiers vides peuvent être supprimés."</string>
+    <string name="protected_2">"Stockage protégé indisponible"</string>
+    <string name="protected_3">"Non vide"</string>
+    <string name="protected_4">"Supprimer le dossier vide ?"</string>
+    <string name="protected_5">"Dossier modifié ou accès refusé"</string>
+    <string name="protected_6">"Autorisez Shizuku dans les paramètres."</string>
+</resources>

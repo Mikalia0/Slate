@@ -1,0 +1,10 @@
+<resources>
+    <string name="privilege_title">"Accès avancé"</string>
+    <string name="privilege_subtitle">"Facultatif. Sélectionnez une méthode et autorisez-la si nécessaire. Modifiable dans les paramètres."</string>
+    <string name="privilege_root">"Root"</string>
+    <string name="privilege_root_desc">"Analysez les fichiers privés dans /data avec les droits superutilisateur."</string>
+    <string name="privilege_shizuku">"Shizuku"</string>
+    <string name="privilege_shizuku_desc">"Activez les outils privilégiés compatibles, comme le nettoyage du cache et la mesure des FPS."</string>
+    <string name="privilege_none">"Aucun"</string>
+    <string name="privilege_none_desc">"Utilisez les outils standard sans demander de privilèges pendant la configuration."</string>
+</resources>

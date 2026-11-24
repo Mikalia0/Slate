@@ -1,0 +1,17 @@
+<resources>
+    <string name="root_data_volume">"Superutilisateur · fichiers privés"</string>
+    <string name="root_data_title">"Fichiers les plus volumineux"</string>
+    <string name="root_data_progress">"%1$d fichiers analysés"</string>
+    <string name="root_data_count">"%1$d plus gros · %2$d analysés"</string>
+    <string name="root_data_partial">"Certains chemins n’ont pas pu être mesurés. Résultats potentiellement incomplets."</string>
+    <string name="root_data_denied">"Accès root refusé ou analyse impossible à démarrer."</string>
+    <string name="root_data_explain">"Analyse les fichiers ordinaires sous /data, dont les fichiers privés des applications, avec les droits superutilisateur. Lecture seule ; liens symboliques et systèmes de fichiers montés séparément exclus. Affiche jusqu’aux 2 000 plus gros fichiers par taille logique. Aucun fichier supprimé."</string>
+    <string name="root_data_scan">"Analyser avec root"</string>
+    <string name="root_data_copy">"Copier le chemin"</string>
+    <string name="root_access_title">"Accès superutilisateur"</string>
+    <string name="root_access_checking">"Vérification de l’autorisation…"</string>
+    <string name="root_access_granted">"Autorisé pour cette session"</string>
+    <string name="root_access_optional">"Accès facultatif pour analyser le stockage privé"</string>
+    <string name="root_access_allow">"Autoriser"</string>
+    <string name="root_access_disable">"Désactiver"</string>
+</resources>

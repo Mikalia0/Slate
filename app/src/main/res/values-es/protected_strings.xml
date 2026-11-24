@@ -1,0 +1,9 @@
+<resources>
+    <string name="protected_0">"Restos protegidos"</string>
+    <string name="protected_1">"Android/data y obb · solo se pueden eliminar carpetas vacías."</string>
+    <string name="protected_2">"Almacenamiento protegido no disponible"</string>
+    <string name="protected_3">"No está vacío"</string>
+    <string name="protected_4">"¿Eliminar carpeta vacía?"</string>
+    <string name="protected_5">"La carpeta cambió o se denegó el acceso"</string>
+    <string name="protected_6">"Autoriza Shizuku en Ajustes."</string>
+</resources>

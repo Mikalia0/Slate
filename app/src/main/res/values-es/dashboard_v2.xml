@@ -1,0 +1,14 @@
+<resources>
+    <string name="dashboard_v2_0">"Aplicaciones"</string>
+    <string name="dashboard_v2_1">"Todas"</string>
+    <string name="dashboard_v2_2">"Usuario"</string>
+    <string name="dashboard_v2_3">"Aplicación"</string>
+    <string name="dashboard_v2_4">"Datos"</string>
+    <string name="dashboard_v2_5">"Caché"</string>
+    <string name="dashboard_v2_6">"Carpetas de aplicaciones"</string>
+    <string name="dashboard_v2_7">"Datos privados"</string>
+    <string name="dashboard_v2_8">"Sin acceso directo"</string>
+    <string name="dashboard_v2_9">"Caché de apps informada"</string>
+    <string name="dashboard_v2_10">"Revisar caché de apps"</string>
+    <string name="dashboard_v2_11">"Caché ↓"</string>
+</resources>

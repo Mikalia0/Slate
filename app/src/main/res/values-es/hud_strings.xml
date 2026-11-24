@@ -1,0 +1,18 @@
+<resources>
+    <string name="hud_fps">"FPS"</string>
+    <string name="hud_frames">"Gráfico de tiempo de fotograma"</string>
+    <string name="hud_gpu">"Uso, frecuencia y temperatura de GPU"</string>
+    <string name="hud_cpu">"Uso y frecuencia de CPU"</string>
+    <string name="hud_ram">"Uso de RAM"</string>
+    <string name="hud_battery">"Batería, potencia y temperatura"</string>
+    <string name="hud_package">"Paquete en primer plano"</string>
+    <string name="hud_preview">"Vista previa · valores de ejemplo"</string>
+    <string name="hud_presets">"Preajustes"</string>
+    <string name="hud_only_fps">"Solo FPS"</string>
+    <string name="hud_compact">"Compacto"</string>
+    <string name="hud_detailed">"Detallado"</string>
+    <string name="hud_all">"Todo"</string>
+    <string name="hud_metrics">"Métricas visibles"</string>
+    <string name="hud_scale">"Escala"</string>
+    <string name="hud_opacity">"Opacidad"</string>
+</resources>
