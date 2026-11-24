@@ -3,6 +3,7 @@ package com.slate.android
 
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -36,7 +37,7 @@ import com.slate.android.storage.Volume
 import java.io.File
 
 @Composable
-internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit) {
+internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit) {
     val context = LocalContext.current
     val capacity = primary.totalSpace
     val free = primary.usableSpace
@@ -101,18 +102,23 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
             Card(onClick=device,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                        DashboardValue("CPU",cpu ?: "—",Modifier.weight(1f),R.drawable.ic_device_cpu)
-                        DashboardValue("GPU",gpu?.removeSuffix(" (TM)") ?: "—",Modifier.weight(1f),R.drawable.ic_device_gpu)
+                        DashboardValue("CPU",cpu ?: "—",Modifier.weight(1f).clickable{openDevicePage(1)},R.drawable.ic_device_cpu)
+                        DashboardValue("GPU",gpu?.removeSuffix(" (TM)") ?: "—",Modifier.weight(1f).clickable{openDevicePage(1)},R.drawable.ic_device_gpu)
                     }
                     HorizontalDivider()
                     Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                        DashboardValue("Display",display ?: "—",Modifier.weight(1f),R.drawable.ic_device_display)
-                        DashboardValue("Network",network ?: "—",Modifier.weight(1f),R.drawable.ic_device_network)
+                        DashboardValue("Display",display ?: "—",Modifier.weight(1f).clickable{openDevicePage(1)},R.drawable.ic_device_display)
+                        DashboardValue("Network",network ?: "—",Modifier.weight(1f).clickable{openDevicePage(5)},R.drawable.ic_device_network)
                     }
                     live?.uptime?.rows?.firstOrNull{it.label=="Since boot"}?.let {
                         Text("Uptime · "+it.value,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+            }
+        }
+        item {
+            Card(onClick=openApps,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
+                ListItem(headlineContent={Text("App storage")},leadingContent={DeviceGlyph(R.drawable.ic_device_overview)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
             }
         }
         val change=history.sessionChange

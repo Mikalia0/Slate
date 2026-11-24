@@ -117,6 +117,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     LaunchedEffect(state.scanId,state.fresh) { if(state.fresh) state.snapshot?.let{history.record(it,state.scanId)} }
     var analyzer by rememberSaveable { mutableStateOf(false) }
     var device by rememberSaveable { mutableStateOf(false) }
+    var apps by rememberSaveable { mutableStateOf(false) }
     var devicePage by rememberSaveable { mutableIntStateOf(0) }
     val deviceStatus=rememberDeviceStatus()
     var about by rememberSaveable { mutableStateOf(false) }
@@ -144,9 +145,22 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         else if (directory != root && directory.parentFile != null) openFolder(directory.parentFile!!)
         else { model.cancel(); analyzer = false }
     }
-    BackHandler(analyzer || device) { if (device) device = false else back() }
-    Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets.safeDrawing) { padding ->
-        if (device) {
+    BackHandler(analyzer || device || apps) { if(apps) apps=false else if (device) device = false else back() }
+    fun goHome(){device=false;apps=false;analyzer=false;selection=emptySet();search=false;query=""}
+    fun goStorage(){device=false;apps=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();search=false;query="";largeFiles=false;if(granted)model.open(primary)}
+    Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets.safeDrawing,
+        bottomBar={
+            if(!apps && !deleting && selection.isEmpty() && (!analyzer || directory==root)) {
+                NavigationBar {
+                    NavigationBarItem(selected=!device&&!analyzer,onClick={goHome()},icon={Icon(Icons.Default.Home,null)},label={Text("Home")})
+                    NavigationBarItem(selected=analyzer&&!device,onClick={goStorage()},icon={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},label={Text("Storage")})
+                    NavigationBarItem(selected=device,onClick={if(!device){analyzer=false;devicePage=0;device=true}},icon={Icon(painterResource(R.drawable.ic_device_cpu),null,Modifier.size(24.dp))},label={Text("Device")})
+                }
+            }
+        }) { padding ->
+        if(apps) {
+            Box(Modifier.fillMaxSize().padding(padding)){AppsStorageScreen(onBack={apps=false})}
+        } else if (device) {
             Box(Modifier.fillMaxSize().padding(padding)) { DeviceScreen(onBack = { device = false },status=deviceStatus,initialPage=devicePage) }
         } else Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 14.dp)) {
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -163,7 +177,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 },device={devicePage=0;device=true},history=history,review={folder->
                     selectedPath=primary.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query="";search=false
                     if(granted) model.open(folder)
-                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true})
+                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={apps=true})
             } else if (!granted) {
                 LaunchedEffect(granted) { model.cancel() }
                 Text("Storage access", style = MaterialTheme.typography.titleLarge)
@@ -222,6 +236,18 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                     if(snapshot.skipped>0) Text("${snapshot.skipped} inaccessible",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
+                            if(directory==primary && selection.isEmpty() && !largeFiles) {
+                                val android=snapshot.entries.firstOrNull{it.file.name=="Android" && it.directory}
+                                val personal=snapshot.entries.filter{it.file.name!="Android"}.sumOf{it.bytes}
+                                Card(Modifier.fillMaxWidth().padding(top=8.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
+                                    Column {
+                                        ListItem(headlineContent={Text("User files")},trailingContent={Text(fmt(personal),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_storage_folder),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                                        if(android!=null) ListItem(modifier=Modifier.clickable{openFolder(android.file)},headlineContent={Text("Android shared files")},trailingContent={Text(fmt(android.bytes),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_device_system),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                                        ListItem(modifier=Modifier.clickable{apps=true},headlineContent={Text("App storage")},trailingContent={Icon(Icons.Default.KeyboardArrowRight,"Open")},leadingContent={Icon(painterResource(R.drawable.ic_device_overview),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                                        Text("Protected files are not fully measurable.",Modifier.padding(horizontal=16.dp,vertical=8.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
                             Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
                                 FilterChip(selected=!largeFiles,onClick={largeFiles=false;selection=emptySet();query=""},enabled=!deleting,label={Text("Folders")})
                                 FilterChip(selected=largeFiles,onClick={largeFiles=true;selection=emptySet();query=""},enabled=!deleting,label={Text("Largest files")})
@@ -243,7 +269,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 }
                             }
                             if(search) OutlinedTextField(value=query,onValueChange={query=it},placeholder={Text("Search files")},singleLine=true,modifier=Modifier.fillMaxWidth().padding(bottom=8.dp))
-                            if(entries.isEmpty()) Text(if(snapshot.rootUnreadable)"Folder not accessible" else "No matching items")
+                            if(largeFiles && state.largestLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                            else if(entries.isEmpty()) Text(if(snapshot.rootUnreadable)"Folder not accessible" else "No matching items")
                         }
                         items(entries,key={it.file.path}){entry->
                             val checked=entry.file.path in selection

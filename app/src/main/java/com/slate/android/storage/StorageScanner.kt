@@ -19,13 +19,15 @@ data class Snapshot(val directory: File, val entries: List<Entry>, val rootUnrea
 data class ScanProgress(val visited: Long, val path: String, val bytes: Long, val elapsedMs: Long)
 
 internal data class IndexedScan(val root: Snapshot, val folders: Map<File,Snapshot>) {
-    fun snapshot(directory: File): Snapshot? {
+    suspend fun snapshot(directory: File): Snapshot? {
         if(directory==root.directory) return root
+        val context=currentCoroutineContext()
         val original=folders[directory] ?: return null
         val queue=PriorityQueue<Entry>(compareBy<Entry>{it.bytes}.thenBy{it.file.path})
         val pending=ArrayDeque<Iterator<Entry>>()
         pending.addLast(original.entries.iterator())
         while(pending.isNotEmpty()) {
+            context.ensureActive()
             val iterator=pending.last()
             if(!iterator.hasNext()) { pending.removeLast(); continue }
             val entry=iterator.next()
