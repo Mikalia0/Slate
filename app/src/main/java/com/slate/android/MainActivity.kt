@@ -175,33 +175,14 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         else { model.cancel(); analyzer = false }
     }
     BackHandler(analyzer || device || apps || cleanup || showHistory) { if(showHistory)showHistory=false else if(cleanup)cleanup=false else if(apps) apps=false else if (device) device = false else back() }
-    fun goHome(){device=false;apps=false;cleanup=false;analyzer=false;selection=emptySet();search=false;query=""}
-    fun goStorage(){device=false;apps=false;cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();search=false;query="";largeFiles=false;if(granted)model.open(primary)}
     val config=LocalConfiguration.current
     val landscape=config.screenWidthDp>config.screenHeightDp && config.screenWidthDp>=600
     val screenKey=when{showHistory->"history";cleanup->"cleanup";apps->"apps";device->"device";analyzer->"storage";else->"home"}
     val screenAlpha=remember{Animatable(1f)}
     var previousScreen by remember{mutableStateOf(screenKey)}
     LaunchedEffect(screenKey){if(previousScreen!=screenKey){previousScreen=screenKey;screenAlpha.snapTo(.82f);screenAlpha.animateTo(1f,tween(120))}}
-    val showNavigation=!apps && !cleanup && !showHistory && !deleting && selection.isEmpty() && (!analyzer || directory==root)
-    Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets.safeDrawing,
-        bottomBar={
-            if(!landscape && showNavigation) {
-                NavigationBar {
-                    NavigationBarItem(selected=!device&&!analyzer,onClick={goHome()},icon={Icon(Icons.Default.Home,null)},label={Text(tr("Home"))})
-                    NavigationBarItem(selected=analyzer&&!device,onClick={goStorage()},icon={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},label={Text(tr("Storage"))})
-                    NavigationBarItem(selected=device,onClick={if(!device){analyzer=false;devicePage=0;device=true}},icon={Icon(painterResource(R.drawable.ic_device_cpu),null,Modifier.size(24.dp))},label={Text(tr("Device"))})
-                }
-            }
-        }) { padding ->
+    Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing){padding->
         Row(Modifier.fillMaxSize().padding(padding)){
-            if(landscape && showNavigation) {
-                NavigationRail(windowInsets=WindowInsets(0,0,0,0)){
-                    NavigationRailItem(selected=!device&&!analyzer,onClick={goHome()},icon={Icon(Icons.Default.Home,null)},label={Text(tr("Home"))})
-                    NavigationRailItem(selected=analyzer&&!device,onClick={goStorage()},icon={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},label={Text(tr("Storage"))})
-                    NavigationRailItem(selected=device,onClick={if(!device){analyzer=false;devicePage=0;device=true}},icon={Icon(painterResource(R.drawable.ic_device_cpu),null,Modifier.size(24.dp))},label={Text(tr("Device"))})
-                }
-            }
             Box(Modifier.weight(1f).fillMaxHeight().graphicsLayer{alpha=screenAlpha.value}){
         if(showHistory) {
             Box(Modifier.fillMaxSize()){HistoryScreen(history,onBack={showHistory=false})}

@@ -9,18 +9,18 @@ import androidx.compose.ui.Modifier
 
 internal class DashboardPreferences(context:Context) {
     private val prefs=context.getSharedPreferences("dashboard",Context.MODE_PRIVATE)
-    private val defaults=setOf("device","tools","insights","external","folders")
-    var visible by mutableStateOf(prefs.getStringSet("visible",defaults).orEmpty().toSet().let{if(!prefs.getBoolean("folders_choice",false))it+"folders" else it})
+    private val defaults=setOf("insights","external")
+    var visible by mutableStateOf(prefs.getStringSet("visible",defaults).orEmpty().intersect(defaults))
         private set
     fun set(key:String,value:Boolean){
         visible=if(value)visible+key else visible-key
-        prefs.edit().putStringSet("visible",visible.toSet()).apply{if(key=="folders")putBoolean("folders_choice",true)}.apply()
+        prefs.edit().putStringSet("visible",visible.toSet()).apply()
     }
 }
 @Composable
 internal fun DashboardSettings(prefs:DashboardPreferences){
     Text(tr("Home dashboard"),style=MaterialTheme.typography.titleMedium)
-    listOf("device" to "Device status","tools" to "Quick tools","insights" to "Storage insights","folders" to "Quick folders","external" to "External storage").forEach{(key,label)->
+    listOf("insights" to "Storage insights","external" to "External storage").forEach{(key,label)->
         ListItem(headlineContent={Text(tr(label))},trailingContent={Switch(key in prefs.visible,{prefs.set(key,it)})})
     }
 }
