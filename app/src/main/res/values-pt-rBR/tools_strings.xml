@@ -31,4 +31,17 @@
     <string name="monitor_overlay_permission">Permitir sobreposição</string>
     <string name="monitor_waiting">Aguardando frames apresentados pelo app em primeiro plano.</string>
     <string name="update_notes_missing">Changelog indisponível para esta build.</string>
+    <string name="tool_selected">%1$d selecionados</string>
+    <string name="file_view">Alternar visualização</string>
+    <string name="file_bookmark">Favoritar esta pasta</string>
+    <string name="file_unbookmark">Remover favorito</string>
+    <string name="file_new_tab">Nova aba</string>
+    <string name="file_close_tab">Fechar aba</string>
+    <string name="file_items">%1$d itens</string>
+    <string name="file_sort_name">Nome</string>
+    <string name="file_sort_size">Tamanho</string>
+    <string name="file_sort_date">Data</string>
+    <string name="file_sort_type">Tipo</string>
+    <string name="file_descending">Decrescente</string>
+    <string name="file_batch_delete">Excluir %1$d itens selecionados? Apenas arquivos e pastas vazias podem ser excluídos aqui.</string>
 </resources>

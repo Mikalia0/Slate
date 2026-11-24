@@ -31,4 +31,17 @@
     <string name="monitor_overlay_permission">Allow floating overlay</string>
     <string name="monitor_waiting">Waiting for presented frames from the foreground app.</string>
     <string name="update_notes_missing">No changelog available for this build.</string>
+    <string name="tool_selected">%1$d selected</string>
+    <string name="file_view">Change view</string>
+    <string name="file_bookmark">Bookmark this folder</string>
+    <string name="file_unbookmark">Remove bookmark</string>
+    <string name="file_new_tab">New tab</string>
+    <string name="file_close_tab">Close tab</string>
+    <string name="file_items">%1$d items</string>
+    <string name="file_sort_name">Name</string>
+    <string name="file_sort_size">Size</string>
+    <string name="file_sort_date">Date</string>
+    <string name="file_sort_type">Type</string>
+    <string name="file_descending">Descending</string>
+    <string name="file_batch_delete">Delete %1$d selected items? Only files and empty folders can be deleted here.</string>
 </resources>
