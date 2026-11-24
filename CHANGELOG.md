@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Advanced file manager
+
+- Support explicit create, rename, recursive deletion, copy and move in Android/data and Android/obb using authorized Shizuku file operations, without overwriting existing files.
+- Keep protected roots outside the mutation scope and never follow symbolic links.
+- Refine the file manager with folder title, tab strip, compact breadcrumbs, sortable list header and flat rows.
+
 ## 0.5.0-dev — Shizuku protected storage
 
 - Browse Android/data and Android/obb through a read-only Shizuku user service, including file sizes, directory traversal and opening files with explicit URI read grants.

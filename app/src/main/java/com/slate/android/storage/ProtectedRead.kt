@@ -25,6 +25,7 @@ internal fun validReadRelative(relative:String):Boolean {
     return relative.length in 1..16384 && parts.size>=2 && parts[0]=="Android" &&
         parts[1] in listOf("data","obb") && parts.none{it.isEmpty()||it=="."||it==".."||it.indexOf('\u0000')>=0}
 }
+internal fun validWriteRelative(relative:String)=validReadRelative(relative)&&relative.split('/').size>=3
 internal fun protectedRelative(file:File,primary:File=Environment.getExternalStorageDirectory()):String?{
     val base=primary.absoluteFile.toPath().normalize()
     val target=file.absoluteFile.toPath().normalize()
@@ -46,6 +47,13 @@ internal class ProtectedReadClient(private val service:IProtectedReadService){
             }
         }
     }
+    fun create(relative:String):ParcelFileDescriptor{
+        check(shizukuGranted()&&validWriteRelative(relative))
+        return service.createNewFile(relative) ?: error("Unable to create file")
+    }
+    fun mkdir(relative:String){check(shizukuGranted()&&validWriteRelative(relative)&&service.createDirectory(relative))}
+    fun rename(source:String,destination:String){check(shizukuGranted()&&validWriteRelative(source)&&validWriteRelative(destination)&&service.renameEntry(source,destination))}
+    fun delete(relative:String){check(shizukuGranted()&&validWriteRelative(relative)&&service.deleteEntry(relative))}
     fun open(relative:String):ParcelFileDescriptor{
         check(shizukuGranted()&&validReadRelative(relative))
         return service.openReadOnly(relative) ?: error("Protected file unavailable")
@@ -55,7 +63,7 @@ private val protectedReadMutex=Mutex()
 internal suspend fun <T> withProtectedRead(context:Context,block:suspend (ProtectedReadClient)->T):T=protectedReadMutex.withLock{
     check(shizukuGranted())
     val args=Shizuku.UserServiceArgs(ComponentName(context,ProtectedReadUserService::class.java))
-        .daemon(false).processNameSuffix("protected_read").version(1)
+        .daemon(false).processNameSuffix("protected_read").version(2)
     val connected=CompletableDeferred<IProtectedReadService>()
     val connection=object:ServiceConnection{
         override fun onServiceConnected(name:ComponentName,binder:IBinder){connected.complete(IProtectedReadService.Stub.asInterface(binder))}
@@ -115,5 +123,33 @@ class ProtectedReadUserService:IProtectedReadService.Stub(){
             return ParcelFileDescriptor.dup(fd)
         }finally{Os.close(fd)}
     }
+    private fun writable(relative:String):File{
+        require(validWriteRelative(relative))
+        val file=target(relative)
+        require(file.parentFile?.isDirectory==true)
+        return file
+    }
+    override fun createNewFile(relative:String):ParcelFileDescriptor{
+        val file=writable(relative)
+        val fd=Os.open(file.path,OsConstants.O_WRONLY or OsConstants.O_CREAT or OsConstants.O_EXCL or OsConstants.O_NOFOLLOW or OsConstants.O_CLOEXEC,384)
+        try{
+            require(OsConstants.S_ISREG(Os.fstat(fd).st_mode))
+            return ParcelFileDescriptor.dup(fd)
+        }finally{Os.close(fd)}
+    }
+    override fun createDirectory(relative:String):Boolean=runCatching{
+        Files.createDirectory(writable(relative).toPath());true
+    }.getOrDefault(false)
+    override fun renameEntry(source:String,destination:String):Boolean=runCatching{
+        val from=writable(source);val to=writable(destination)
+        require(from!=to&&!to.toPath().startsWith(from.toPath()))
+        require(Files.isRegularFile(from.toPath(),LinkOption.NOFOLLOW_LINKS)||Files.isDirectory(from.toPath(),LinkOption.NOFOLLOW_LINKS))
+        Files.move(from.toPath(),to.toPath());true
+    }.getOrDefault(false)
+    override fun deleteEntry(relative:String):Boolean=runCatching{
+        val file=writable(relative)
+        require(Files.isRegularFile(file.toPath(),LinkOption.NOFOLLOW_LINKS)||Files.isDirectory(file.toPath(),LinkOption.NOFOLLOW_LINKS))
+        Files.delete(file.toPath());true
+    }.getOrDefault(false)
     override fun destroy(){kotlin.system.exitProcess(0)}
 }

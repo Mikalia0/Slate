@@ -1,0 +1,4 @@
+<resources>
+    <string name="protected_file_access">Shizuku · расширенный доступ к файлам</string>
+    <string name="file_recursive_delete">Удалить навсегда выбранные элементы (%1$d), включая их содержимое? Это действие нельзя отменить.</string>
+</resources>

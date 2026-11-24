@@ -1,0 +1,4 @@
+<resources>
+    <string name="protected_file_access">Shizuku · accesso avanzato ai file</string>
+    <string name="file_recursive_delete">Eliminare definitivamente %1$d elementi selezionati, incluso il contenuto? Questa azione è irreversibile.</string>
+</resources>
