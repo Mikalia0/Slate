@@ -37,11 +37,11 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 - [ ] Display/touch/sensor tests (implemented; verify)
 
 ## Home and UI (8)
-- [ ] Smarter recommendations (partial)
+- [ ] Smarter recommendations (folder growth, large folders and low-space alerts; verify)
 - [ ] Automatic folder-growth detection (automatic full scan; verify, incremental pending)
 - [ ] Custom dashboard cards (visibility controls implemented; verify)
-- [ ] Storage category shortcuts (partial)
-- [ ] Scroll restoration (analyzer implemented; verify other screens)
-- [ ] Landscape layouts
+- [ ] Storage category shortcuts (common measured folder shortcuts; verify)
+- [ ] Scroll restoration (analyzer, Home and Device tabs; verify)
+- [ ] Landscape layouts (adaptive Home grid; remaining screens pending)
 - [ ] Smooth transitions
 - [ ] Brazilian Portuguese localization

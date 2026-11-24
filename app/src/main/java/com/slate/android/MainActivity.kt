@@ -137,6 +137,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var apps by rememberSaveable { mutableStateOf(false) }
     var devicePage by rememberSaveable { mutableIntStateOf(0) }
     val deviceStatus=rememberDeviceStatus()
+    val homeScroll=rememberLazyGridState()
     var about by rememberSaveable { mutableStateOf(false) }
     var sortMode by rememberSaveable { mutableStateOf(0) }
     var sortMenu by remember { mutableStateOf(false) }
@@ -199,7 +200,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 },device={devicePage=0;device=true},history=history,review={folder->
                     selectedPath=primary.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query="";search=false
                     if(granted) model.open(folder)
-                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={apps=true},openCleanup={cleanup=true},openHistory={showHistory=true},dashboard=dashboard)
+                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={apps=true},openCleanup={cleanup=true},openHistory={showHistory=true},dashboard=dashboard,scrollState=homeScroll)
             } else if (!granted) {
                 LaunchedEffect(granted) { model.cancel() }
                 Text("Storage access", style = MaterialTheme.typography.titleLarge)

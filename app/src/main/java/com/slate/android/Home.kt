@@ -4,8 +4,13 @@ package com.slate.android
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -25,7 +30,7 @@ import com.slate.android.storage.Volume
 import java.io.File
 
 @Composable
-internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit, openCleanup: ()->Unit,openHistory:()->Unit,dashboard:DashboardPreferences) {
+internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit, openCleanup: ()->Unit,openHistory:()->Unit,dashboard:DashboardPreferences,scrollState:LazyGridState) {
     val context = LocalContext.current
     val capacity = primary.totalSpace
     val free = primary.usableSpace
@@ -39,7 +44,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
     val temperature=live?.battery?.rows?.firstOrNull{it.label=="Temperature"}?.value?.takeUnless{it=="Unavailable"}?.replace(" ","") ?: "—"
     val batteryState=live?.battery?.rows?.firstOrNull{it.label=="Status"}?.value?.takeUnless{it=="Unavailable"}
     val chargingPower=live?.battery.powerReading()?.takeIf{it.label=="Charging power" && it.value!="Unavailable"}?.value
-    LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=24.dp)) {
+    LazyVerticalGrid(columns=GridCells.Adaptive(320.dp),state=scrollState,modifier=Modifier.fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=24.dp)) {
         item {
             Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
@@ -92,7 +97,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                 }
             }
         }
-        if("tools" in dashboard.visible) item {
+        if("tools" in dashboard.visible) item(span={GridItemSpan(maxLineSpan)}) {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Card(onClick=openApps,modifier=Modifier.weight(1f),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                     Row(Modifier.padding(12.dp).heightIn(min=32.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -110,6 +115,26 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                 }
             }
         }
+        if("folders" in dashboard.visible && history.scannedAt>0) {
+            val common=listOf("Download","DCIM","Pictures","Movies","Music","Documents")
+            val shortcuts=common.mapNotNull{name->history.insights.firstOrNull{it.name.equals(name,true)}}
+            if(shortcuts.isNotEmpty()) item(span={GridItemSpan(maxLineSpan)}) {
+                Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                    Text("Quick folders",style=MaterialTheme.typography.titleMedium)
+                    Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                        shortcuts.forEach{folder->
+                            Card(onClick={review(File(primary,folder.name))},modifier=Modifier.width(112.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
+                                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){
+                                    Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_storage_folder),null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(22.dp))
+                                    Text(folder.name,style=MaterialTheme.typography.titleSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
+                                    Text(fmt(folder.bytes),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         if("insights" in dashboard.visible) {
         val change=history.sessionChange
         if(change!=null && kotlin.math.abs(change)>=10L*1024*1024) item {
@@ -123,13 +148,18 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                 }
             }
         }
-        item {
+        item(span={GridItemSpan(maxLineSpan)}) {
             Row(verticalAlignment=Alignment.CenterVertically) {
                 Text("Storage insights",style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
                 TextButton(onClick=openHistory){Text("History")}
             }
         }
-        if(history.scannedAt==0L) item {
+        if(capacity>0 && free.toDouble()/capacity<0.10) item(span={GridItemSpan(maxLineSpan)}) {
+            Card(onClick={analyze(primary)},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.errorContainer)) {
+                ListItem(headlineContent={Text("Low storage")},supportingContent={Text(fmt(free)+" available")},leadingContent={Icon(Icons.Default.Warning,null)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.errorContainer))
+            }
+        }
+        if(history.scannedAt==0L) item(span={GridItemSpan(maxLineSpan)}) {
             Card(onClick={analyze(primary)},modifier=Modifier.fillMaxWidth()) {
                 ListItem(headlineContent={Text("Analyze storage for insights")},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)})
             }
@@ -146,8 +176,30 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
         }
         }
         val removable=volumes.filter{it.root!=primary && "external" in dashboard.visible}
-        if(removable.isNotEmpty()) item { Text("External storage",style=MaterialTheme.typography.titleMedium) }
-        items(removable,key={it.root.path}){volume-> ElevatedCard(onClick={analyze(volume.root)},modifier=Modifier.fillMaxWidth()){ListItem(headlineContent={Text(volume.label)},supportingContent={Text(fmt(volume.root.totalSpace)+" capacity")},leadingContent={Icon(Icons.Default.List,null)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))} }
+        if(removable.isNotEmpty()) item(span={GridItemSpan(maxLineSpan)}) { Text("External storage",style=MaterialTheme.typography.titleMedium) }
+        items(removable,key={it.root.path}){volume->
+            val total=volume.root.totalSpace
+            val available=volume.root.usableSpace
+            val occupied=(total-available).coerceAtLeast(0)
+            Card(onClick={analyze(volume.root)},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+                    Row(verticalAlignment=Alignment.CenterVertically){
+                        DeviceGlyph(R.drawable.ic_device_storage)
+                        Spacer(Modifier.width(8.dp))
+                        Text(volume.label,Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
+                        Icon(Icons.Default.KeyboardArrowRight,null)
+                    }
+                    if(total>0){
+                        LinearProgressIndicator(progress={(occupied.toDouble()/total).toFloat().coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())
+                        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                            StorageValue("Used",fmt(occupied),Modifier.weight(1f))
+                            StorageValue("Available",fmt(available),Modifier.weight(1f))
+                            StorageValue("Total",fmt(total),Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        }
     }
 
 }
