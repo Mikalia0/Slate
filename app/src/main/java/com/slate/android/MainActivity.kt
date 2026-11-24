@@ -83,6 +83,7 @@ class MainActivity : ComponentActivity() {
             var setup by remember { mutableStateOf(prefs.getBoolean("setup",false)) }
             val storageModel:StorageModel = viewModel()
             val history=storageModel.history
+            val dashboard=remember{DashboardPreferences(this@MainActivity)}
             var settings by rememberSaveable { mutableStateOf(false) }
             var manualUpdateRequest by remember { mutableIntStateOf(0) }
             val onMode: (SlateTheme)->Unit = { mode=it; prefs.edit().putString("theme",it.name).apply() }
@@ -100,6 +101,8 @@ class MainActivity : ComponentActivity() {
                                 HorizontalDivider()
                                 ListItem(headlineContent={Text("Storage access")},supportingContent={Text(if(granted)"Granted" else "Not granted")},trailingContent={TextButton(onClick=::requestStorage){Text("Manage")}})
                                 HorizontalDivider()
+                                DashboardSettings(dashboard)
+                                HorizontalDivider()
                                 ExclusionEditor(storageModel.exclusions,onChanged={storageModel.invalidate()})
                                 HorizontalDivider()
                                 UpdateSettings(onCheck={manualUpdateRequest++})
@@ -107,7 +110,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    else -> Slate(granted, volumes, ::requestStorage, onSettings={settings=true}, history=history,model=storageModel)
+                    else -> Slate(granted, volumes, ::requestStorage, onSettings={settings=true}, history=history,model=storageModel,dashboard=dashboard)
                 }
                 if(setup) UpdatePrompt(manualUpdateRequest)
             }
@@ -117,7 +120,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, onSettings: () -> Unit, history: StorageHistory, model: StorageModel = viewModel()) {
+private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, onSettings: () -> Unit, history: StorageHistory, model: StorageModel = viewModel(),dashboard:DashboardPreferences) {
     val context = LocalContext.current
     val primary = remember { Environment.getExternalStorageDirectory() }
     var selectedPath by rememberSaveable { mutableStateOf(primary.absolutePath) }
@@ -194,7 +197,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 },device={devicePage=0;device=true},history=history,review={folder->
                     selectedPath=primary.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query="";search=false
                     if(granted) model.open(folder)
-                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={apps=true},openCleanup={cleanup=true},openHistory={showHistory=true})
+                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={apps=true},openCleanup={cleanup=true},openHistory={showHistory=true},dashboard=dashboard)
             } else if (!granted) {
                 LaunchedEffect(granted) { model.cancel() }
                 Text("Storage access", style = MaterialTheme.typography.titleLarge)

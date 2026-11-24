@@ -21,7 +21,7 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 - [ ] Uninstalled app remnants
 - [ ] Cache cleanup (app settings only)
 - [ ] Temporary files (implemented; verify)
-- [ ] App manager (partial)
+- [ ] App manager (open, version, install date, settings, system uninstall flow; verify)
 - [ ] Empty folders (implemented; verify)
 - [ ] Scheduled scans/cleanup
 - [ ] Shizuku/root
@@ -30,16 +30,16 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 ## Device information (7)
 - [ ] More manufacturer logos
 - [ ] Detailed GPU information (partial)
-- [ ] Live sensors
-- [ ] Charging speed and remaining time (watts implemented)
-- [ ] Battery capacity and wear
+- [ ] Live sensors (implemented; verify)
+- [ ] Charging speed and remaining time (system estimate and watts implemented; verify)
+- [ ] Battery capacity and wear (reported sysfs values and approximate capacity, if exposed; verify)
 - [ ] Detailed Wi-Fi/mobile network (partial)
-- [ ] Display/touch/sensor tests
+- [ ] Display/touch/sensor tests (implemented; verify)
 
 ## Home and UI (8)
 - [ ] Smarter recommendations (partial)
 - [ ] Automatic folder-growth detection (automatic full scan; verify, incremental pending)
-- [ ] Custom dashboard cards
+- [ ] Custom dashboard cards (visibility controls implemented; verify)
 - [ ] Storage category shortcuts (partial)
 - [ ] Scroll restoration (analyzer implemented; verify other screens)
 - [ ] Landscape layouts

@@ -25,7 +25,7 @@ import com.slate.android.storage.Volume
 import java.io.File
 
 @Composable
-internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit, openCleanup: ()->Unit,openHistory:()->Unit) {
+internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit, openCleanup: ()->Unit,openHistory:()->Unit,dashboard:DashboardPreferences) {
     val context = LocalContext.current
     val capacity = primary.totalSpace
     val free = primary.usableSpace
@@ -60,7 +60,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                 }
             }
         }
-        item {
+        if("device" in dashboard.visible) item {
             Card(onClick=device,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment=Alignment.CenterVertically) {
@@ -92,7 +92,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                 }
             }
         }
-        item {
+        if("tools" in dashboard.visible) item {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Card(onClick=openApps,modifier=Modifier.weight(1f),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                     Row(Modifier.padding(12.dp).heightIn(min=32.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -110,6 +110,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                 }
             }
         }
+        if("insights" in dashboard.visible) {
         val change=history.sessionChange
         if(change!=null && kotlin.math.abs(change)>=10L*1024*1024) item {
             Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
@@ -143,7 +144,8 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                 }
             }
         }
-        val removable=volumes.filter{it.root!=primary}
+        }
+        val removable=volumes.filter{it.root!=primary && "external" in dashboard.visible}
         if(removable.isNotEmpty()) item { Text("External storage",style=MaterialTheme.typography.titleMedium) }
         items(removable,key={it.root.path}){volume-> ElevatedCard(onClick={analyze(volume.root)},modifier=Modifier.fillMaxWidth()){ListItem(headlineContent={Text(volume.label)},supportingContent={Text(fmt(volume.root.totalSpace)+" capacity")},leadingContent={Icon(Icons.Default.List,null)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))} }
     }

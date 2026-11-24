@@ -138,7 +138,14 @@ internal class DeviceReader(private val context: Context) {
         }
         val current = currentUa?.let { decimal(it / 1000.0, "mA") }
         val average = batteryProperty(bm, BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE)?.let { decimal(it / 1000.0, "mA") }
-        val charge = batteryProperty(bm, BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)?.takeIf { it >= 0 }?.let { decimal(it / 1000.0, "mAh") }
+        val chargeUaH = batteryProperty(bm, BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)?.takeIf { it > 0 }
+        val charge = chargeUaH?.let { decimal(it / 1000.0, "mAh") }
+        val capacity = estimatedCapacityMah(chargeUaH,percent)
+        val remaining = if(Build.VERSION.SDK_INT>=28 && batteryStatus==BatteryManager.BATTERY_STATUS_CHARGING)
+            runCatching{bm?.computeChargeTimeRemaining()?.takeIf{it>0}}.getOrNull() else null
+        val design = number("/sys/class/power_supply/battery/charge_full_design")?.takeIf{it in 100_000L..30_000_000L}
+        val full = number("/sys/class/power_supply/battery/charge_full")?.takeIf{it in 100_000L..30_000_000L}
+        val capacityHealth = if(design!=null && full!=null) full.toDouble()*100/design else null
         val plugged = when (intent.int(BatteryManager.EXTRA_PLUGGED)) {
             0 -> "Unplugged"
             BatteryManager.BATTERY_PLUGGED_AC -> "AC"
@@ -155,6 +162,11 @@ internal class DeviceReader(private val context: Context) {
             info("Health (system status)", health(intent.int(BatteryManager.EXTRA_HEALTH))), info("Power source", plugged),
             info("Technology", intent?.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY)), info("Temperature", temp), info("Voltage", voltage),
             info(powerLabel, power?.let { decimal(it, "W") }), info("Instant current (+ charging)", current), info("Average current (+ charging)", average), info("Remaining charge", charge))
+        batteryRows.addAll(listOf(info("Time to full (system estimate)",remaining?.let{duration(it)}),
+            info("Estimated full capacity",capacity?.let{decimal(it,"mAh")}),
+            info("Design capacity (reported)",design?.let{decimal(it/1000.0,"mAh")}),
+            info("Full capacity (reported)",full?.let{decimal(it/1000.0,"mAh")}),
+            info("Capacity health (reported)",capacityHealth?.let{decimal(it,"%")})))
         if (Build.VERSION.SDK_INT >= 34) batteryRows.add(info("Charge cycles", intent.int(BatteryManager.EXTRA_CYCLE_COUNT)?.takeIf { it >= 0 }))
         return LiveInfo(listOf(
             Meter("Memory", if (memory.totalMem > 0) fmt(used) else UNKNOWN, "of " + fmt(memory.totalMem), ratio(used, memory.totalMem)),
@@ -272,4 +284,10 @@ internal class DeviceReader(private val context: Context) {
             EGL14.eglReleaseThread()
         }
     }
+}
+
+// Charge-counter extrapolation is approximate; do not infer wear from it.
+internal fun estimatedCapacityMah(chargeUaH:Int?,percent:Int?):Double? {
+    if(chargeUaH==null || chargeUaH<=0 || percent==null || percent !in 20..100)return null
+    return (chargeUaH.toDouble()/1000*100/percent).takeIf{it in 100.0..30000.0}
 }

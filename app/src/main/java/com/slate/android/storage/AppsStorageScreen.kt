@@ -38,7 +38,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
-internal data class AppUsage(val packageName:String,val label:String,val system:Boolean,val appBytes:Long,val dataBytes:Long,val cacheBytes:Long) {
+internal data class AppUsage(val packageName:String,val label:String,val system:Boolean,val appBytes:Long,val dataBytes:Long,val cacheBytes:Long,val version:String="",val installedAt:Long=0) {
     val total:Long get()=appBytes+dataBytes
 }
 private fun usageAllowed(context:Context):Boolean {
@@ -58,7 +58,9 @@ private suspend fun readAppUsage(context:Context):Pair<List<AppUsage>,Int> = wit
         try {
             val stats=manager.queryStatsForPackage(StorageManager.UUID_DEFAULT,app.packageName,Process.myUserHandle())
             entries.add(AppUsage(app.packageName,pm.getApplicationLabel(app).toString(),app.flags and ApplicationInfo.FLAG_SYSTEM !=0,
-                stats.appBytes.coerceAtLeast(0),stats.dataBytes.coerceAtLeast(0),stats.cacheBytes.coerceAtLeast(0)))
+                stats.appBytes.coerceAtLeast(0),stats.dataBytes.coerceAtLeast(0),stats.cacheBytes.coerceAtLeast(0),
+                runCatching{pm.getPackageInfo(app.packageName,0).versionName.orEmpty()}.getOrDefault(""),
+                runCatching{pm.getPackageInfo(app.packageName,0).firstInstallTime}.getOrDefault(0)))
         } catch(e:kotlinx.coroutines.CancellationException){throw e}
         catch(_:Exception){skipped++}
     }
@@ -154,8 +156,14 @@ internal fun AppsStorageScreen(onBack:()->Unit) {
         AlertDialog(onDismissRequest={selected=null},title={Text(row.label)},text={
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
                 Text(row.packageName,style=MaterialTheme.typography.bodySmall)
+                if(row.version.isNotBlank())Text("Version "+row.version,style=MaterialTheme.typography.bodySmall)
+                if(row.installedAt>0)Text("Installed "+java.text.DateFormat.getDateInstance().format(java.util.Date(row.installedAt)),style=MaterialTheme.typography.bodySmall)
                 listOf("App" to row.appBytes,"Data (incl. cache)" to row.dataBytes,"Cache" to row.cacheBytes).forEach{(label,value)->
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(label);Text(fmt(value))}
+                }
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                    TextButton(onClick={selected=null;context.packageManager.getLaunchIntentForPackage(row.packageName)?.let{runCatching{context.startActivity(it)}}},enabled=context.packageManager.getLaunchIntentForPackage(row.packageName)!=null){Text("Open")}
+                    if(!row.system && row.packageName!=context.packageName)TextButton(onClick={selected=null;runCatching{context.startActivity(Intent(Intent.ACTION_DELETE,Uri.parse("package:"+row.packageName)))}}){Text("Uninstall",color=MaterialTheme.colorScheme.error)}
                 }
             }
         },confirmButton={TextButton(onClick={

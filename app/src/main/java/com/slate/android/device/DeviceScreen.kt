@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -85,11 +86,15 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
     val live=status.live
     val pager=rememberPagerState(initialPage=initialPage,pageCount={tabNames.size})
     val scope=rememberCoroutineScope()
+    val pageState=rememberSaveableStateHolder()
+    var testMode by rememberSaveable{mutableStateOf(false)}
+    if(testMode){DeviceTests(onBack={testMode=false});return}
     fun select(page:Int){scope.launch{pager.scrollToPage(page)}}
     Column(Modifier.fillMaxSize().padding(horizontal=14.dp)) {
         Row(Modifier.fillMaxWidth().padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically) {
             IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")}
-            Text("Device information",style=MaterialTheme.typography.headlineSmall)
+            Text("Device information",Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall)
+            TextButton(onClick={testMode=true}){Text("Tests")}
         }
         ScrollableTabRow(selectedTabIndex=pager.currentPage,edgePadding=0.dp,containerColor=MaterialTheme.colorScheme.background) {
             tabNames.forEachIndexed { i,name ->
@@ -99,6 +104,7 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
             }
         }
         HorizontalPager(state=pager,modifier=Modifier.weight(1f),beyondViewportPageCount=1,verticalAlignment=Alignment.Top) { page ->
+            pageState.SaveableStateProvider(page) {
             LazyColumn(Modifier.fillMaxSize(),state=rememberLazyListState(),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=12.dp)) {
                 if(page==0) deviceOverview(live,fixed,::select)
                 else {
@@ -155,8 +161,10 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
                             }
                         }
                         6 -> item(key="sensor-hero"){FeaturePanel(R.drawable.ic_device_sensors,fixed?.sensors?.size?.toString() ?: "—","Sensors"){}}
+
                         7 -> item(key="camera-hero"){FeaturePanel(R.drawable.ic_device_camera,fixed?.cameras?.size?.toString() ?: "—","Cameras"){}}
                     }
+                    if(page==6 && pager.settledPage==6) item(key="live-sensors"){LiveSensors()}
                     val sections=when(page) {
                         1 -> fixed?.hardware.orEmpty()+listOfNotNull(live?.memory,live?.cpu,live?.gpu,live?.thermal,live?.display)
                         2 -> fixed?.system.orEmpty()+listOfNotNull(live?.uptime,live?.thermal)
@@ -170,6 +178,7 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
                     if(sections.isEmpty()) item {Text(if(status.error || fixed!=null)"No information available" else "Loading…",style=MaterialTheme.typography.bodyMedium)}
                     itemsIndexed(sections,key={index,section->"$index:${section.title}"}){_,section->InfoCard(section,sectionIcon(section,page),initiallyExpanded=page!=6 && page!=7)}
                 }
+            }
             }
         }
     }
@@ -233,6 +242,15 @@ private fun BatteryPanel(live:LiveInfo?) {
                 Metric("Temperature",battery.reading("Temperature"),Modifier.weight(1f))
                 Metric("Voltage",battery.reading("Voltage"),Modifier.weight(1f))
                 Metric("Current",battery.reading("Instant current (+ charging)"),Modifier.weight(1f))
+            }
+            val estimate=battery.reading("Time to full (system estimate)")
+            if(estimate!="—")Metric("Time to full",estimate,Modifier.fillMaxWidth())
+            val full=battery.reading("Full capacity (reported)")
+            val approximate=battery.reading("Estimated full capacity")
+            val health=battery.reading("Capacity health (reported)")
+            if(full!="—" || approximate!="—" || health!="—") Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){
+                Metric(if(full!="—")"Full capacity" else "Estimated capacity",if(full!="—")full else approximate,Modifier.weight(1f))
+                if(health!="—")Metric("Capacity health",health,Modifier.weight(1f))else Spacer(Modifier.weight(1f))
             }
             Text("Net power at battery",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
