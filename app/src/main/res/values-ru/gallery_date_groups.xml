@@ -1,0 +1,4 @@
+<resources>
+    <string name="gallery_delete_day">Удалить группу за дату</string>
+    <string name="gallery_delete_day_confirm">Удалить все отображаемые элементы группы за %1$s (%2$d), включая невыбранные? Это действие нельзя отменить.</string>
+</resources>

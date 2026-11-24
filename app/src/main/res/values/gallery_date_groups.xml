@@ -1,0 +1,4 @@
+<resources>
+    <string name="gallery_delete_day">Delete date group</string>
+    <string name="gallery_delete_day_confirm">Delete all %2$d photos or videos shown in the group %1$s, including unselected items? This cannot be undone.</string>
+</resources>

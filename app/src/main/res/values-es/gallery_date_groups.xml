@@ -1,0 +1,4 @@
+<resources>
+    <string name="gallery_delete_day">Eliminar grupo de fecha</string>
+    <string name="gallery_delete_day_confirm">¿Eliminar los %2$d elementos visibles del grupo %1$s, incluidos los no seleccionados? Esta acción no se puede deshacer.</string>
+</resources>

@@ -1,0 +1,4 @@
+<resources>
+    <string name="gallery_delete_day">Elimina gruppo della data</string>
+    <string name="gallery_delete_day_confirm">Eliminare tutti i %2$d elementi mostrati nel gruppo %1$s, anche quelli non selezionati? Questa azione è irreversibile.</string>
+</resources>

@@ -1,0 +1,4 @@
+<resources>
+    <string name="gallery_delete_day">Excluir grupo da data</string>
+    <string name="gallery_delete_day_confirm">Excluir todas as %2$d fotos ou vídeos exibidos no grupo de %1$s, inclusive os não selecionados? Isso não pode ser desfeito.</string>
+</resources>

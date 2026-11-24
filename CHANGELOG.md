@@ -2,6 +2,11 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Gallery date groups
+
+- Select or deselect an entire date group from its heading and delete a group using its contextual trash button.
+- Confirm the date and visible item count before deletion, including any unselected items; preserve selections in other groups.
+
 ## 0.5.0-dev — Gallery layout
 
 - Refine the gallery with photo/album tabs, borderless album covers, search, adjustable grid density, date-group counts and clearer multi-selection and favorites.

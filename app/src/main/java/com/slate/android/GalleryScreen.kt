@@ -48,6 +48,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -244,10 +245,14 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
     var selected by remember{mutableStateOf<Set<String>>(emptySet())}
     var preview by remember{mutableStateOf<String?>(null)}
     var deletion by remember{mutableStateOf<List<MediaItem>>(emptyList())}
+    var deletionDay by remember{mutableStateOf<String?>(null)}
+    var pendingDelete by rememberSaveable{mutableStateOf(arrayListOf<String>())}
+    var deleting by remember{mutableStateOf(false)}
     var message by remember{mutableStateOf<String?>(null)}
     val launcher=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){revision++}
     val deleteLauncher=rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()){result->
-        if(result.resultCode==Activity.RESULT_OK){selected=emptySet();preview=null;revision++}
+        if(result.resultCode==Activity.RESULT_OK){selected=selected-pendingDelete.toSet();if(preview in pendingDelete)preview=null;revision++}
+        pendingDelete=arrayListOf();deleting=false
     }
     fun favorite(key:String){
         favorites=if(key in favorites)favorites-key else favorites+key
@@ -275,7 +280,7 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
             if(selected.isNotEmpty()){
                 IconButton(onClick={selected=visible.map{it.uri.toString()}.toSet()}){Icon(Icons.Default.Check,stringResource(R.string.cache_select_all))}
                 IconButton(onClick={shareMedia(context,media.filter{it.uri.toString() in selected})}){Icon(Icons.Default.Share,null)}
-                IconButton(onClick={deletion=media.filter{it.uri.toString() in selected}}){Icon(Icons.Default.Delete,null)}
+                IconButton(enabled=!deleting,onClick={deletionDay=null;deletion=media.filter{it.uri.toString() in selected}}){Icon(Icons.Default.Delete,null)}
             }else{
                 IconButton(onClick={search=!search;if(!search)query=""}){Icon(Icons.Default.Search,tr("Search"))}
                 Box{
@@ -329,7 +334,25 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
                 }
             }else{
                 days.forEach{(day,photos)->
-                    item(key="day-$day",span={GridItemSpan(maxLineSpan)}){Row(Modifier.fillMaxWidth().padding(horizontal=10.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically){Text(day,Modifier.weight(1f),style=MaterialTheme.typography.titleSmall);Text(stringResource(R.string.file_items,photos.size),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+                    item(key="day-$day",span={GridItemSpan(maxLineSpan)}){
+                        val keys=remember(photos){photos.map{it.uri.toString()}.toSet()}
+                        val selectedCount=keys.count{it in selected}
+                        val groupState=when(selectedCount){0->ToggleableState.Off;keys.size->ToggleableState.On;else->ToggleableState.Indeterminate}
+                        fun toggleDay(){selected=if(groupState==ToggleableState.On)selected-keys else selected+keys}
+                        Row(Modifier.fillMaxWidth().padding(start=10.dp,end=4.dp,top=2.dp,bottom=2.dp),verticalAlignment=Alignment.CenterVertically){
+                            Column(Modifier.weight(1f).clickable(enabled=!deleting){toggleDay()}.padding(vertical=8.dp)){
+                                Text(day,style=MaterialTheme.typography.titleSmall)
+                                Text(stringResource(R.string.file_items,photos.size),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if(selected.isNotEmpty()){
+                                TriStateCheckbox(state=groupState,onClick={toggleDay()},enabled=!deleting)
+                                if(selectedCount>0)IconButton(enabled=!deleting,onClick={
+                                    deletionDay=day
+                                    deletion=photos.toList()
+                                }){Icon(Icons.Default.Delete,stringResource(R.string.gallery_delete_day),tint=MaterialTheme.colorScheme.error)}
+                            }
+                        }
+                    }
                     items(photos,key={it.uri.toString()}){item->
                         val key=item.uri.toString()
                         MediaTile(item,Modifier.fillMaxWidth(),selected=key in selected,favorite=key in favorites,selecting=selected.isNotEmpty(),onLongClick={toggle(key)}){
@@ -342,20 +365,24 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
     }
     preview?.let{key->
         val initial=visible.indexOfFirst{it.uri.toString()==key}
-        if(initial>=0)MediaViewer(visible,initial,favorites,::favorite,onClose={preview=null},onDelete={deletion=listOf(it)})
+        if(initial>=0)MediaViewer(visible,initial,favorites,::favorite,onClose={preview=null},onDelete={deletionDay=null;deletion=listOf(it)})
     }
-    if(deletion.isNotEmpty())AlertDialog(onDismissRequest={deletion=emptyList()},title={Text(tr("Delete"))},text={Text(stringResource(R.string.gallery_delete_confirm,deletion.size))},dismissButton={TextButton(onClick={deletion=emptyList()}){Text(tr("Cancel"))}},confirmButton={
+    if(deletion.isNotEmpty())AlertDialog(onDismissRequest={deletion=emptyList();deletionDay=null},title={Text(if(deletionDay!=null)stringResource(R.string.gallery_delete_day)else tr("Delete"))},text={Text(deletionDay?.let{stringResource(R.string.gallery_delete_day_confirm,it,deletion.size)}?:stringResource(R.string.gallery_delete_confirm,deletion.size))},dismissButton={TextButton(onClick={deletion=emptyList();deletionDay=null}){Text(tr("Cancel"))}},confirmButton={
         TextButton(onClick={
-            val targets=deletion;deletion=emptyList()
+            val targets=deletion.distinctBy{it.uri};deletion=emptyList();deletionDay=null
+            deleting=true;message=null
             if(Build.VERSION.SDK_INT>=30){
                 runCatching{
                     val pending=MediaStore.createDeleteRequest(context.contentResolver,targets.map{it.uri})
+                    pendingDelete=ArrayList(targets.map{it.uri.toString()})
                     deleteLauncher.launch(IntentSenderRequest.Builder(pending.intentSender).build())
-                }.onFailure{message=context.getString(R.string.file_failed)}
+                }.onFailure{pendingDelete=arrayListOf();deleting=false;message=context.getString(R.string.file_failed)}
             }else scope.launch{
-                val success=withContext(Dispatchers.IO){targets.all{runCatching{context.contentResolver.delete(it.uri,null,null)>0}.getOrDefault(false)}}
-                if(!success)message=context.getString(R.string.file_failed)
-                selected=emptySet();preview=null;revision++
+                try{
+                    val removed=withContext(Dispatchers.IO){targets.mapNotNull{item->if(runCatching{context.contentResolver.delete(item.uri,null,null)>0}.getOrDefault(false))item.uri.toString()else null}.toSet()}
+                    if(removed.size!=targets.size)message=context.getString(R.string.file_failed)
+                    selected=selected-removed;if(preview in removed)preview=null;revision++
+                }finally{deleting=false}
             }
         }){Text(tr("Delete"))}
     })

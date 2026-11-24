@@ -1,0 +1,4 @@
+<resources>
+    <string name="gallery_delete_day">Supprimer le groupe de la date</string>
+    <string name="gallery_delete_day_confirm">Supprimer les %2$d éléments affichés du groupe %1$s, même non sélectionnés ? Cette action est irréversible.</string>
+</resources>
