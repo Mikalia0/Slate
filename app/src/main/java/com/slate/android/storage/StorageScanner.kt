@@ -9,7 +9,7 @@ import java.nio.file.attribute.BasicFileAttributes
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
-data class Entry(val file: File, val directory: Boolean, val bytes: Long, val files: Long, val skipped: Long)
+data class Entry(val file: File, val directory: Boolean, val bytes: Long, val files: Long, val skipped: Long, val modified: Long = 0L)
 data class Snapshot(val directory: File, val entries: List<Entry>, val rootUnreadable: Boolean = false, val largestFiles: List<Entry> = emptyList()) {
     val bytes = entries.sumOf { it.bytes }
     val files = entries.sumOf { it.files }
@@ -70,7 +70,7 @@ class StorageScanner {
         val index=HashMap<File,Snapshot>()
         var retained=0L
         var indexing=true
-        class Frame(val file:File,val children:Iterator<File>) {
+        class Frame(val file:File,val children:Iterator<File>,val modified:Long=0L) {
             val entries=ArrayList<Entry>()
             var bytes=0L
             var files=0L
@@ -95,7 +95,7 @@ class StorageScanner {
                     return IndexedScan(snapshot.copy(largestFiles=largest.sortedByDescending{it.bytes}),index)
                 }
                 if(indexing) index[frame.file]=snapshot
-                stack.last().add(Entry(frame.file,true,frame.bytes,frame.files,frame.skipped))
+                stack.last().add(Entry(frame.file,true,frame.bytes,frame.files,frame.skipped,frame.modified))
                 continue
             }
             val file=frame.children.next()
@@ -108,10 +108,10 @@ class StorageScanner {
                     if(list==null) {
                         frame.add(Entry(file,true,0,0,1))
                         if(indexing) index[file]=Snapshot(file,emptyList(),true)
-                    } else stack.addLast(Frame(file,list.iterator()))
+                    } else stack.addLast(Frame(file,list.iterator(),attr.lastModifiedTime().toMillis()))
                 }
                 attr.isRegularFile -> {
-                    val entry=Entry(file,false,attr.size(),1,0)
+                    val entry=Entry(file,false,attr.size(),1,0,attr.lastModifiedTime().toMillis())
                     measured+=entry.bytes
                     frame.add(entry)
                     if(largest.size<100) largest.add(entry)

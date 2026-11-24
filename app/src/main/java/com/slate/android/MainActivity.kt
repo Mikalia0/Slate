@@ -26,9 +26,16 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -123,6 +130,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var about by rememberSaveable { mutableStateOf(false) }
     var sortMode by rememberSaveable { mutableStateOf(0) }
     var sortMenu by remember { mutableStateOf(false) }
+    var gridView by rememberSaveable { mutableStateOf(false) }
+    val scrollStates=remember{mutableMapOf<String,Pair<Int,Int>>()}
     var showMap by rememberSaveable { mutableStateOf(false) }
     var search by rememberSaveable { mutableStateOf(false) }
     var selection by remember { mutableStateOf(setOf<String>()) }
@@ -187,10 +196,21 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 LaunchedEffect(granted, analyzer, selectedPath) {
                     if (state.directory == null || !state.directory!!.toPath().startsWith(root.toPath())) model.open(root)
                 }
-                Row(verticalAlignment=Alignment.CenterVertically) {
-                    if(directory != root) TextButton(onClick={openFolder(directory.parentFile ?: root)},enabled=!deleting){Text("Up")}
-                    Text(if(directory==root) selectedVolume?.label ?: "Internal storage" else directory.relativeTo(root).path,
-                        modifier=Modifier.weight(1f),maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.titleSmall)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),verticalAlignment=Alignment.CenterVertically) {
+                    TextButton(onClick={openFolder(root)},enabled=!deleting){Text(selectedVolume?.label ?: "Internal storage")}
+                    if(directory!=root) {
+                        var ancestor=root
+                        directory.relativeTo(root).path.split(File.separatorChar).forEach { part ->
+                            val next=File(ancestor,part)
+                            Text("›",color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            TextButton(onClick={openFolder(next)},enabled=!deleting){Text(part)}
+                            ancestor=next
+                        }
+                    }
+                }
+                if(state.saved) Row(verticalAlignment=Alignment.CenterVertically) {
+                    Text("Saved results",Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick={selection=emptySet();model.open(root,refresh=true)}){Text("Refresh")}
                 }
                 if (state.running) ScanLoading(state, model::cancel)
                 if (state.error != null && !state.running) {
@@ -206,6 +226,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                             1 -> filtered.sortedBy{it.file.name.lowercase()}
                             2 -> filtered.sortedBy{it.bytes}
                             3 -> filtered.sortedBy{it.file.extension.lowercase()}
+                            4 -> filtered.sortedByDescending{it.modified}
                             else -> filtered.sortedByDescending{it.bytes}
                         }
                     }
@@ -220,15 +241,20 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                         Text("${selected.size} selected",style=MaterialTheme.typography.titleMedium)
                                         Text(fmt(selected.sumOf{it.bytes}),style=MaterialTheme.typography.bodySmall)
                                     }
-                                    IconButton(onClick={confirmDelete=true},enabled=!deleting && selected.isNotEmpty()){Icon(Icons.Default.Delete,"Delete selected")}
+                                    IconButton(onClick={confirmDelete=true},enabled=!deleting && !state.saved && selected.isNotEmpty()){Icon(Icons.Default.Delete,"Delete selected")}
                                 }
                                 TextButton(onClick={selection=entries.map{it.file.path}.toSet()},enabled=!deleting){Text("Select visible")}
                             }
                         }
                     }
                     if(deleting) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Deleting selected items…") }
-                    LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(bottom=16.dp)) {
-                        item {
+                    val scrollKey=directory.path+":"+largeFiles+":"+gridView
+                    val restored=scrollStates[scrollKey] ?: (0 to 0)
+                    key(scrollKey) {
+                    val listState=rememberLazyGridState(restored.first,restored.second)
+                    LaunchedEffect(listState) { snapshotFlow{listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset}.collect{scrollStates[scrollKey]=it} }
+                    LazyVerticalGrid(columns=GridCells.Fixed(if(gridView)2 else 1),state=listState,modifier=Modifier.weight(1f),contentPadding=PaddingValues(bottom=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                        item(span={GridItemSpan(maxLineSpan)}) {
                             Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                                 Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                                     Text(fmt(snapshot.bytes),style=MaterialTheme.typography.headlineMedium,color=MaterialTheme.colorScheme.primary)
@@ -258,11 +284,12 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                             }
                             Row(verticalAlignment=Alignment.CenterVertically) {
                                 Text(if(largeFiles)"Files" else "Contents",modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
+                                IconButton(onClick={gridView=!gridView}){Icon(painterResource(if(gridView)R.drawable.ic_device_storage else R.drawable.ic_device_overview),"Change layout",Modifier.size(22.dp))}
                                 IconButton(onClick={search=!search;if(!search)query=""},enabled=!deleting){Icon(Icons.Default.Search,"Search")}
                                 Box {
-                                    TextButton(onClick={sortMenu=true},enabled=!deleting){Text(listOf("Size ↓","Name","Size ↑","Type")[sortMode])}
+                                    TextButton(onClick={sortMenu=true},enabled=!deleting){Text(listOf("Size ↓","Name","Size ↑","Type","Date ↓")[sortMode])}
                                     DropdownMenu(expanded=sortMenu,onDismissRequest={sortMenu=false}) {
-                                        listOf("Largest first","Name","Smallest first","File type").forEachIndexed{index,label->
+                                        listOf("Largest first","Name","Smallest first","File type","Newest first").forEachIndexed{index,label->
                                             DropdownMenuItem(text={Text(label)},onClick={sortMode=index;sortMenu=false})
                                         }
                                     }
@@ -274,6 +301,20 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                         }
                         items(entries,key={it.file.path}){entry->
                             val checked=entry.file.path in selection
+                            if(gridView) {
+                                Card(Modifier.fillMaxWidth().padding(vertical=4.dp).combinedClickable(enabled=!deleting,onClick={if(selection.isNotEmpty())toggle(entry)else selectEntry(entry)},onLongClick={toggle(entry)}),
+                                    colors=CardDefaults.cardColors(containerColor=if(checked)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)) {
+                                    Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                                        Row(verticalAlignment=Alignment.CenterVertically) {
+                                            Icon(painterResource(fileIcon(entry)),null,Modifier.size(32.dp),tint=MaterialTheme.colorScheme.primary)
+                                            Spacer(Modifier.weight(1f))
+                                            if(selection.isNotEmpty()) Checkbox(checked=checked,onCheckedChange={toggle(entry)},enabled=!deleting)
+                                        }
+                                        Text(entry.file.name,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.titleSmall)
+                                        Text(fmt(entry.bytes),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            } else Column {
                             ListItem(
                                 modifier=Modifier.fillMaxWidth().combinedClickable(enabled=!deleting,onClick={if(selection.isNotEmpty())toggle(entry) else selectEntry(entry)},onLongClick={toggle(entry)}),
                                 headlineContent={Text(entry.file.name,maxLines=1,overflow=TextOverflow.Ellipsis)},
@@ -284,15 +325,17 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 },
                                 leadingContent={
                                     if(selection.isNotEmpty()) Checkbox(checked=checked,onCheckedChange={toggle(entry)},enabled=!deleting)
-                                    else Icon(painterResource(if(entry.directory)R.drawable.ic_storage_folder else R.drawable.ic_storage_file),null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(24.dp))
+                                    else Icon(painterResource(fileIcon(entry)),null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(24.dp))
                                 },
                                 trailingContent={Column(horizontalAlignment=Alignment.End){Text(fmt(entry.bytes),color=MaterialTheme.colorScheme.primary);if(entry.skipped>0) Text("Incomplete",style=MaterialTheme.typography.labelSmall)}},
                                 colors=ListItemDefaults.colors(containerColor=if(checked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background)
                             )
                             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+                            }
                         }
                     }
-                    if(confirmDelete) AlertDialog(onDismissRequest={confirmDelete=false},title={Text("Permanently delete ${selected.size} items?")},
+                    }
+                    if(confirmDelete && !state.saved) AlertDialog(onDismissRequest={confirmDelete=false},title={Text("Permanently delete ${selected.size} items?")},
                         text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
                             Text("Measured size: "+fmt(selected.sumOf{it.bytes}))
                             Text("This cannot be undone. Inaccessible or incomplete items are skipped.")
@@ -321,7 +364,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     detail?.let { entry ->
         AlertDialog(onDismissRequest = { detail = null }, title = { Text(entry.file.name) },
             text = { Text(entry.file.path + "\n\n" + fmt(entry.bytes) + if (entry.skipped > 0) "\nSize unavailable or incomplete" else "") },
-            confirmButton = { TextButton(onClick = { detail = null }) { Text("Close") } })
+            confirmButton = { TextButton(onClick = { detail=null; if(!openSharedFile(context,root,entry.file,false)) deletionMessage="Unable to open file" }) { Text("Open") } },
+            dismissButton = { TextButton(onClick={detail=null;if(!openSharedFile(context,root,entry.file,true))deletionMessage="Unable to share file"}){Text("Share")} })
     }
     if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text("Slate") },
         text = { Text("0.5.0-dev • GPL-3.0-only\nProvided without warranty. SD Maid SE is a feature reference; no upstream code is included yet. See the project LICENSE for redistribution terms.") },
