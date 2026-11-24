@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(slate_gpu C)
+add_library(gpuusage SHARED gpuusage/kgsl_busy.c)
+set_property(TARGET gpuusage PROPERTY C_STANDARD 11)
+target_link_libraries(gpuusage log)

@@ -13,3 +13,5 @@ Additional manufacturer marks from Simple Icons: [samsung](https://github.com/si
 [App Manager](https://github.com/MuntashirAkon/AppManager), by Muntashir Al-Islam and contributors, is a compatibility reference for privileged Android cache trimming. Slate uses its own implementation and Android's internal package-manager API; no App Manager source is imported.
 
 [AndroidHiddenApiBypass](https://github.com/LSPosed/AndroidHiddenApiBypass) by LSPosed (Apache-2.0) is used for access to the cache-only package-manager interfaces within the privileged Shizuku service.
+
+Adreno KGSL memstore utilization fallback adapted from Winlator-Ludashi commit [5cf4bac](https://github.com/Other-backup/Winlator-Ludashi/commit/5cf4bac607f17b673d1409be29da7c47d615cbd6), derived from The412Banner/Bannerlator commit 0ab047311ccc55b2911d984727d2d57ac6c0ebf7 and DroidDeck PRs #1969 and #1981 (GPL-3.0-only). Qualcomm KGSL minimal UAPI retains its GPL-2.0 WITH Linux-syscall-note notice.

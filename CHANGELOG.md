@@ -2,6 +2,11 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Adreno GPU monitoring
+
+- Add the Ludashi KGSL memstore fallback for whole-GPU busy estimates when sysfs is unavailable, with idle shutdown and retry backoff.
+- Preserve native source attribution and report unavailable metrics when unsupported.
+
 ## 0.5.0-dev — Storage volumes and About screen
 
 - Add a dedicated mounted-volume overview with capacity, free space and direct folder analysis.

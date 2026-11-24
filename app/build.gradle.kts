@@ -6,6 +6,8 @@ plugins {
 android {
     namespace = "com.slate.android"
     compileSdk = 35
+    ndkVersion = "27.2.12479018"
+    externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
     defaultConfig {
         applicationId = "com.slate.android"
         minSdk = 26

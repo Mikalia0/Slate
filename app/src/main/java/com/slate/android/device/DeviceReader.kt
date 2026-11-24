@@ -55,7 +55,8 @@ internal class DeviceReader(private val context: Context) {
         }?.path }.getOrNull()
         val hz = number("$base/gpuclk") ?: devfreq?.let { number("$it/cur_freq") }
         val max = number("$base/max_gpuclk") ?: devfreq?.let { number("$it/max_freq") }
-        val busy = read("$base/gpu_busy_percentage")?.trim()?.removeSuffix("%")?.trim()?.toDoubleOrNull()?.takeIf { it in 0.0..100.0 }
+        val sysfsBusy = read("$base/gpu_busy_percentage")?.trim()?.removeSuffix("%")?.trim()?.toDoubleOrNull()?.takeIf { it in 0.0..100.0 }
+        val busy = sysfsBusy ?: com.slate.android.gpu.KgslLoadFallback.busyPercent()?.toDouble()
         return Section("GPU activity", listOf(info("Frequency", hz?.takeIf { it > 0 }?.let { "${it / 1000000} MHz" }),
             info("Maximum frequency", max?.takeIf { it > 0 }?.let { "${it / 1000000} MHz" }),
             info("Utilization", busy?.let { decimal(it, "%") })))
