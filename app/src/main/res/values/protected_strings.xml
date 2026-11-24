@@ -1,0 +1,9 @@
+<resources>
+    <string name="protected_0">Protected remnants</string>
+    <string name="protected_1">Android/data and obb · only empty folders can be removed.</string>
+    <string name="protected_2">Protected storage unavailable</string>
+    <string name="protected_3">Not empty</string>
+    <string name="protected_4">Delete empty folder?</string>
+    <string name="protected_5">Folder changed or access denied</string>
+    <string name="protected_6">Authorize Shizuku in Settings.</string>
+</resources>

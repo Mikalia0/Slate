@@ -361,6 +361,13 @@ internal fun tr(value:String):String {
         "Cleanup unavailable" -> R.string.msg_10
         "Hide exclusions" -> R.string.msg_11
         "Size unavailable or incomplete" -> R.string.msg_12
+        "Protected remnants" -> R.string.protected_0
+        "Android/data and obb · only empty folders can be removed." -> R.string.protected_1
+        "Protected storage unavailable" -> R.string.protected_2
+        "Not empty" -> R.string.protected_3
+        "Delete empty folder?" -> R.string.protected_4
+        "Folder changed or access denied" -> R.string.protected_5
+        "Authorize Shizuku in Settings." -> R.string.protected_6
         else -> 0
     }
     return if(id==0)value else stringResource(id)

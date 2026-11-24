@@ -19,5 +19,13 @@ class CacheUserService:ICacheService.Stub(){
     override fun trim(target:Long):Int = try {
         if(android.os.Process.myUid() !in listOf(0,2000)) -1 else trimCaches(target,false)
     }catch(_:Exception){-1}
+    override fun listProtected(user:Int):Array<String> {
+        check(android.os.Process.myUid() in listOf(0,2000))
+        return listProtectedCandidates(user,false).map{(if(it.empty)"1" else "0")+"\t"+it.relative}.toTypedArray()
+    }
+    override fun removeEmpty(user:Int,path:String):Boolean {
+        check(android.os.Process.myUid() in listOf(0,2000))
+        return removeProtectedEmpty(user,path,false)
+    }
     override fun destroy(){kotlin.system.exitProcess(0)}
 }

@@ -22,10 +22,10 @@ import rikka.shizuku.Shizuku
 
 private fun freeBytes():Long=StatFs(Environment.getDataDirectory().path).availableBytes
 private fun shizukuAvailable():Boolean=runCatching{Shizuku.pingBinder() && Shizuku.getVersion()>=12}.getOrDefault(false)
-private fun shizukuGranted():Boolean=shizukuAvailable() && runCatching{Shizuku.checkSelfPermission()==PackageManager.PERMISSION_GRANTED}.getOrDefault(false)
-private suspend fun shizukuTrim(context:Context,target:Long):Int {
+internal fun shizukuGranted():Boolean=shizukuAvailable() && runCatching{Shizuku.checkSelfPermission()==PackageManager.PERMISSION_GRANTED}.getOrDefault(false)
+internal suspend fun <T> withCacheService(context:Context,action:(ICacheService)->T):T {
     val args=Shizuku.UserServiceArgs(ComponentName(context,CacheUserService::class.java))
-        .daemon(false).processNameSuffix("cache_service").version(1)
+        .daemon(false).processNameSuffix("cache_service").version(2)
     val connected=CompletableDeferred<ICacheService>()
     val connection=object:ServiceConnection {
         override fun onServiceConnected(name:ComponentName,binder:IBinder){
@@ -38,7 +38,7 @@ private suspend fun shizukuTrim(context:Context,target:Long):Int {
     try {
         Shizuku.bindUserService(args,connection)
         val service=withTimeout(15_000){connected.await()}
-        return withContext(Dispatchers.IO){service.trim(target)}
+        return withContext(Dispatchers.IO){action(service)}
     }finally{runCatching{Shizuku.unbindUserService(args,connection,true)}}
 }
 
@@ -77,7 +77,7 @@ internal fun AdvancedCacheSettings(onChanged:()->Unit){
                     try{
                         val before=withContext(Dispatchers.IO){freeBytes()}
                         val target=before+amount*1_000_000_000L
-                        val result=if(backend=="Root")withContext(Dispatchers.IO){trimCaches(target,true)} else shizukuTrim(context,target)
+                        val result=if(backend=="Root")withContext(Dispatchers.IO){trimCaches(target,true)} else withCacheService(context){it.trim(target)}
                         val after=withContext(Dispatchers.IO){freeBytes()}
                         message=if(result==0)context.getString(com.slate.android.R.string.cache_space_change,Formatter.formatFileSize(context,(after-before).coerceAtLeast(0)))
                             else context.getString(com.slate.android.R.string.cache_failed,result)

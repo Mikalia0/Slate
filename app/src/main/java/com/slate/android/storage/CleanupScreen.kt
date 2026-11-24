@@ -29,6 +29,7 @@ import kotlinx.coroutines.*
 internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:Set<String>,onBack:()->Unit,onChanged:()->Unit,review:(File)->Unit) {
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
+    var protectedMode by remember{mutableStateOf(false)}
     var remnants by remember{mutableStateOf(false)}
     var remnantRows by remember{mutableStateOf<List<File>?>(null)}
     var kind by remember{mutableStateOf(CleanupKind.DUPLICATES)}
@@ -61,13 +62,16 @@ internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:S
             Button(onClick=request){Text(tr("Grant access"))}
         }else{
             Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(4.dp)){
-                CleanupKind.entries.forEach{mode->FilterChip(selected=!remnants && kind==mode,onClick={remnants=false;kind=mode;result=null;selected=emptySet();message=null},enabled=!busy&&!deleting,label={Text(tr(when(mode){CleanupKind.DUPLICATES->"Duplicates";CleanupKind.TEMPORARY->"Temporary";else->"Empty"}))})}
-                FilterChip(selected=remnants,onClick={remnants=true;result=null;selected=emptySet();message=null},enabled=!busy&&!deleting,label={Text(tr("Remnants"))})
+                CleanupKind.entries.forEach{mode->FilterChip(selected=!protectedMode && !remnants && kind==mode,onClick={protectedMode=false;remnants=false;kind=mode;result=null;selected=emptySet();message=null},enabled=!busy&&!deleting,label={Text(tr(when(mode){CleanupKind.DUPLICATES->"Duplicates";CleanupKind.TEMPORARY->"Temporary";else->"Empty"}))})}
+                FilterChip(selected=remnants&&!protectedMode,onClick={protectedMode=false;remnants=true;result=null;selected=emptySet();message=null},enabled=!busy&&!deleting,label={Text(tr("Remnants"))})
+                FilterChip(selected=protectedMode,onClick={protectedMode=true;remnants=false},enabled=!busy&&!deleting,label={Text(tr("Protected remnants"))})
             }
             if(busy || deleting){
                 LinearProgressIndicator(Modifier.fillMaxWidth())
                 Text(if(deleting)tr("Deleting…") else androidx.compose.ui.res.stringResource(com.slate.android.R.string.cleanup_scanned_count,visited),style=MaterialTheme.typography.bodySmall)
                 if(!deleting)TextButton(onClick={job?.cancel()}){Text(tr("Cancel"))}
+            }else if(protectedMode){
+                Column(Modifier.weight(1f)){ProtectedRemnants(excluded,onChanged)}
             }else if(remnants){
                 Text(tr("Possible app remnants"),style=MaterialTheme.typography.titleMedium)
                 Text(tr("Folders in Android/media with no installed package match. Review before removing."),style=MaterialTheme.typography.bodySmall)

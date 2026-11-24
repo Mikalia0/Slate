@@ -1,0 +1,9 @@
+<resources>
+    <string name="protected_0">Resíduos protegidos</string>
+    <string name="protected_1">Android/data e obb · apenas pastas vazias podem ser excluídas.</string>
+    <string name="protected_2">Armazenamento protegido indisponível</string>
+    <string name="protected_3">Não vazia</string>
+    <string name="protected_4">Excluir pasta vazia?</string>
+    <string name="protected_5">Pasta alterada ou acesso negado</string>
+    <string name="protected_6">Autorize o Shizuku nas configurações.</string>
+</resources>

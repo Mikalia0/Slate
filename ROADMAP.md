@@ -18,13 +18,13 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 
 ## Cleanup tools (9)
 - [ ] Duplicate finder (implemented; verify)
-- [ ] Uninstalled app remnants (review candidates in Android/media; protected locations pending)
+- [ ] Uninstalled app remnants (media review plus protected data/obb candidate listing and empty-only deletion; verify)
 - [ ] Cache cleanup (OS-managed trim via Shizuku/root; individual app settings; verify)
 - [ ] Temporary files (implemented; verify)
 - [ ] App manager (open, version, install date, settings, system uninstall flow; verify)
 - [ ] Empty folders (implemented; verify)
 - [ ] Scheduled scans/cleanup (daily/weekly review scans while charging; manual deletion; verify)
-- [ ] Shizuku/root (authorized cache-trim service and root backend; further protected file operations pending)
+- [ ] Shizuku/root (cache trim, protected remnant discovery and empty-only removal; verify)
 - [ ] Exclusion management (implemented; verify)
 
 ## Device information (7)
