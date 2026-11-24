@@ -18,12 +18,12 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 
 ## Cleanup tools (9)
 - [ ] Duplicate finder (implemented; verify)
-- [ ] Uninstalled app remnants
+- [ ] Uninstalled app remnants (review candidates in Android/media; protected locations pending)
 - [ ] Cache cleanup (app settings only)
 - [ ] Temporary files (implemented; verify)
 - [ ] App manager (open, version, install date, settings, system uninstall flow; verify)
 - [ ] Empty folders (implemented; verify)
-- [ ] Scheduled scans/cleanup
+- [ ] Scheduled scans/cleanup (daily/weekly review scans while charging; manual deletion; verify)
 - [ ] Shizuku/root
 - [ ] Exclusion management (implemented; verify)
 

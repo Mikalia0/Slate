@@ -4,6 +4,8 @@ package com.slate.android.storage
 import android.text.format.Formatter
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -22,9 +24,11 @@ import java.io.File
 import kotlinx.coroutines.*
 
 @Composable
-internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:Set<String>,onBack:()->Unit,onChanged:()->Unit) {
+internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:Set<String>,onBack:()->Unit,onChanged:()->Unit,review:(File)->Unit) {
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
+    var remnants by remember{mutableStateOf(false)}
+    var remnantRows by remember{mutableStateOf<List<File>?>(null)}
     var kind by remember{mutableStateOf(CleanupKind.DUPLICATES)}
     var job by remember{mutableStateOf<Job?>(null)}
     var busy by remember{mutableStateOf(false)}
@@ -54,13 +58,24 @@ internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:S
             Text("Storage access required")
             Button(onClick=request){Text("Grant access")}
         }else{
-            Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){
-                CleanupKind.entries.forEach{mode->FilterChip(selected=kind==mode,onClick={kind=mode;result=null;selected=emptySet();message=null},enabled=!busy&&!deleting,label={Text(when(mode){CleanupKind.DUPLICATES->"Duplicates";CleanupKind.TEMPORARY->"Temporary";else->"Empty"})})}
+            Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(4.dp)){
+                CleanupKind.entries.forEach{mode->FilterChip(selected=!remnants && kind==mode,onClick={remnants=false;kind=mode;result=null;selected=emptySet();message=null},enabled=!busy&&!deleting,label={Text(when(mode){CleanupKind.DUPLICATES->"Duplicates";CleanupKind.TEMPORARY->"Temporary";else->"Empty"})})}
+                FilterChip(selected=remnants,onClick={remnants=true;result=null;selected=emptySet();message=null},enabled=!busy&&!deleting,label={Text("Remnants")})
             }
             if(busy || deleting){
                 LinearProgressIndicator(Modifier.fillMaxWidth())
                 Text(if(deleting)"Deleting…" else "$visited items scanned",style=MaterialTheme.typography.bodySmall)
                 if(!deleting)TextButton(onClick={job?.cancel()}){Text("Cancel")}
+            }else if(remnants){
+                Text("Possible app remnants",style=MaterialTheme.typography.titleMedium)
+                Text("Folders in Android/media with no installed package match. Review before removing.",style=MaterialTheme.typography.bodySmall)
+                Button(onClick={busy=true;message=null;job=scope.launch{try{remnantRows=findMediaRemnants(context,root,excluded)}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message ?: "Scan failed"}finally{busy=false}}}){Text("Find")}
+                remnantRows?.let{rows->
+                    if(rows.isEmpty())Text("No candidates found")
+                    LazyColumn(Modifier.weight(1f)){
+                        items(rows,key={it.path}){folder->ListItem(headlineContent={Text(folder.name)},supportingContent={Text(folder.relativeTo(root).path)},trailingContent={TextButton(onClick={review(folder)}){Text("Review")}});HorizontalDivider()}
+                    }
+                }
             }else{
                 val data=result
                 if(data==null){

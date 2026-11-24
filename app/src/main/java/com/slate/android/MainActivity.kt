@@ -103,6 +103,8 @@ class MainActivity : ComponentActivity() {
                                 HorizontalDivider()
                                 DashboardSettings(dashboard)
                                 HorizontalDivider()
+                                ScheduledCleanupSettings()
+                                HorizontalDivider()
                                 ExclusionEditor(storageModel.exclusions,onChanged={storageModel.invalidate()})
                                 HorizontalDivider()
                                 UpdateSettings(onCheck={manualUpdateRequest++})
@@ -177,7 +179,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         if(showHistory) {
             Box(Modifier.fillMaxSize().padding(padding)){HistoryScreen(history,onBack={showHistory=false})}
         } else if(cleanup) {
-            Box(Modifier.fillMaxSize().padding(padding)){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()})}
+            Box(Modifier.fillMaxSize().padding(padding)){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()},review={folder->cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();largeFiles=false;query="";search=false;model.open(folder)})}
         } else if(apps) {
             Box(Modifier.fillMaxSize().padding(padding)){AppsStorageScreen(onBack={apps=false})}
         } else if (device) {
