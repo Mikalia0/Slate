@@ -44,4 +44,11 @@
     <string name="file_sort_type">Type</string>
     <string name="file_descending">Descending</string>
     <string name="file_batch_delete">Delete %1$d selected items? Only files and empty folders can be deleted here.</string>
+    <string name="gallery_all">All</string>
+    <string name="gallery_images">Images</string>
+    <string name="gallery_videos">Videos</string>
+    <string name="gallery_favorites">Favorites</string>
+    <string name="gallery_share">Share</string>
+    <string name="gallery_details">Details</string>
+    <string name="gallery_delete_confirm">Delete %1$d selected photos or videos?</string>
 </resources>

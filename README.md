@@ -6,7 +6,7 @@
   <p><strong>Storage management, cleanup and device diagnostics for Android.</strong></p>
 
   <p>
-    <a href="https://github.com/stevenmx2/Slate/releases"><img alt="Download APK" src="https://img.shields.io/badge/Download-APK-A7E8CF?style=flat-square&amp;logo=android&amp;logoColor=15191D"></a>
+    <a href="https://github.com/stevenmx2/Slate/releases/latest"><img alt="Download APK" src="https://img.shields.io/badge/Download-APK-A7E8CF?style=flat-square&amp;logo=android&amp;logoColor=15191D"></a>
     <a href="LICENSE"><img alt="GPL-3.0-only" src="https://img.shields.io/badge/License-GPL--3.0--only-586069?style=flat-square"></a>
     <img alt="Android 8.0+" src="https://img.shields.io/badge/Android-8.0%2B-586069?style=flat-square">
     <a href="https://github.com/stevenmx2/Slate/actions/workflows/android.yml"><img alt="Build status" src="https://github.com/stevenmx2/Slate/actions/workflows/android.yml/badge.svg?branch=main"></a>
@@ -39,11 +39,11 @@ The home dashboard highlights storage usage, device status, app cache and releva
 
 ## Additional tools
 
-Slate also includes a local file manager, offline photo/video gallery, and live hardware charts with an optional floating monitor. Game FPS is planned, not yet supported.
+Slate also includes a tabbed file manager with bookmarks and batch operations, an offline gallery with fullscreen photo and video viewing, and a Shizuku-based floating FPS and foreground-package monitor.
 
 ## Installation
 
-**[Get Slate.apk from GitHub Releases](https://github.com/stevenmx2/Slate/releases)**
+**[Get Slate.apk from GitHub Releases](https://github.com/stevenmx2/Slate/releases/latest)**
 
 1. Open the releases page and select the newest development build.
 2. Download `Slate.apk` from its assets and open it on your Android device.
@@ -84,7 +84,7 @@ To sign a local build, set `SLATE_KEYSTORE_PATH` and `SLATE_KEYSTORE_PASSWORD`. 
 
 For repository maintainers, `bash scripts/setup-signing.sh` configures the persistent signing identity and GitHub Actions secrets. Keep the existing signing key backed up and private; rotating it prevents normal in-place updates. CI intentionally fails if signing secrets are missing.
 
-GitHub Actions runs release unit tests, verifies the signed APK and publishes development prereleases.
+GitHub Actions runs release unit tests, verifies the signed APK and publishes signed development builds.
 
 </details>
 

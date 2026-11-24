@@ -5,7 +5,7 @@
 
   <p><strong>Gerenciamento de armazenamento, limpeza e diagnóstico do dispositivo para Android.</strong></p>
 
-  <p><a href="https://github.com/stevenmx2/Slate/releases"><strong>Baixar APK</strong></a> · Android 8.0+ · GPL-3.0-only · <a href="README.md">English</a></p>
+  <p><a href="https://github.com/stevenmx2/Slate/releases/latest"><strong>Baixar APK</strong></a> · Android 8.0+ · GPL-3.0-only · <a href="README.md">English</a></p>
 </div>
 
 O Slate reúne análise de armazenamento, gerenciamento de aplicativos e informações do dispositivo em uma interface Material 3. Descubra o que ocupa espaço, revise arquivos desnecessários e consulte informações de hardware.
@@ -21,11 +21,11 @@ O Slate reúne análise de armazenamento, gerenciamento de aplicativos e informa
 
 ## Ferramentas adicionais
 
-Gerenciador de arquivos local, galeria offline de fotos e vídeos e monitor de hardware com overlay opcional. FPS de jogos ainda está planejado.
+Gerenciador de arquivos com abas, favoritos e operações em lote; galeria offline com visualização de fotos e vídeos em tela cheia; monitor de FPS e pacote via Shizuku.
 
 ## Instalação
 
-Baixe o arquivo **[Slate.apk nas Releases do GitHub](https://github.com/stevenmx2/Slate/releases)**, abra-o e autorize a instalação, caso o Android solicite.
+Baixe o arquivo **[Slate.apk nas Releases do GitHub](https://github.com/stevenmx2/Slate/releases/latest)**, abra-o e autorize a instalação, caso o Android solicite.
 
 Requer Android 8.0 ou superior. Root e Shizuku são opcionais. O Slate está em desenvolvimento ativo; os APKs publicados são builds de desenvolvimento assinadas.
 

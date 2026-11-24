@@ -5,6 +5,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+concurrency:
+  group: slate-release-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -52,7 +55,7 @@ jobs:
           apk=app/build/outputs/apk/release/app-release.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk"
           cp "$apk" Slate.apk
-      - name: Publish signed prerelease
+      - name: Publish signed development release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -63,5 +66,5 @@ jobs:
           gh release create "$tag" Slate.apk changelog.txt \
             --target "$GITHUB_SHA" \
             --title "Slate development build ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
-            --prerelease \
-            --notes "Signed APK. Unit tests and APK signature verified."
+            --latest \
+            --notes "Development build. Signed APK. Unit tests and APK signature verified."

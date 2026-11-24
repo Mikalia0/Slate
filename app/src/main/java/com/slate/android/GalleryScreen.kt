@@ -15,6 +15,26 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import android.widget.VideoView
+import android.widget.MediaController
+import android.util.LruCache
+import androidx.activity.result.IntentSenderRequest
+import android.app.Activity
+import android.text.format.Formatter
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
@@ -36,7 +56,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.*
 import java.text.DateFormat
 import java.util.Date
-private data class MediaItem(val id:Long,val uri:Uri,val video:Boolean,val name:String,val bucket:String,val folder:String,val date:Long)
+private data class MediaItem(val id:Long,val uri:Uri,val video:Boolean,val name:String,val bucket:String,val folder:String,val date:Long,val bytes:Long,val duration:Long)
 private fun mediaPermissions():Array<String> = when{
     Build.VERSION.SDK_INT>=34->arrayOf(Manifest.permission.READ_MEDIA_IMAGES,Manifest.permission.READ_MEDIA_VIDEO,Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
     Build.VERSION.SDK_INT>=33->arrayOf(Manifest.permission.READ_MEDIA_IMAGES,Manifest.permission.READ_MEDIA_VIDEO)
@@ -48,12 +68,12 @@ private suspend fun readMedia(context:Context):List<MediaItem> = withContext(Dis
     for(video in listOf(false,true)){
         val uri=if(video)MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
         try{
-            context.contentResolver.query(uri,arrayOf("_id","_display_name","bucket_id","bucket_display_name","date_added"),null,null,"date_added DESC")?.use{cursor->
+            context.contentResolver.query(uri,arrayOf("_id","_display_name","bucket_id","bucket_display_name","date_added","_size")+(if(video)arrayOf("duration")else emptyArray()),null,null,"date_added DESC")?.use{cursor->
                 queries++
                 while(cursor.moveToNext()){
                     currentCoroutineContext().ensureActive()
                     val id=cursor.getLong(0)
-                    output.add(MediaItem(id,ContentUris.withAppendedId(uri,id),video,cursor.getString(1).orEmpty(),cursor.getString(2).orEmpty(),cursor.getString(3).orEmpty(),cursor.getLong(4)))
+                    output.add(MediaItem(id,ContentUris.withAppendedId(uri,id),video,cursor.getString(1).orEmpty(),cursor.getString(2).orEmpty(),cursor.getString(3).orEmpty(),cursor.getLong(4),cursor.getLong(5).coerceAtLeast(0),if(video)cursor.getLong(6).coerceAtLeast(0)else 0L))
                 }
             }
         }catch(_:SecurityException){}
@@ -61,21 +81,30 @@ private suspend fun readMedia(context:Context):List<MediaItem> = withContext(Dis
     check(queries>0)
     output.sortedByDescending{it.date}
 }
+private val thumbnails=object:LruCache<String,Bitmap>(24*1024*1024){override fun sizeOf(key:String,value:Bitmap)=value.allocationByteCount}
+private fun cachedThumbnail(context:Context,item:MediaItem):Bitmap? {
+    val key=item.uri.toString()+":"+item.date+":"+item.bytes
+    return thumbnails.get(key)?:thumbnail(context,item,320)?.also{thumbnails.put(key,it)}
+}
 @Suppress("DEPRECATION")
 private fun thumbnail(context:Context,item:MediaItem,size:Int):Bitmap?=runCatching{
     if(Build.VERSION.SDK_INT>=29)context.contentResolver.loadThumbnail(item.uri,Size(size,size),null)
     else if(item.video)MediaStore.Video.Thumbnails.getThumbnail(context.contentResolver,item.id,MediaStore.Video.Thumbnails.MINI_KIND,null)
     else MediaStore.Images.Thumbnails.getThumbnail(context.contentResolver,item.id,MediaStore.Images.Thumbnails.MINI_KIND,null)
 }.getOrNull()
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MediaTile(item:MediaItem,modifier:Modifier=Modifier,onClick:()->Unit){
+private fun MediaTile(item:MediaItem,modifier:Modifier=Modifier,selected:Boolean=false,onLongClick:(()->Unit)?=null,onClick:()->Unit){
     val context=LocalContext.current
-    val bitmap by produceState<Bitmap?>(null,item.uri){value=withContext(Dispatchers.IO){thumbnail(context,item,320)}}
-    Box(modifier.aspectRatio(1f).clickable(onClick=onClick),contentAlignment=Alignment.Center){
+    val bitmap by produceState<Bitmap?>(null,item.uri){value=withContext(Dispatchers.IO){cachedThumbnail(context,item)}}
+    Box(modifier.aspectRatio(1f).combinedClickable(onClick=onClick,onLongClick=onLongClick),contentAlignment=Alignment.Center){
         val image=bitmap
         if(image!=null)Image(image.asImageBitmap(),item.name,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
         else Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.surfaceContainer){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Info,null)}}
-        if(item.video)Surface(Modifier.align(Alignment.BottomEnd).padding(5.dp),shape=MaterialTheme.shapes.small,color=MaterialTheme.colorScheme.inverseSurface){Icon(Icons.Default.PlayArrow,null,Modifier.padding(4.dp).size(18.dp),tint=MaterialTheme.colorScheme.inverseOnSurface)}
+        if(item.video)Surface(Modifier.align(Alignment.BottomEnd).padding(4.dp),shape=MaterialTheme.shapes.small,color=Color.Black.copy(alpha=.65f)){
+            Row(Modifier.padding(4.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.PlayArrow,null,Modifier.size(15.dp),tint=Color.White);Text(videoDuration(item.duration),color=Color.White,style=MaterialTheme.typography.labelSmall)}
+        }
+        if(selected)Surface(Modifier.align(Alignment.TopEnd).padding(4.dp),shape=MaterialTheme.shapes.small,color=MaterialTheme.colorScheme.primary){Icon(Icons.Default.Check,null,Modifier.padding(4.dp).size(20.dp),tint=MaterialTheme.colorScheme.onPrimary)}
     }
 }
 private fun openMedia(context:Context,item:MediaItem,share:Boolean){
@@ -87,34 +116,150 @@ private fun openMedia(context:Context,item:MediaItem,share:Boolean){
         context.startActivity(Intent.createChooser(intent,null))
     }
 }
+
+private fun videoDuration(ms:Long):String {
+    val seconds=ms/1000
+    return if(seconds>=3600)"${seconds/3600}:%02d:%02d".format(seconds/60%60,seconds%60) else "${seconds/60}:%02d".format(seconds%60)
+}
+
+private fun shareMedia(context:Context,items:List<MediaItem>){
+    if(items.isEmpty())return
+    runCatching{
+        val uris=ArrayList(items.map{it.uri})
+        val mime=if(items.all{it.video})"video/*"else if(items.none{it.video})"image/*"else "*/*"
+        val intent=Intent(if(uris.size==1)Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply{
+            type=mime
+            if(uris.size==1)putExtra(Intent.EXTRA_STREAM,uris.first())else putParcelableArrayListExtra(Intent.EXTRA_STREAM,uris)
+            clipData=ClipData.newRawUri("Slate",uris.first()).apply{uris.drop(1).forEach{addItem(ClipData.Item(it))}}
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent,null))
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun MediaViewer(items:List<MediaItem>,initial:Int,favorites:Set<String>,onFavorite:(String)->Unit,onClose:()->Unit,onDelete:(MediaItem)->Unit){
+    if(items.isEmpty())return
+    val context=LocalContext.current
+    val pager=rememberPagerState(initialPage=initial.coerceIn(items.indices),pageCount={items.size})
+    val current=items[pager.currentPage.coerceIn(items.indices)]
+    var details by remember{mutableStateOf(false)}
+    var chrome by remember{mutableStateOf(true)}
+    Dialog(onDismissRequest=onClose,properties=DialogProperties(usePlatformDefaultWidth=false,decorFitsSystemWindows=true)){
+        Surface(Modifier.fillMaxSize(),color=Color.Black){
+            Column(Modifier.fillMaxSize()){
+                if(chrome)Row(Modifier.fillMaxWidth().padding(8.dp),verticalAlignment=Alignment.CenterVertically){
+                    IconButton(onClick=onClose){Icon(Icons.Default.ArrowBack,null,tint=Color.White)}
+                    Column(Modifier.weight(1f)){
+                        Text(current.name,color=Color.White,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        Text("${pager.currentPage+1} / ${items.size}",color=Color.LightGray,style=MaterialTheme.typography.labelSmall)
+                    }
+                    IconButton(onClick={details=true}){Icon(Icons.Default.Info,null,tint=Color.White)}
+                }
+                HorizontalPager(state=pager,modifier=Modifier.weight(1f).fillMaxWidth(),userScrollEnabled=true){index->
+                    val item=items[index]
+                    if(item.video){
+                        if(index==pager.settledPage){
+                            var player by remember(item.uri){mutableStateOf<VideoView?>(null)}
+                            AndroidView(factory={ctx->VideoView(ctx).apply{
+                                val controller=MediaController(ctx);controller.setAnchorView(this);setMediaController(controller)
+                                setVideoURI(item.uri);setOnPreparedListener{start()};player=this
+                            }},modifier=Modifier.fillMaxSize())
+                            DisposableEffect(item.uri){onDispose{player?.stopPlayback()}}
+                        }else Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Icon(Icons.Default.PlayArrow,null,tint=Color.White)}
+                    }else{
+                        var scale by remember(item.uri){mutableFloatStateOf(1f)}
+                        var x by remember(item.uri){mutableFloatStateOf(0f)}
+                        var y by remember(item.uri){mutableFloatStateOf(0f)}
+                        val transform=rememberTransformableState{zoom,pan,_->
+                            scale=(scale*zoom).coerceIn(1f,4f)
+                            if(scale>1f){x+=pan.x;y+=pan.y}else{x=0f;y=0f}
+                        }
+                        val bitmap by produceState<Bitmap?>(null,item.uri){
+                            value=withContext(Dispatchers.IO){
+                                if(Build.VERSION.SDK_INT>=28)runCatching{
+                                    android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(context.contentResolver,item.uri)){decoder,info,_->
+                                        val max=maxOf(info.size.width,info.size.height)
+                                        if(max>2400)decoder.setTargetSampleSize((max+2399)/2400)
+                                        decoder.allocator=android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+                                    }
+                                }.getOrNull()?:thumbnail(context,item,1024)
+                                else thumbnail(context,item,1024)
+                            }
+                        }
+                        Box(Modifier.fillMaxSize().transformable(transform).clickable{chrome=!chrome},contentAlignment=Alignment.Center){
+                            bitmap?.let{Image(it.asImageBitmap(),item.name,Modifier.fillMaxSize().graphicsLayer{scaleX=scale;scaleY=scale;translationX=x;translationY=y},contentScale=ContentScale.Fit)}
+                        }
+                    }
+                }
+                if(chrome)Row(Modifier.fillMaxWidth().padding(8.dp),horizontalArrangement=Arrangement.SpaceEvenly){
+                    IconButton(onClick={shareMedia(context,listOf(current))}){Icon(Icons.Default.Share,stringResource(R.string.gallery_share),tint=Color.White)}
+                    IconButton(onClick={onFavorite(current.uri.toString())}){Icon(if(current.uri.toString() in favorites)Icons.Default.Favorite else Icons.Default.FavoriteBorder,stringResource(R.string.gallery_favorites),tint=Color.White)}
+                    IconButton(onClick={onDelete(current)}){Icon(Icons.Default.Delete,tr("Delete"),tint=Color.White)}
+                }
+            }
+        }
+        if(details)AlertDialog(onDismissRequest={details=false},title={Text(stringResource(R.string.gallery_details))},text={
+            Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
+                Text(current.name);Text(current.folder);Text(Formatter.formatFileSize(context,current.bytes))
+                Text(DateFormat.getDateTimeInstance().format(Date(current.date*1000)))
+                if(current.video)Text(videoDuration(current.duration))
+            }
+        },confirmButton={TextButton(onClick={details=false}){Text(tr("Close"))}})
+    }
+}
+
 @Composable
 internal fun GalleryScreen(granted:Boolean,request:()->Unit){
     val context=LocalContext.current
     val lifecycle=LocalLifecycleOwner.current.lifecycle
+    val scope=rememberCoroutineScope()
+    val prefs=remember{context.getSharedPreferences("gallery",0)}
+    var favorites by remember{mutableStateOf(prefs.getStringSet("favorites",emptySet()).orEmpty().toSet())}
     var revision by remember{mutableIntStateOf(0)}
     var media by remember{mutableStateOf<List<MediaItem>>(emptyList())}
     var loading by remember{mutableStateOf(false)}
     var error by remember{mutableStateOf(false)}
     var albums by rememberSaveable{mutableStateOf(false)}
     var bucket by rememberSaveable{mutableStateOf<String?>(null)}
-    var preview by remember{mutableStateOf<MediaItem?>(null)}
+    var filter by rememberSaveable{mutableIntStateOf(0)}
+    var selected by remember{mutableStateOf<Set<String>>(emptySet())}
+    var preview by remember{mutableStateOf<String?>(null)}
+    var deletion by remember{mutableStateOf<List<MediaItem>>(emptyList())}
+    var message by remember{mutableStateOf<String?>(null)}
     val launcher=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){revision++}
+    val deleteLauncher=rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()){result->
+        if(result.resultCode==Activity.RESULT_OK){selected=emptySet();preview=null;revision++}
+    }
+    fun favorite(key:String){
+        favorites=if(key in favorites)favorites-key else favorites+key
+        prefs.edit().putStringSet("favorites",favorites).apply()
+    }
+    fun toggle(key:String){selected=if(key in selected)selected-key else selected+key}
     LaunchedEffect(lifecycle){lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED){revision++}}
     val allowed=granted||mediaPermissions().any{context.checkSelfPermission(it)==PackageManager.PERMISSION_GRANTED}
     LaunchedEffect(granted,revision){
         if(!allowed){media=emptyList();return@LaunchedEffect}
         loading=true;error=false
-        try{media=readMedia(context)}
+        try{media=readMedia(context);selected=selected.intersect(media.map{it.uri.toString()}.toSet())}
         catch(e:CancellationException){throw e}
         catch(_:Exception){error=true}
         finally{loading=false}
     }
-    BackHandler(preview!=null||bucket!=null){if(preview!=null)preview=null else bucket=null}
+    BackHandler(preview!=null||selected.isNotEmpty()||bucket!=null){when{preview!=null->preview=null;selected.isNotEmpty()->selected=emptySet();else->bucket=null}}
+    val visible=remember(media,bucket,filter,favorites){media.filter{(bucket==null||it.bucket==bucket)&&when(filter){1->!it.video;2->it.video;3->it.uri.toString() in favorites;else->true}}}
+    val groups=remember(media){media.groupBy{it.bucket}.values.sortedByDescending{it.first().date}}
+    val days=remember(visible){val format=DateFormat.getDateInstance();visible.groupBy{format.format(Date(it.date*1000))}}
     Column(Modifier.fillMaxSize()){
-        Row(Modifier.fillMaxWidth().padding(horizontal=14.dp),verticalAlignment=Alignment.CenterVertically){
-            if(bucket!=null)IconButton(onClick={bucket=null}){Icon(Icons.Default.ArrowBack,null)}
-            Text(if(bucket!=null)media.firstOrNull{it.bucket==bucket}?.folder.orEmpty()else stringResource(R.string.tool_gallery),Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall)
-            IconButton(onClick={revision++}){Icon(Icons.Default.Refresh,null)}
+        Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){
+            if(bucket!=null||selected.isNotEmpty())IconButton(onClick={if(selected.isNotEmpty())selected=emptySet()else bucket=null}){Icon(Icons.Default.ArrowBack,null)}
+            Text(if(selected.isNotEmpty())stringResource(R.string.tool_selected,selected.size)else if(bucket!=null)media.firstOrNull{it.bucket==bucket}?.folder.orEmpty()else stringResource(R.string.tool_gallery),Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall,maxLines=1)
+            if(selected.isNotEmpty()){
+                IconButton(onClick={selected=visible.map{it.uri.toString()}.toSet()}){Icon(Icons.Default.Check,stringResource(R.string.cache_select_all))}
+                IconButton(onClick={shareMedia(context,media.filter{it.uri.toString() in selected})}){Icon(Icons.Default.Share,null)}
+                IconButton(onClick={deletion=media.filter{it.uri.toString() in selected}}){Icon(Icons.Default.Delete,null)}
+            }else IconButton(onClick={revision++}){Icon(Icons.Default.Refresh,null)}
         }
         if(!allowed||error){
             Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
@@ -123,36 +268,59 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
             }
             return@Column
         }
-        if(bucket==null)Row(Modifier.padding(horizontal=14.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-            FilterChip(selected=!albums,onClick={albums=false},label={Text(stringResource(R.string.gallery_photos))})
-            FilterChip(selected=albums,onClick={albums=true},label={Text(stringResource(R.string.gallery_folders))})
+        if(bucket==null&&selected.isEmpty())Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+            FilledTonalButton(onClick={albums=false;filter=0},modifier=Modifier.weight(1f),colors=ButtonDefaults.filledTonalButtonColors(containerColor=if(!albums)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)){Text(stringResource(R.string.gallery_photos))}
+            FilledTonalButton(onClick={albums=true;filter=0},modifier=Modifier.weight(1f),colors=ButtonDefaults.filledTonalButtonColors(containerColor=if(albums)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)){Text(stringResource(R.string.gallery_folders))}
+        }
+        if((!albums||bucket!=null)&&selected.isEmpty())Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)){
+            listOf(R.string.gallery_all,R.string.gallery_images,R.string.gallery_videos,R.string.gallery_favorites).forEachIndexed{index,id->FilterChip(selected=filter==index,onClick={filter=index},label={Text(stringResource(id))})}
         }
         if(loading)LinearProgressIndicator(Modifier.fillMaxWidth())
-        if(media.isEmpty()&&!loading)Text(stringResource(R.string.gallery_empty),Modifier.padding(16.dp))
-        val groups=remember(media){media.groupBy{it.bucket}.values.sortedByDescending{it.first().date}}
-        val visible=remember(media,bucket){media.filter{bucket==null||it.bucket==bucket}}
-        val days=remember(visible){val format=DateFormat.getDateInstance();visible.groupBy{format.format(Date(it.date*1000))}}
-        LazyVerticalGrid(columns=GridCells.Adaptive(if(albums&&bucket==null)152.dp else 105.dp),modifier=Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(2.dp),verticalArrangement=Arrangement.spacedBy(2.dp),contentPadding=PaddingValues(4.dp)){
+        message?.let{Text(it,Modifier.padding(8.dp),color=MaterialTheme.colorScheme.error)}
+        if(visible.isEmpty()&&!loading)Text(stringResource(R.string.gallery_empty),Modifier.padding(16.dp))
+        LazyVerticalGrid(columns=GridCells.Adaptive(if(albums&&bucket==null)155.dp else 105.dp),modifier=Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)8.dp else 2.dp),verticalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)8.dp else 2.dp),contentPadding=PaddingValues(if(albums&&bucket==null)12.dp else 3.dp)){
             if(albums&&bucket==null){
                 items(groups,key={it.first().bucket}){group->
-                    Column(Modifier.padding(4.dp).clickable{bucket=group.first().bucket}){
-                        MediaTile(group.first(),Modifier.fillMaxWidth()){bucket=group.first().bucket}
-                        Text(group.first().folder,Modifier.padding(top=5.dp),maxLines=1)
-                        Text(group.size.toString(),style=MaterialTheme.typography.labelSmall)
+                    Card(onClick={bucket=group.first().bucket;filter=0}){
+                        Column{
+                            MediaTile(group.first(),Modifier.fillMaxWidth()){bucket=group.first().bucket;filter=0}
+                            Column(Modifier.padding(10.dp)){
+                                Text(group.first().folder.ifBlank{stringResource(R.string.gallery_folders)},maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.titleSmall)
+                                Text(stringResource(R.string.file_items,group.size),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
                 }
             }else{
                 days.forEach{(day,photos)->
-                    item(key="day-$day",span={GridItemSpan(maxLineSpan)}){Text(day,Modifier.padding(10.dp),style=MaterialTheme.typography.titleSmall)}
-                    items(photos,key={it.uri.toString()}){item->MediaTile(item,Modifier.fillMaxWidth()){preview=item}}
+                    item(key="day-$day",span={GridItemSpan(maxLineSpan)}){Text(day,Modifier.padding(horizontal=10.dp,vertical=12.dp),style=MaterialTheme.typography.titleSmall)}
+                    items(photos,key={it.uri.toString()}){item->
+                        val key=item.uri.toString()
+                        MediaTile(item,Modifier.fillMaxWidth(),selected=key in selected,onLongClick={toggle(key)}){
+                            if(selected.isNotEmpty())toggle(key)else preview=key
+                        }
+                    }
                 }
             }
         }
     }
-    preview?.let{item->
-        AlertDialog(onDismissRequest={preview=null},title={Text(item.name,maxLines=2)},text={
-            val bitmap by produceState<Bitmap?>(null,item.uri){value=withContext(Dispatchers.IO){thumbnail(context,item,1024)}}
-            bitmap?.let{Image(it.asImageBitmap(),item.name,Modifier.fillMaxWidth().heightIn(max=400.dp),contentScale=ContentScale.Fit)}
-        },confirmButton={TextButton(onClick={openMedia(context,item,false)}){Text(tr("Open"))}},dismissButton={TextButton(onClick={openMedia(context,item,true)}){Text(tr("Share"))}})
+    preview?.let{key->
+        val initial=visible.indexOfFirst{it.uri.toString()==key}
+        if(initial>=0)MediaViewer(visible,initial,favorites,::favorite,onClose={preview=null},onDelete={deletion=listOf(it)})
     }
+    if(deletion.isNotEmpty())AlertDialog(onDismissRequest={deletion=emptyList()},title={Text(tr("Delete"))},text={Text(stringResource(R.string.gallery_delete_confirm,deletion.size))},dismissButton={TextButton(onClick={deletion=emptyList()}){Text(tr("Cancel"))}},confirmButton={
+        TextButton(onClick={
+            val targets=deletion;deletion=emptyList()
+            if(Build.VERSION.SDK_INT>=30){
+                runCatching{
+                    val pending=MediaStore.createDeleteRequest(context.contentResolver,targets.map{it.uri})
+                    deleteLauncher.launch(IntentSenderRequest.Builder(pending.intentSender).build())
+                }.onFailure{message=context.getString(R.string.file_failed)}
+            }else scope.launch{
+                val success=withContext(Dispatchers.IO){targets.all{runCatching{context.contentResolver.delete(it.uri,null,null)>0}.getOrDefault(false)}}
+                if(!success)message=context.getString(R.string.file_failed)
+                selected=emptySet();preview=null;revision++
+            }
+        }){Text(tr("Delete"))}
+    })
 }

@@ -2,6 +2,13 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — File manager and gallery expansion
+
+- Add folder tabs, persistent bookmarks, breadcrumbs, list/grid views and batch file operations.
+- Add gallery media filters, favorites, selection, batch sharing and confirmed deletion.
+- Add fullscreen swipeable photo viewer, pinch zoom and built-in video playback.
+- Link README download buttons to the latest signed development release.
+
 ## 0.5.0-dev — Direct cache cleanup
 
 - Use Android Package Manager freeStorageAndNotify with the full reserved-cache allocation flag for global cleanup.

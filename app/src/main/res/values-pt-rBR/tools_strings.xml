@@ -44,4 +44,11 @@
     <string name="file_sort_type">Tipo</string>
     <string name="file_descending">Decrescente</string>
     <string name="file_batch_delete">Excluir %1$d itens selecionados? Apenas arquivos e pastas vazias podem ser excluídos aqui.</string>
+    <string name="gallery_all">Tudo</string>
+    <string name="gallery_images">Imagens</string>
+    <string name="gallery_videos">Vídeos</string>
+    <string name="gallery_favorites">Favoritos</string>
+    <string name="gallery_share">Compartilhar</string>
+    <string name="gallery_details">Detalhes</string>
+    <string name="gallery_delete_confirm">Excluir %1$d fotos ou vídeos selecionados?</string>
 </resources>
