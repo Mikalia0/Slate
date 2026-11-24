@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-data class ScanState(val directory: File? = null, val snapshot: Snapshot? = null, val running: Boolean = false, val visited: Long = 0, val error: String? = null, val scanId: Long = 0, val currentPath: String = "", val measuredBytes: Long = 0L, val elapsedMs: Long = 0L, val fresh: Boolean = false, val largestLoading: Boolean = false, val saved: Boolean = false)
+data class ScanState(val directory: File? = null, val snapshot: Snapshot? = null, val running: Boolean = false, val visited: Long = 0, val error: String? = null, val scanId: Long = 0, val currentPath: String = "", val measuredBytes: Long = 0L, val elapsedMs: Long = 0L, val fresh: Boolean = false, val largestLoading: Boolean = false, val saved: Boolean = false, val partialRefresh:Boolean = false)
 
 class StorageModel(app:Application) : AndroidViewModel(app) {
     private val primary=Environment.getExternalStorageDirectory()
@@ -39,6 +39,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     private val cache = LinkedHashMap<File, Snapshot>()
     private val indexes=LinkedHashMap<File,IndexedScan>()
     private var largestJob: Job? = null
+    private val partialRoots=HashSet<File>()
 
     fun open(directory: File, refresh: Boolean = false) {
         if(!refresh && mutable.value.directory==directory && mutable.value.running) return
@@ -46,19 +47,20 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         largestJob?.cancel()
         backgroundJob?.cancel()
         val id = ++generation
+        val parentIndex=if(refresh && directory!=primary) indexes.values.toList().asReversed().firstOrNull{it.folders.containsKey(directory)} else null
         if (refresh) { clearIndexes() }
-        cache[directory]?.let { mutable.value = ScanState(directory,it,scanId=id); return }
+        cache[directory]?.let { mutable.value = ScanState(directory,it,scanId=id,partialRefresh=partialRoots.any{root->directory.toPath().startsWith(root.toPath())}); return }
         val saved=savedIndex
         val indexed=indexes.values.toList().asReversed().firstOrNull{directory==it.root.directory || it.folders.containsKey(directory)} ?: saved?.takeIf{directory==it.root.directory || it.folders.containsKey(directory)}
         if(indexed!=null) {
             val original=if(directory==indexed.root.directory) indexed.root else indexed.folders.getValue(directory)
             val needsLargest=directory!=indexed.root.directory && original.files>0
-            mutable.value=ScanState(directory,original,scanId=id,largestLoading=needsLargest,saved=indexed===saved)
+            mutable.value=ScanState(directory,original,scanId=id,largestLoading=needsLargest,saved=indexed===saved,partialRefresh=indexed.root.directory in partialRoots)
             if(needsLargest) largestJob=viewModelScope.launch {
                 val complete=withContext(Dispatchers.Default){indexed.snapshot(directory)}
                 if(generation==id && complete!=null) {
                     if(indexed!==saved) {cache[directory]=complete;if(cache.size>16)cache.remove(cache.keys.first())}
-                    mutable.value=ScanState(directory,complete,scanId=id,saved=indexed===saved)
+                    mutable.value=ScanState(directory,complete,scanId=id,saved=indexed===saved,partialRefresh=indexed.root.directory in partialRoots)
                 }
             }
             return
@@ -80,7 +82,9 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
                         }
                     }
                 }
+                val merged=if(parentIndex!=null)withContext(Dispatchers.Default){parentIndex.replaceSubtree(result)}else null
                 if (generation == id) {
+                    if(merged!=null){indexes[merged.root.directory]=merged;partialRoots.add(merged.root.directory)}
                     if (!result.root.rootUnreadable) {
                         indexes[directory]=result
                         if(indexes.size>2)indexes.remove(indexes.keys.first())
@@ -110,7 +114,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     }
     private fun clearIndexes(){
         saveJob?.cancel();backgroundJob?.cancel()
-        cache.clear();indexes.clear();savedIndex=null;diskChecked=true
+        cache.clear();indexes.clear();partialRoots.clear();savedIndex=null;diskChecked=true
         // A queued clear follows any in-flight write, so stale data is not restored.
         saveJob=viewModelScope.launch(Dispatchers.IO){persistence.withLock{store.clear()}}
     }

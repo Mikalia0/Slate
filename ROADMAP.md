@@ -13,7 +13,7 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 - [ ] Full scan history (30 scans and folder details; verify)
 - [ ] Detailed session comparison (implemented; verify)
 - [ ] Persistent index (implemented; verify)
-- [ ] Incremental updates
+- [ ] Incremental updates (scoped subtree refresh with cached ancestor totals; cold-start reconciliation remains full)
 - [ ] Accurate user/app/system separation (partial; Android limits)
 
 ## Cleanup tools (9)

@@ -221,6 +221,10 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                         }
                     }
                 }
+                if(state.partialRefresh && !state.saved) Row(verticalAlignment=Alignment.CenterVertically){
+                    Text("Partially refreshed index",Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick={selection=emptySet();model.open(root,refresh=true)}){Text("Refresh all")}
+                }
                 if(state.saved) Row(verticalAlignment=Alignment.CenterVertically) {
                     Text("Saved results",Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     TextButton(onClick={selection=emptySet();model.open(root,refresh=true)}){Text("Refresh")}
@@ -254,7 +258,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                         Text("${selected.size} selected",style=MaterialTheme.typography.titleMedium)
                                         Text(fmt(selected.sumOf{it.bytes}),style=MaterialTheme.typography.bodySmall)
                                     }
-                                    IconButton(onClick={confirmDelete=true},enabled=!deleting && !state.saved && selected.isNotEmpty()){Icon(Icons.Default.Delete,"Delete selected")}
+                                    IconButton(onClick={confirmDelete=true},enabled=!deleting && !state.saved && !state.partialRefresh && selected.isNotEmpty()){Icon(Icons.Default.Delete,"Delete selected")}
                                 }
                                 TextButton(onClick={selection=entries.map{it.file.path}.toSet()},enabled=!deleting){Text("Select visible")}
                             }
@@ -346,7 +350,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                         }
                     }
                     }
-                    if(confirmDelete && !state.saved) AlertDialog(onDismissRequest={confirmDelete=false},title={Text("Permanently delete ${selected.size} items?")},
+                    if(confirmDelete && !state.saved && !state.partialRefresh) AlertDialog(onDismissRequest={confirmDelete=false},title={Text("Permanently delete ${selected.size} items?")},
                         text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
                             Text("Measured size: "+fmt(selected.sumOf{it.bytes}))
                             Text("This cannot be undone. Inaccessible or incomplete items are skipped.")

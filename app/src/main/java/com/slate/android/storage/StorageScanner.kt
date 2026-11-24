@@ -21,8 +21,11 @@ data class ScanProgress(val visited: Long, val path: String, val bytes: Long, va
 internal data class IndexedScan(val root: Snapshot, val folders: Map<File,Snapshot>) {
     suspend fun snapshot(directory: File): Snapshot? {
         if(directory==root.directory) return root
-        val context=currentCoroutineContext()
         val original=folders[directory] ?: return null
+        return original.copy(largestFiles=largestUnder(original))
+    }
+    internal suspend fun largestUnder(original:Snapshot):List<Entry> {
+        val context=currentCoroutineContext()
         val queue=PriorityQueue<Entry>(compareBy<Entry>{it.bytes}.thenBy{it.file.path})
         val pending=ArrayDeque<Iterator<Entry>>()
         pending.addLast(original.entries.iterator())
@@ -37,7 +40,7 @@ internal data class IndexedScan(val root: Snapshot, val folders: Map<File,Snapsh
                 else if(entry.bytes>queue.peek()!!.bytes) { queue.poll();queue.add(entry) }
             }
         }
-        return original.copy(largestFiles=queue.sortedByDescending{it.bytes})
+        return queue.sortedByDescending{it.bytes}
     }
 }
 
