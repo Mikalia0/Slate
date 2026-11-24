@@ -1,0 +1,9 @@
+<resources>
+    <string name="hardware_technical">"Dettagli tecnici"</string>
+    <string name="hardware_cached">"RAM in cache"</string>
+    <string name="hardware_free">"RAM libera"</string>
+    <string name="hardware_swap_used">"Swap utilizzato"</string>
+    <string name="hardware_swap_total">"Swap totale"</string>
+    <string name="hardware_zram">"Capacità zRAM"</string>
+    <string name="hardware_hdr">"Formati HDR"</string>
+</resources>

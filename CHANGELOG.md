@@ -4,7 +4,8 @@ Changes are listed newest first. Each signed development release also includes c
 
 ## 0.5.0-dev — App language
 
-- Add a persistent per-app language selector with system default, English, Brazilian Portuguese, Spanish and French.
+- Add a persistent per-app language selector with system default, English, Brazilian Portuguese, Spanish, French, Italian and Russian.
+- Add translated UI resource catalogs for Spanish, French, Italian and Russian, including storage, permissions, HUD and cache cleanup.
 - Integrate Android per-app languages and backward-compatible locale handling.
 
 ## 0.5.0-dev — Complete themes

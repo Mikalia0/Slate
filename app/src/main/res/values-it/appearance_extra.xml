@@ -1,0 +1,17 @@
+<resources>
+    <string name="setup_files">"File e galleria"</string>
+    <string name="setup_files_desc">"Esplora, organizza e visualizza i contenuti multimediali in locale."</string>
+    <string name="monitor_neon_desc">"Bordo viola e sfondo traslucido. Arresta l’overlay per cambiare stile."</string>
+    <string name="palette_mode">"Modalità di visualizzazione"</string>
+    <string name="palette_title">"Tema"</string>
+    <string name="palette_slate">"Slate"</string>
+    <string name="palette_slate_desc">"Menta delicata"</string>
+    <string name="palette_ocean">"Ocean"</string>
+    <string name="palette_ocean_desc">"Blu profondo"</string>
+    <string name="palette_aurora">"Aurora"</string>
+    <string name="palette_aurora_desc">"Tonalità viola"</string>
+    <string name="palette_graphite">"Graphite"</string>
+    <string name="palette_graphite_desc">"Grigio neutro"</string>
+    <string name="palette_wallpaper">"Sfondo"</string>
+    <string name="palette_wallpaper_desc">"Segui i colori di Android"</string>
+</resources>

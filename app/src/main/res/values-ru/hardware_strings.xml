@@ -1,0 +1,9 @@
+<resources>
+    <string name="hardware_technical">"Технические сведения"</string>
+    <string name="hardware_cached">"Кешированная ОЗУ"</string>
+    <string name="hardware_free">"Свободная ОЗУ"</string>
+    <string name="hardware_swap_used">"Использовано swap"</string>
+    <string name="hardware_swap_total">"Всего swap"</string>
+    <string name="hardware_zram">"Ёмкость zRAM"</string>
+    <string name="hardware_hdr">"Форматы HDR"</string>
+</resources>

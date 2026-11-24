@@ -1,0 +1,9 @@
+<resources>
+    <string name="protected_0">"Защищённые остатки"</string>
+    <string name="protected_1">"Android/data и obb · можно удалить только пустые папки."</string>
+    <string name="protected_2">"Защищённое хранилище недоступно"</string>
+    <string name="protected_3">"Не пустая"</string>
+    <string name="protected_4">"Удалить пустую папку?"</string>
+    <string name="protected_5">"Папка изменилась или доступ запрещён"</string>
+    <string name="protected_6">"Разрешите Shizuku в настройках."</string>
+</resources>

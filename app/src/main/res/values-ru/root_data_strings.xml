@@ -1,0 +1,17 @@
+<resources>
+    <string name="root_data_volume">"Суперпользователь · приватные файлы"</string>
+    <string name="root_data_title">"Самые большие файлы"</string>
+    <string name="root_data_progress">"Проверено файлов: %1$d"</string>
+    <string name="root_data_count">"Крупнейших: %1$d · проверено: %2$d"</string>
+    <string name="root_data_partial">"Некоторые пути не удалось измерить. Результаты могут быть неполными."</string>
+    <string name="root_data_denied">"Root-доступ запрещён или не удалось начать анализ."</string>
+    <string name="root_data_explain">"Анализ обычных файлов в /data, включая приватные файлы приложений, с правами суперпользователя. Только чтение; символические ссылки и отдельно смонтированные файловые системы исключены. Показывает до 2000 крупнейших файлов по логическому размеру. Файлы не удаляются."</string>
+    <string name="root_data_scan">"Анализ с root"</string>
+    <string name="root_data_copy">"Копировать путь"</string>
+    <string name="root_access_title">"Доступ суперпользователя"</string>
+    <string name="root_access_checking">"Проверка разрешения…"</string>
+    <string name="root_access_granted">"Разрешено на этот сеанс"</string>
+    <string name="root_access_optional">"Необязательный доступ для анализа приватного хранилища"</string>
+    <string name="root_access_allow">"Разрешить"</string>
+    <string name="root_access_disable">"Отключить"</string>
+</resources>

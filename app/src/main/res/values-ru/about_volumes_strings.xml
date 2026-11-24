@@ -1,0 +1,23 @@
+<resources>
+    <string name="about_title">"О приложении"</string>
+    <string name="about_version">"Версия %1$s · сборка %2$d"</string>
+    <string name="about_project">"Проект"</string>
+    <string name="about_source">"Исходный код и загрузки"</string>
+    <string name="about_report">"Сообщить о проблеме"</string>
+    <string name="about_report_desc">"Ошибки и предложения"</string>
+    <string name="about_license">"Лицензия"</string>
+    <string name="about_credits">"Благодарности"</string>
+    <string name="about_reference">"Справка о функциях и совместимости"</string>
+    <string name="about_marks">"Торговые марки производителей"</string>
+    <string name="about_full_credits">"Полный список авторов"</string>
+    <string name="about_notices">"Указание авторства и уведомления"</string>
+    <string name="about_copy">"Копировать сведения о версии"</string>
+    <string name="about_warranty">"Свободное ПО с открытым кодом, без гарантий."</string>
+    <string name="about_loading">"Загрузка документа…"</string>
+    <string name="about_link_failed">"Не удалось открыть ссылку."</string>
+    <string name="volume_title">"Тома хранилища"</string>
+    <string name="volume_available">"Доступно %1$s"</string>
+    <string name="volume_change">"Использовано %1$s с прошлого сеанса"</string>
+    <string name="volume_analyze">"Анализ хранилища"</string>
+    <string name="volume_unavailable">"Ёмкость недоступна"</string>
+</resources>

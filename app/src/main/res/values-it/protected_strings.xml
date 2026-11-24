@@ -1,0 +1,9 @@
+<resources>
+    <string name="protected_0">"Residui protetti"</string>
+    <string name="protected_1">"Android/data e obb · si possono rimuovere solo le cartelle vuote."</string>
+    <string name="protected_2">"Archiviazione protetta non disponibile"</string>
+    <string name="protected_3">"Non vuota"</string>
+    <string name="protected_4">"Eliminare la cartella vuota?"</string>
+    <string name="protected_5">"Cartella modificata o accesso negato"</string>
+    <string name="protected_6">"Autorizza Shizuku nelle impostazioni."</string>
+</resources>

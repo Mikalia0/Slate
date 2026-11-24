@@ -1,0 +1,18 @@
+<resources>
+    <string name="hud_fps">"FPS"</string>
+    <string name="hud_frames">"График времени кадра"</string>
+    <string name="hud_gpu">"Загрузка, частота и температура GPU"</string>
+    <string name="hud_cpu">"Загрузка и частота CPU"</string>
+    <string name="hud_ram">"Использование ОЗУ"</string>
+    <string name="hud_battery">"Батарея, мощность и температура"</string>
+    <string name="hud_package">"Пакет активного приложения"</string>
+    <string name="hud_preview">"Предпросмотр · пример показателей"</string>
+    <string name="hud_presets">"Предустановки"</string>
+    <string name="hud_only_fps">"Только FPS"</string>
+    <string name="hud_compact">"Компактный"</string>
+    <string name="hud_detailed">"Подробный"</string>
+    <string name="hud_all">"Все"</string>
+    <string name="hud_metrics">"Отображаемые показатели"</string>
+    <string name="hud_scale">"Масштаб"</string>
+    <string name="hud_opacity">"Непрозрачность"</string>
+</resources>

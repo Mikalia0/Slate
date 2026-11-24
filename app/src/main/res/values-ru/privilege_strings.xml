@@ -1,0 +1,10 @@
+<resources>
+    <string name="privilege_title">"Расширенный доступ"</string>
+    <string name="privilege_subtitle">"Необязательно. Выберите способ и предоставьте разрешение при необходимости. Его можно изменить в настройках."</string>
+    <string name="privilege_root">"Root"</string>
+    <string name="privilege_root_desc">"Анализ приватных файлов в /data с правами суперпользователя."</string>
+    <string name="privilege_shizuku">"Shizuku"</string>
+    <string name="privilege_shizuku_desc">"Включите поддерживаемые инструменты, например очистку кеша и мониторинг FPS."</string>
+    <string name="privilege_none">"Нет"</string>
+    <string name="privilege_none_desc">"Используйте обычные инструменты без запроса повышенных прав при настройке."</string>
+</resources>

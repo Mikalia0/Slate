@@ -1,0 +1,17 @@
+<resources>
+    <string name="setup_files">"Файлы и галерея"</string>
+    <string name="setup_files_desc">"Просматривайте и организуйте медиафайлы локально."</string>
+    <string name="monitor_neon_desc">"Фиолетовая рамка и полупрозрачный фон. Остановите оверлей для смены стиля."</string>
+    <string name="palette_mode">"Режим отображения"</string>
+    <string name="palette_title">"Тема"</string>
+    <string name="palette_slate">"Slate"</string>
+    <string name="palette_slate_desc">"Мягкий мятный"</string>
+    <string name="palette_ocean">"Ocean"</string>
+    <string name="palette_ocean_desc">"Глубокий синий"</string>
+    <string name="palette_aurora">"Aurora"</string>
+    <string name="palette_aurora_desc">"Фиолетовые оттенки"</string>
+    <string name="palette_graphite">"Graphite"</string>
+    <string name="palette_graphite_desc">"Нейтральный серый"</string>
+    <string name="palette_wallpaper">"Обои"</string>
+    <string name="palette_wallpaper_desc">"Цвета Android"</string>
+</resources>

@@ -1,0 +1,17 @@
+<resources>
+    <string name="root_data_volume">"Superutente · file privati"</string>
+    <string name="root_data_title">"File più grandi"</string>
+    <string name="root_data_progress">"%1$d file analizzati"</string>
+    <string name="root_data_count">"%1$d più grandi · %2$d analizzati"</string>
+    <string name="root_data_partial">"Alcuni percorsi non sono stati misurati. I risultati potrebbero essere incompleti."</string>
+    <string name="root_data_denied">"Accesso root negato o impossibile avviare l’analisi."</string>
+    <string name="root_data_explain">"Analizza i file regolari in /data, inclusi i file privati delle app, con accesso superutente. Sola lettura; sono esclusi link simbolici e filesystem montati separatamente. Mostra fino a 2.000 file più grandi per dimensione logica. Nessun file viene eliminato."</string>
+    <string name="root_data_scan">"Analizza con root"</string>
+    <string name="root_data_copy">"Copia percorso"</string>
+    <string name="root_access_title">"Accesso superutente"</string>
+    <string name="root_access_checking">"Verifica autorizzazione…"</string>
+    <string name="root_access_granted">"Autorizzato per questa sessione"</string>
+    <string name="root_access_optional">"Accesso facoltativo per analizzare lo spazio privato"</string>
+    <string name="root_access_allow">"Autorizza"</string>
+    <string name="root_access_disable">"Disattiva"</string>
+</resources>
