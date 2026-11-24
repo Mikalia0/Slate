@@ -1,0 +1,23 @@
+<resources>
+    <string name="about_title">Sobre</string>
+    <string name="about_version">Versão %1$s · build %2$d</string>
+    <string name="about_project">Projeto</string>
+    <string name="about_source">Código-fonte e downloads</string>
+    <string name="about_report">Relatar um problema</string>
+    <string name="about_report_desc">Bugs e sugestões</string>
+    <string name="about_license">Licença</string>
+    <string name="about_credits">Créditos</string>
+    <string name="about_reference">Referência de funcionalidades e compatibilidade</string>
+    <string name="about_marks">Marcas de fabricantes</string>
+    <string name="about_full_credits">Créditos completos</string>
+    <string name="about_notices">Atribuições e avisos</string>
+    <string name="about_copy">Copiar informações de versão</string>
+    <string name="about_warranty">Software livre e de código aberto, fornecido sem garantia.</string>
+    <string name="about_loading">Carregando documento…</string>
+    <string name="about_link_failed">Não foi possível abrir o link.</string>
+    <string name="volume_title">Volumes de armazenamento</string>
+    <string name="volume_available">%1$s disponíveis</string>
+    <string name="volume_change">%1$s de uso desde a sessão anterior</string>
+    <string name="volume_analyze">Analisar armazenamento</string>
+    <string name="volume_unavailable">Capacidade indisponível</string>
+</resources>

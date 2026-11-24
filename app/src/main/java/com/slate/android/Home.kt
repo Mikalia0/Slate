@@ -28,7 +28,7 @@ import com.slate.android.storage.rememberAppUsage
 import java.io.File
 
 @Composable
-internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit, openCache:()->Unit, openCleanup: ()->Unit,openHistory:()->Unit,dashboard:DashboardPreferences,scrollState:LazyGridState) {
+internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Unit, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit, openCache:()->Unit, openCleanup: ()->Unit,openHistory:()->Unit,dashboard:DashboardPreferences,scrollState:LazyGridState) {
     val context = LocalContext.current
     val capacity = primary.totalSpace
     val free = primary.usableSpace
@@ -49,7 +49,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
     val suggestion=growing ?: history.insights.filter{it.bytes>=1024L*1024*1024}.maxByOrNull{it.bytes}
     LazyVerticalGrid(columns=GridCells.Adaptive(155.dp),state=scrollState,modifier=Modifier.fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=16.dp)) {
         item(key="storage",span={GridItemSpan(maxLineSpan)}) {
-            Card(onClick={analyze(primary)},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
+            Card(onClick=openVolumes,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         DeviceGlyph(R.drawable.ic_device_storage,modifier=Modifier.size(20.dp))
@@ -62,7 +62,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                         StorageValue("Available",if(capacity>0)fmt(free)else "—",Modifier.weight(1f))
                         StorageValue("Total",if(capacity>0)fmt(capacity)else "—",Modifier.weight(1f))
                     }
-                    FilledTonalButton(onClick={analyze(primary)},modifier=Modifier.fillMaxWidth()){
+                    FilledTonalButton(onClick=openVolumes,modifier=Modifier.fillMaxWidth()){
                         Icon(Icons.Default.Search,null,Modifier.size(20.dp));Spacer(Modifier.width(8.dp));Text(tr("View storage"))
                     }
                 }

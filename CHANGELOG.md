@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Storage volumes and About screen
+
+- Add a dedicated mounted-volume overview with capacity, free space and direct folder analysis.
+- Keep the analyzer focused on files and folders.
+- Replace the About dialog with a full Material 3 screen showing installed version, project links, credits and offline license.
+
 ## 0.5.0-dev — Storage analyzer layout
 
 - Redesign the analyzer as a compact continuous list with proportional size backgrounds and thin separators.

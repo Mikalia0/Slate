@@ -1,0 +1,23 @@
+<resources>
+    <string name="about_title">About</string>
+    <string name="about_version">Version %1$s · build %2$d</string>
+    <string name="about_project">Project</string>
+    <string name="about_source">Source code and downloads</string>
+    <string name="about_report">Report an issue</string>
+    <string name="about_report_desc">Bugs and suggestions</string>
+    <string name="about_license">License</string>
+    <string name="about_credits">Credits</string>
+    <string name="about_reference">Feature and compatibility reference</string>
+    <string name="about_marks">Manufacturer marks</string>
+    <string name="about_full_credits">Full credits</string>
+    <string name="about_notices">Attributions and notices</string>
+    <string name="about_copy">Copy version information</string>
+    <string name="about_warranty">Free and open-source software, provided without warranty.</string>
+    <string name="about_loading">Loading document…</string>
+    <string name="about_link_failed">Could not open the link.</string>
+    <string name="volume_title">Storage volumes</string>
+    <string name="volume_available">%1$s available</string>
+    <string name="volume_change">%1$s used since the previous session</string>
+    <string name="volume_analyze">Analyze storage</string>
+    <string name="volume_unavailable">Capacity unavailable</string>
+</resources>

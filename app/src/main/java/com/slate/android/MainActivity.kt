@@ -155,6 +155,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     val deviceStatus=rememberDeviceStatus()
     val homeScroll=rememberLazyGridState()
     var about by rememberSaveable { mutableStateOf(false) }
+    var showVolumes by rememberSaveable { mutableStateOf(false) }
     var sortMode by rememberSaveable { mutableStateOf(0) }
     var sortMenu by remember { mutableStateOf(false) }
     var analyzerMenu by remember { mutableStateOf(false) }
@@ -187,18 +188,26 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     BackHandler(analyzer || device || apps || cleanup || showHistory) { if(showHistory)showHistory=false else if(cleanup)cleanup=false else if(apps) {apps=false;appsState.removeState("apps")} else if (device) device = false else back() }
     val config=LocalConfiguration.current
     val landscape=config.screenWidthDp>config.screenHeightDp && config.screenWidthDp>=600
-    val screenKey=when{showHistory->"history";cleanup->"cleanup";apps->"apps";device->"device";analyzer->"storage";else->"tool-$destination"}
+    val screenKey=when{about->"about";showVolumes->"volumes";showHistory->"history";cleanup->"cleanup";apps->"apps";device->"device";analyzer->"storage";else->"tool-$destination"}
     val screenAlpha=remember{Animatable(1f)}
     var previousScreen by remember{mutableStateOf(screenKey)}
     LaunchedEffect(screenKey){if(previousScreen!=screenKey){previousScreen=screenKey;screenAlpha.snapTo(.82f);screenAlpha.animateTo(1f,tween(120))}}
-    val mainDestination=!showHistory&&!cleanup&&!apps&&!device&&!analyzer
+    val mainDestination=!about&&!showVolumes&&!showHistory&&!cleanup&&!apps&&!device&&!analyzer
     BackHandler(mainDestination&&destination!=0){destination=0}
     Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing,bottomBar={
         if(mainDestination)SlateBottomNavigation(destination){destination=it}
     }){padding->
         Row(Modifier.fillMaxSize().padding(padding)){
             Box(Modifier.weight(1f).fillMaxHeight().graphicsLayer{alpha=screenAlpha.value}){
-        if(showHistory) {
+        if(about) {
+            AboutScreen(onBack={about=false})
+        } else if(showVolumes) {
+            StorageVolumesScreen(primary,volumes,history,onBack={showVolumes=false},onOpen={file->
+                showVolumes=false;personalOnly=false;selectedPath=file.absolutePath;analyzer=true
+                selection=emptySet();largeFiles=false;query="";search=false;expandedCategories=false
+                if(granted)model.open(file)
+            })
+        } else if(showHistory) {
             Box(Modifier.fillMaxSize()){HistoryScreen(history,onBack={showHistory=false})}
         } else if(cleanup) {
             Box(Modifier.fillMaxSize()){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()},review={folder->cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();largeFiles=false;query="";search=false;model.open(folder)})}
@@ -242,7 +251,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 if (!analyzer) { IconButton(onClick=onSettings){Icon(Icons.Default.Settings,"Settings")}; IconButton(onClick={about=true}){Icon(Icons.Default.Info,"About")} }
             }
             if (!analyzer) {
-                HomeScreen(primary,volumes,analyze={file ->
+                HomeScreen(primary,volumes,openVolumes={showVolumes=true},analyze={file ->
                     personalOnly=false;selectedPath=file.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query=""; search=false; if(granted)model.open(file)
                 },device={devicePage=0;device=true},history=history,review={folder->
                     personalOnly=false;selectedPath=primary.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query="";search=false
@@ -397,9 +406,6 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
             confirmButton = { TextButton(onClick = { detail=null; if(!openSharedFile(context,root,entry.file,false)) deletionMessage="Unable to open file" }) { Text(tr("Open")) } },
             dismissButton = { TextButton(onClick={detail=null;if(!openSharedFile(context,root,entry.file,true))deletionMessage="Unable to share file"}){Text(tr("Share"))} })
     }
-    if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text("Slate") },
-        text = { Text("0.5.0-dev • GPL-3.0-only\nProvided without warranty. SD Maid SE is a feature reference; no upstream code is included yet. See the project LICENSE for redistribution terms.") },
-        confirmButton = { TextButton(onClick = { about = false }) { Text(tr("Close")) } })
 }
 
 // A continuous, compact proportional list. The fill is relative to the largest
