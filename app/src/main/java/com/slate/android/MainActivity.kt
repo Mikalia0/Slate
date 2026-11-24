@@ -144,6 +144,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var cleanup by rememberSaveable{mutableStateOf(false)}
     var apps by rememberSaveable { mutableStateOf(false) }
     var returnToApps by rememberSaveable{mutableStateOf(false)}
+    var appCacheSort by rememberSaveable{mutableStateOf(false)}
+    val appsState=rememberSaveableStateHolder()
     var personalOnly by rememberSaveable{mutableStateOf(false)}
     var devicePage by rememberSaveable { mutableIntStateOf(0) }
     val deviceStatus=rememberDeviceStatus()
@@ -177,7 +179,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         else if(personalOnly){personalOnly=false}
         else { model.cancel(); analyzer = false; if(returnToApps){returnToApps=false;apps=true;selectedPath=primary.absolutePath} }
     }
-    BackHandler(analyzer || device || apps || cleanup || showHistory) { if(showHistory)showHistory=false else if(cleanup)cleanup=false else if(apps) apps=false else if (device) device = false else back() }
+    BackHandler(analyzer || device || apps || cleanup || showHistory) { if(showHistory)showHistory=false else if(cleanup)cleanup=false else if(apps) {apps=false;appsState.removeState("apps")} else if (device) device = false else back() }
     val config=LocalConfiguration.current
     val landscape=config.screenWidthDp>config.screenHeightDp && config.screenWidthDp>=600
     val screenKey=when{showHistory->"history";cleanup->"cleanup";apps->"apps";device->"device";analyzer->"storage";else->"home"}
@@ -192,7 +194,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         } else if(cleanup) {
             Box(Modifier.fillMaxSize()){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()},review={folder->cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();largeFiles=false;query="";search=false;model.open(folder)})}
         } else if(apps) {
-            Box(Modifier.fillMaxSize()){AppsStorageScreen(onBack={apps=false},reviewFolder={folder->returnToApps=true;apps=false;analyzer=true;personalOnly=false;selectedPath=folder.absolutePath;openFolder(folder)})}
+            appsState.SaveableStateProvider("apps"){Box(Modifier.fillMaxSize()){AppsStorageScreen(onBack={apps=false},reviewFolder={folder->returnToApps=true;apps=false;analyzer=true;personalOnly=false;selectedPath=folder.absolutePath;openFolder(folder)},initialCacheSort=appCacheSort)}}
         } else if (device) {
             Box(Modifier.fillMaxSize()) { DeviceScreen(onBack = { device = false },status=deviceStatus,initialPage=devicePage) }
         } else Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
@@ -210,7 +212,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 },device={devicePage=0;device=true},history=history,review={folder->
                     personalOnly=false;selectedPath=primary.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query="";search=false
                     if(granted) model.open(folder)
-                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={apps=true},openCleanup={cleanup=true},openHistory={showHistory=true},dashboard=dashboard,scrollState=homeScroll)
+                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={appCacheSort=false;appsState.removeState("apps");apps=true},openCache={appCacheSort=true;appsState.removeState("apps");apps=true},openCleanup={cleanup=true},openHistory={showHistory=true},dashboard=dashboard,scrollState=homeScroll)
             } else if (!granted) {
                 LaunchedEffect(granted) { model.cancel() }
                 Text(tr("Storage access"), style = MaterialTheme.typography.titleLarge)
@@ -221,7 +223,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     if (state.directory == null || !state.directory!!.toPath().startsWith(root.toPath())) model.open(root)
                 }
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),verticalAlignment=Alignment.CenterVertically) {
-                    TextButton(onClick={openFolder(root)},enabled=!deleting){Text(selectedVolume?.label ?: "Internal storage")}
+                    TextButton(onClick={openFolder(root)},enabled=!deleting){Text(if(returnToApps)root.name else selectedVolume?.label?.let{tr(it)} ?: tr("Internal storage"))}
                     if(directory!=root) {
                         var ancestor=root
                         directory.relativeTo(root).path.split(File.separatorChar).forEach { part ->
@@ -250,7 +252,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     value=if(expandedCategories && directory==primary && snapshot!=null)model.personalCategories()else null
                 }
                 if (snapshot != null) {
-                    val source = (if(largeFiles) snapshot.largestFiles else snapshot.entries).filterNot{personalOnly && directory==primary && it.file.toPath().startsWith(File(primary,"Android").toPath())}
+                    val measuredEntries=remember(snapshot,personalOnly){snapshot.entries.filterNot{personalOnly && directory==primary && it.file.name=="Android"}}
+                    val source = if(largeFiles) snapshot.largestFiles.filterNot{personalOnly && directory==primary && it.file.toPath().startsWith(File(primary,"Android").toPath())} else measuredEntries
                     val entries = remember(snapshot, sortMode, largeFiles, query,personalOnly) {
                         val filtered=source.filter{it.file.name.contains(query,true) || (largeFiles && it.file.relativeTo(snapshot.directory).path.contains(query,true))}
                         when(sortMode) {
@@ -272,14 +275,14 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                         Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.selected_count,selected.size),style=MaterialTheme.typography.titleMedium)
                                         Text(fmt(selected.sumOf{it.bytes}),style=MaterialTheme.typography.bodySmall)
                                     }
-                                    IconButton(onClick={confirmDelete=true},enabled=!deleting && !state.saved && !state.partialRefresh && selected.isNotEmpty()){Icon(Icons.Default.Delete,"Delete selected")}
+                                    IconButton(onClick={confirmDelete=true},enabled=!returnToApps && !deleting && !state.saved && !state.partialRefresh && selected.isNotEmpty()){Icon(Icons.Default.Delete,"Delete selected")}
                                 }
                                 TextButton(onClick={selection=entries.map{it.file.path}.toSet()},enabled=!deleting){Text(tr("Select visible"))}
                             }
                         }
                     }
                     if(deleting) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(tr("Deleting selected items…")) }
-                    val scrollKey=directory.path+":"+largeFiles+":"+gridView
+                    val scrollKey=directory.path+":"+largeFiles+":"+gridView+":"+personalOnly
                     val restored=scrollStates[scrollKey] ?: (0 to 0)
                     key(scrollKey) {
                     val listState=rememberLazyGridState(restored.first,restored.second)
@@ -289,9 +292,10 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                             Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                             Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                                 Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                                    Text(fmt(if(personalOnly && directory==primary)source.sumOf{it.bytes}else snapshot.bytes),style=MaterialTheme.typography.titleLarge,color=MaterialTheme.colorScheme.primary)
-                                    Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.files_folders_count,java.text.NumberFormat.getIntegerInstance().format(snapshot.files),snapshot.entries.count{it.directory}),style=MaterialTheme.typography.bodySmall)
-                                    if(snapshot.skipped>0 && !personalOnly) Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.inaccessible_count,snapshot.skipped),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(tr("Measured size"),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(fmt(if(personalOnly && directory==primary)measuredEntries.sumOf{it.bytes}else snapshot.bytes),style=MaterialTheme.typography.titleLarge,color=MaterialTheme.colorScheme.primary)
+                                    Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.files_folders_count,java.text.NumberFormat.getIntegerInstance().format(measuredEntries.sumOf{it.files}),measuredEntries.count{it.directory}),style=MaterialTheme.typography.bodySmall)
+                                    if(measuredEntries.sumOf{it.skipped}>0 || snapshot.rootUnreadable) Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.inaccessible_count,measuredEntries.sumOf{it.skipped}+if(snapshot.rootUnreadable)1L else 0L),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             if(directory==primary && selection.isEmpty() && !largeFiles && !personalOnly) {
@@ -299,7 +303,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 val personal=snapshot.entries.filter{it.file.name!="Android"}.sumOf{it.bytes}
                                 Card(Modifier.fillMaxWidth().padding(top=8.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                                     Column {
-                                        ListItem(modifier=Modifier.clickable{personalOnly=true;selection=emptySet()},headlineContent={Text(tr("User files"))},trailingContent={Text(fmt(personal),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_storage_folder),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                                        ListItem(modifier=Modifier.clickable{personalOnly=true;selection=emptySet()},headlineContent={Text(tr("User files"))},trailingContent={Row(verticalAlignment=Alignment.CenterVertically){Text(fmt(personal),color=MaterialTheme.colorScheme.primary);Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(18.dp))}},leadingContent={Icon(painterResource(R.drawable.ic_storage_folder),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
                                         TextButton(onClick={expandedCategories=!expandedCategories},modifier=Modifier.padding(horizontal=8.dp)){Text(tr(if(expandedCategories)"Hide categories" else "File categories"))}
                                         if(expandedCategories){
                                             val breakdown=categories
@@ -311,7 +315,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                             }
                                         }
                                         if(android!=null) ListItem(modifier=Modifier.clickable{openFolder(android.file)},headlineContent={Text(tr("Android shared files"))},trailingContent={Text(fmt(android.bytes),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_device_system),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-                                        ListItem(modifier=Modifier.clickable{apps=true},headlineContent={Text(tr("App storage"))},trailingContent={Icon(Icons.Default.KeyboardArrowRight,"Open")},leadingContent={Icon(painterResource(R.drawable.ic_device_overview),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                                        ListItem(modifier=Modifier.clickable{appCacheSort=false;appsState.removeState("apps");apps=true},headlineContent={Text(tr("App storage"))},trailingContent={Icon(Icons.Default.KeyboardArrowRight,"Open")},leadingContent={Icon(painterResource(R.drawable.ic_device_overview),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
                                         
                                     }
                                 }
@@ -341,7 +345,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                         items(entries,key={it.file.path}){entry->
                             val checked=entry.file.path in selection
                             if(gridView) {
-                                Card(Modifier.fillMaxWidth().padding(vertical=4.dp).combinedClickable(enabled=!deleting,onClick={if(selection.isNotEmpty())toggle(entry)else selectEntry(entry)},onLongClick={toggle(entry)}),
+                                Card(Modifier.fillMaxWidth().padding(vertical=4.dp).combinedClickable(enabled=!deleting,onClick={if(selection.isNotEmpty())toggle(entry)else selectEntry(entry)},onLongClick={if(!returnToApps)toggle(entry)}),
                                     colors=CardDefaults.cardColors(containerColor=if(checked)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)) {
                                     Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                                         Row(verticalAlignment=Alignment.CenterVertically) {
@@ -373,15 +377,15 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                         }
                     }
                     }
-                    if(confirmDelete && !state.saved && !state.partialRefresh) AlertDialog(onDismissRequest={confirmDelete=false},title={Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.confirm_delete_count,selected.size))},
+                    if(confirmDelete && !returnToApps && !state.saved && !state.partialRefresh) AlertDialog(onDismissRequest={confirmDelete=false},title={Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.confirm_delete_count,selected.size))},
                         text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-                            Text(tr("Measured size: ")+fmt(selected.sumOf{it.bytes}))
+                            Text(fmt(selected.sumOf{it.bytes}),style=MaterialTheme.typography.headlineSmall,color=MaterialTheme.colorScheme.error)
                             Text(tr("This cannot be undone. Inaccessible or incomplete items are skipped."))
                             selected.take(4).forEach{Text(it.file.relativeTo(root).path,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)}
                             if(selected.size>4)Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.additional_count,selected.size-4))
                         }},
                         dismissButton={TextButton(onClick={confirmDelete=false}){Text(tr("Cancel"))}},
-                        confirmButton={TextButton(onClick={
+                        confirmButton={Button(colors=ButtonDefaults.buttonColors(containerColor=MaterialTheme.colorScheme.error,contentColor=MaterialTheme.colorScheme.onError),onClick={
                             confirmDelete=false;deleting=true
                             val targets=selected.toList()
                             scope.launch {
@@ -392,7 +396,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                     model.open(directory,refresh=true)
                                 } finally {deleting=false}
                             }
-                        }){Text(tr("Delete permanently"),color=MaterialTheme.colorScheme.error)}})
+                        }){Text(tr("Delete permanently"))}})
                 }
                 deletionMessage?.let { message -> AlertDialog(onDismissRequest={deletionMessage=null},title={Text(tr("Deletion result"))},text={Text(tr(message))},confirmButton={TextButton(onClick={deletionMessage=null}){Text(tr("Done"))}}) }
 

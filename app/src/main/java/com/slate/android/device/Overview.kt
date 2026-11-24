@@ -128,7 +128,7 @@ internal fun LazyListScope.deviceOverview(live:LiveInfo?, fixed:StaticInfo?, nav
 }
 
 @Composable
-internal fun ManufacturerIcon() {
+internal fun ManufacturerIcon(size:androidx.compose.ui.unit.Dp=50.dp) {
     val brand=Build.MANUFACTURER.lowercase(java.util.Locale.ROOT)
     val logo=when(brand) {
         "motorola"->R.drawable.brand_motorola
@@ -144,10 +144,10 @@ internal fun ManufacturerIcon() {
         "vivo"->R.drawable.brand_vivo
         else->0
     }
-    Surface(shape=MaterialTheme.shapes.large,color=MaterialTheme.colorScheme.surface,modifier=Modifier.size(50.dp)) {
+    Surface(shape=MaterialTheme.shapes.large,color=MaterialTheme.colorScheme.surface,modifier=Modifier.size(size)) {
         Box(contentAlignment=Alignment.Center) {
-            if(logo!=0) Image(painterResource(logo),Build.MANUFACTURER,Modifier.size(30.dp),colorFilter=ColorFilter.tint(MaterialTheme.colorScheme.onSurface))
-            else Icon(Icons.Default.Info,Build.MANUFACTURER,Modifier.size(28.dp))
+            if(logo!=0) Image(painterResource(logo),Build.MANUFACTURER,Modifier.size(size*0.6f),colorFilter=ColorFilter.tint(MaterialTheme.colorScheme.onSurface))
+            else Icon(Icons.Default.Info,Build.MANUFACTURER,Modifier.size(size*0.56f))
         }
     }
 }

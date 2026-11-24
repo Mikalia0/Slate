@@ -96,13 +96,13 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
     Column(Modifier.fillMaxSize().padding(horizontal=14.dp)) {
         Row(Modifier.fillMaxWidth().padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically) {
             IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")}
-            Text(tr("Device information"),Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall)
+            Text(tr("Device information"),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
             TextButton(onClick={testMode=true}){Text(tr("Tests"))}
         }
         ScrollableTabRow(selectedTabIndex=pager.currentPage,edgePadding=0.dp,containerColor=MaterialTheme.colorScheme.background) {
             tabNames.forEachIndexed { i,name ->
-                Tab(selected=pager.currentPage==i,onClick={select(i)},text={Text(tr(name),style=MaterialTheme.typography.labelMedium)},
-                    icon={Icon(painterResource(tabIcons[i]),null,Modifier.size(22.dp))},
+                Tab(selected=pager.currentPage==i,onClick={select(i)},text={Text(tr(name),style=MaterialTheme.typography.labelMedium,maxLines=1,softWrap=false)},
+                    icon={Icon(painterResource(tabIcons[i]),null,Modifier.size(20.dp))},
                     selectedContentColor=MaterialTheme.colorScheme.primary,unselectedContentColor=MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -255,7 +255,7 @@ private fun BatteryPanel(live:LiveInfo?) {
                 Metric(if(full!="—")"Full capacity" else "Estimated capacity",if(full!="—")full else approximate,Modifier.weight(1f))
                 if(health!="—")Metric("Capacity health",health,Modifier.weight(1f))else Spacer(Modifier.weight(1f))
             }
-            Text(tr("Net power at battery"),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            
         }
     }
 }

@@ -10,6 +10,11 @@ import java.nio.file.FileVisitResult
 import java.nio.file.attribute.BasicFileAttributes
 import java.io.IOException
 
+internal fun protectedAppPath(path:Path):Boolean {
+    val names=path.map{it.toString()}
+    return names.zipWithNext().any{(first,second)->first=="Android" && second in listOf("data","obb")}
+}
+
 // Never follow symbolic links, delete volume roots, or enter restricted app directories.
 internal fun deleteSelected(root: File, entries: List<Entry>): Pair<Int,Int> {
     val base = root.toPath().toAbsolutePath().normalize()
@@ -18,7 +23,7 @@ internal fun deleteSelected(root: File, entries: List<Entry>): Pair<Int,Int> {
     for(entry in entries) {
         try {
             val target=entry.file.toPath().toAbsolutePath().normalize()
-            require(target!=base && target.startsWith(base) && entry.skipped==0L)
+            require(target!=base && target.startsWith(base) && entry.skipped==0L && !protectedAppPath(target))
             val relative=base.relativize(target)
             require(relative.toString()!="Android")
             require(!relative.startsWith("Android/data") && !relative.startsWith("Android/obb"))

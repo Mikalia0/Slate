@@ -28,7 +28,7 @@ import com.slate.android.storage.rememberAppUsage
 import java.io.File
 
 @Composable
-internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit, openCleanup: ()->Unit,openHistory:()->Unit,dashboard:DashboardPreferences,scrollState:LazyGridState) {
+internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit, openCache:()->Unit, openCleanup: ()->Unit,openHistory:()->Unit,dashboard:DashboardPreferences,scrollState:LazyGridState) {
     val context = LocalContext.current
     val capacity = primary.totalSpace
     val free = primary.usableSpace
@@ -40,12 +40,11 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
     val battery=live?.meters?.firstOrNull{it.title=="Battery"}
     fun memoryValue(label:String)=live?.memory?.rows?.firstOrNull{it.label==label}?.value?.takeUnless{it=="Unavailable"} ?: "—"
     val temperature=live?.battery?.rows?.firstOrNull{it.label=="Temperature"}?.value?.takeUnless{it=="Unavailable"}?.replace(" ","") ?: "—"
-    val batteryState=live?.battery?.rows?.firstOrNull{it.label=="Status"}?.value?.takeUnless{it=="Unavailable"}
-    val chargingPower=live?.battery.powerReading()?.takeIf{it.label=="Charging power" && it.value!="Unavailable"}?.value
+        val chargingPower=live?.battery.powerReading()?.takeIf{it.label=="Charging power" && it.value!="Unavailable"}?.value
     val usage=rememberAppUsage().snapshot
     val cache=remember(usage.rows){usage.rows.sumOf{it.cacheBytes}}
     val appsTotal=remember(usage.rows){usage.rows.sumOf{it.total}}
-    val users=remember(usage.rows){usage.rows.count{!it.system}}
+    val appCount=usage.rows.size
     val growing=history.insights.filter{(it.increase ?: 0)>=50L*1024*1024}.maxByOrNull{it.increase ?: 0}
     val suggestion=growing ?: history.insights.filter{it.bytes>=1024L*1024*1024}.maxByOrNull{it.bytes}
     LazyVerticalGrid(columns=GridCells.Adaptive(155.dp),state=scrollState,modifier=Modifier.fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=16.dp)) {
@@ -70,10 +69,10 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
             }
         }
         item(key="device"){
-            Card(onClick=device,modifier=Modifier.fillMaxWidth().heightIn(min=176.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+            Card(onClick=device,modifier=Modifier.fillMaxWidth().heightIn(min=200.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                     Row(verticalAlignment=Alignment.CenterVertically){
-                        DeviceGlyph(R.drawable.ic_device_cpu,modifier=Modifier.size(20.dp))
+                        ManufacturerIcon(size=24.dp)
                         Spacer(Modifier.width(6.dp))
                         Text(tr("Device"),Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
                         Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(18.dp))
@@ -109,7 +108,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                         Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(18.dp))
                     }
                     Text(if(usage.loaded)fmt(appsTotal)else "—",style=MaterialTheme.typography.headlineSmall,color=MaterialTheme.colorScheme.primary,maxLines=1)
-                    Text(if(usage.loaded)androidx.compose.ui.res.stringResource(R.string.apps_count,users)else tr(if(usage.allowed)"Loading…" else "Usage access"),style=MaterialTheme.typography.bodySmall)
+                    Text(if(usage.loaded)androidx.compose.ui.res.stringResource(R.string.apps_count,appCount)else tr(if(usage.allowed)"Loading…" else "Usage access"),style=MaterialTheme.typography.bodySmall)
                     if(usage.loaded){
                         HorizontalDivider()
                         Text(tr("Cache"),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -135,7 +134,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
         if("insights" in dashboard.visible) item(key="insights"){
             val low=capacity>0 && free.toDouble()/capacity<0.10
             val recommendCache=usage.loaded && cache>=512L*1024*1024
-            val action:()->Unit=when{low->{ {analyze(primary)} };recommendCache->{openApps};suggestion!=null->{ {review(File(primary,suggestion.name))} };else->{openHistory}}
+            val action:()->Unit=when{low->{ {analyze(primary)} };recommendCache->{openCache};suggestion!=null->{ {review(File(primary,suggestion.name))} };else->{openHistory}}
             Card(onClick=action,modifier=Modifier.fillMaxWidth().heightIn(min=116.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                     Row(verticalAlignment=Alignment.CenterVertically){
@@ -207,11 +206,11 @@ private fun StorageValue(label:String,value:String,modifier:Modifier) {
 @Composable
 internal fun ScanLoading(state: com.slate.android.storage.ScanState, cancel: ()->Unit) {
     val context=LocalContext.current
-    Column(Modifier.fillMaxWidth().padding(vertical=24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        CircularProgressIndicator(Modifier.size(76.dp),strokeWidth=5.dp)
-        Text(Formatter.formatFileSize(context,state.measuredBytes),style=MaterialTheme.typography.headlineMedium)
+    Column(Modifier.fillMaxWidth().padding(vertical=24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        CircularProgressIndicator(Modifier.size(36.dp),strokeWidth=3.dp)
+        Text(Formatter.formatFileSize(context,state.measuredBytes),style=MaterialTheme.typography.titleLarge)
         Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.scan_items_count,java.text.NumberFormat.getIntegerInstance().format(state.visited),state.elapsedMs/1000),style=MaterialTheme.typography.bodyMedium)
         Text(state.currentPath.ifBlank{state.directory?.path.orEmpty()},maxLines=2,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedButton(onClick=cancel){Text(tr("Cancel"))}
+        TextButton(onClick=cancel){Text(tr("Cancel"))}
     }
 }

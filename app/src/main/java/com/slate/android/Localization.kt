@@ -380,6 +380,9 @@ internal fun tr(value:String):String {
         "Reported app cache" -> R.string.dashboard_v2_9
         "Review app cache" -> R.string.dashboard_v2_10
         "Cache ↓" -> R.string.dashboard_v2_11
+        "Measured size" -> R.string.polish_0
+        "App and file totals may overlap." -> R.string.polish_1
+        "Not accessible or absent" -> R.string.polish_2
         else -> 0
     }
     return if(id==0)value else stringResource(id)

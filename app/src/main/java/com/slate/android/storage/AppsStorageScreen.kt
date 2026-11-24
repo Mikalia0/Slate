@@ -130,6 +130,7 @@ internal fun AppsStorageScreen(onBack:()->Unit,reviewFolder:(File)->Unit,initial
     var searching by rememberSaveable{mutableStateOf(false)}
     var selectedPackage by rememberSaveable{mutableStateOf<String?>(null)}
     val selected=rows.firstOrNull{it.packageName==selectedPackage}
+    LaunchedEffect(loaded,selectedPackage,selected){if(loaded && selectedPackage!=null && selected==null)selectedPackage=null}
     val listState=androidx.compose.foundation.lazy.rememberLazyListState()
     BackHandler(selectedPackage!=null){selectedPackage=null}
     if(selected!=null){
@@ -165,6 +166,7 @@ internal fun AppsStorageScreen(onBack:()->Unit,reviewFolder:(File)->Unit,initial
                             Text(if(loaded)fmt(rows.sumOf{it.total}) else "—",style=MaterialTheme.typography.headlineSmall)
                             Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.apps_reported,rows.size),style=MaterialTheme.typography.bodySmall)
                             Text(tr("Cache · ")+fmt(rows.sumOf{it.cacheBytes}),style=MaterialTheme.typography.titleSmall,color=MaterialTheme.colorScheme.primary)
+                            Text(tr("App and file totals may overlap."),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                             
                             if(skipped>0)Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.apps_unavailable,skipped),style=MaterialTheme.typography.labelSmall)
                         }
@@ -247,7 +249,7 @@ private fun AppUsageDetails(row:AppUsage,fmt:(Long)->String,onBack:()->Unit,revi
                         external.forEach{folder->
                             val access=folder in readable
                             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
-                            ListItem(modifier=if(access)Modifier.clickable{reviewFolder(folder)}else Modifier,headlineContent={Text(folder.parentFile?.name?.uppercase().orEmpty())},supportingContent={Text(folder.path+if(access)"" else "\n"+tr("No direct access"),style=MaterialTheme.typography.bodySmall,maxLines=3)},leadingContent={DeviceGlyph(R.drawable.ic_storage_folder)},trailingContent={if(access)TextButton(onClick={reviewFolder(folder)}){Text(tr("Open"))}},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                            ListItem(modifier=if(access)Modifier.clickable{reviewFolder(folder)}else Modifier,headlineContent={Text(folder.parentFile?.name?.uppercase().orEmpty())},supportingContent={Text(folder.path+if(access)"" else "\n"+tr("Not accessible or absent"),style=MaterialTheme.typography.bodySmall,maxLines=3)},leadingContent={DeviceGlyph(R.drawable.ic_storage_folder)},trailingContent={if(access)TextButton(onClick={reviewFolder(folder)}){Text(tr("Open"))}},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
                         }
                     }
                 }
