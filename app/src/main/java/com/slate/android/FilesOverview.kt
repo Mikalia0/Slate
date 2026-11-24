@@ -34,7 +34,7 @@ internal suspend fun buildFileCatalog(volumes:List<Volume>,index:IndexedScan?):F
     val output=ArrayList<CatalogFile>()
     var incomplete=false
     fun allowed(root:File,file:File)=!protectedAppPath(file.toPath()) &&
-        !(file.parentFile==root && file.name=="Android")
+        !(file.parentFile==File(root,"Android") && file.name in setOf("data","obb"))
     for(volume in volumes.distinctBy{it.root.path}){
         ctx.ensureActive()
         val root=volume.root
@@ -117,7 +117,7 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
         }
     }
     fun leave(){page="";query="";selected=null;failed=false}
-    BackHandler(page.isNotEmpty()&&!busy){leave()}
+    BackHandler(page.isNotEmpty()||busy){if(!busy)leave()}
     Column(Modifier.fillMaxSize()){
         Row(Modifier.fillMaxWidth().padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically){
             if(page.isNotEmpty())IconButton(onClick={leave()},enabled=!busy){Icon(Icons.Default.ArrowBack,tr("Back"))}
@@ -196,7 +196,7 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
             TextButton(enabled=!busy,onClick={
                 busy=true;delete=false;selected=null
                 scope.launch{
-                    try{withContext(Dispatchers.IO){withFileOperations(context,false){it.delete(file.root,entry.file,false)};MediaScannerConnection.scanFile(context,arrayOf(entry.file.path),null,null)};onChanged()}
+                    try{withContext(Dispatchers.IO){withFileOperations(context,false){ops->check(safeFile(file.root,entry.file)&&entry.file.isFile&&entry.file.length()==entry.bytes&&entry.file.lastModified()==entry.modified);ops.delete(file.root,entry.file,false)};MediaScannerConnection.scanFile(context,arrayOf(entry.file.path),null,null)};onChanged()}
                     catch(e:CancellationException){throw e}catch(_:Exception){failed=true}finally{busy=false}
                 }
             }){Text(tr("Delete"))}

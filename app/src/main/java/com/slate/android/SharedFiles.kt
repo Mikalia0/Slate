@@ -7,16 +7,18 @@ import android.content.ClipData
 import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
 import com.slate.android.storage.Entry
+import com.slate.android.storage.FileCategory
+import com.slate.android.storage.fileCategory
 import java.io.File
 
 class SharedFileProvider:FileProvider()
 
-internal fun fileIcon(entry:Entry):Int=if(entry.directory)R.drawable.ic_storage_folder else when(entry.file.extension.lowercase()) {
-    "png","jpg","jpeg","gif","webp","bmp","heic","dng"->R.drawable.ic_device_camera
-    "mp4","mkv","webm","avi","mov","3gp"->R.drawable.ic_file_video
-    "mp3","wav","flac","ogg","m4a","aac"->R.drawable.ic_file_audio
-    "apk","apks","xapk","apkm"->R.drawable.ic_file_apk
-    "zip","7z","rar","gz","tar","xz","bz2","zst"->R.drawable.ic_file_archive
+internal fun fileIcon(entry:Entry):Int=if(entry.directory)R.drawable.ic_storage_folder else when(fileCategory(entry.file.extension)) {
+    FileCategory.IMAGES->R.drawable.ic_device_camera
+    FileCategory.VIDEOS->R.drawable.ic_file_video
+    FileCategory.AUDIO->R.drawable.ic_file_audio
+    FileCategory.INSTALLERS->R.drawable.ic_file_apk
+    FileCategory.ARCHIVES->R.drawable.ic_file_archive
     else->R.drawable.ic_storage_file
 }
 internal fun openSharedFile(context:Context,root:File,file:File,share:Boolean):Boolean=runCatching {

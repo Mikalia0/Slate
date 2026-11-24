@@ -40,11 +40,11 @@ private fun cacheKey(file:File)=file.path+"|"+file.lastModified()+"|"+file.lengt
 @Suppress("DEPRECATION")
 private fun apkPreview(context:Context,file:File):ApkPreview?=runCatching{
     val key=cacheKey(file)
-    apkCache.get(key)?.let{return it}
-    if(!file.isFile)return null
+    apkCache.get(key)?.let{return@runCatching it}
+    if(!file.isFile)return@runCatching null
     val pm=context.packageManager
-    val pkg=pm.getPackageArchiveInfo(file.path,0)?:return null
-    val app=pkg.applicationInfo?:return null
+    val pkg=pm.getPackageArchiveInfo(file.path,0)?:return@runCatching null
+    val app=pkg.applicationInfo?:return@runCatching null
     app.sourceDir=file.path;app.publicSourceDir=file.path
     val code=if(Build.VERSION.SDK_INT>=28)pkg.longVersionCode else pkg.versionCode.toLong()
     val installed=runCatching{pm.getPackageInfo(pkg.packageName,0)}.getOrNull()
@@ -57,11 +57,16 @@ private fun apkPreview(context:Context,file:File):ApkPreview?=runCatching{
     }.getOrNull()
     ApkPreview(ApkDetails(app.loadLabel(pm).toString(),pkg.packageName,pkg.versionName.orEmpty(),code,installedCode),icon).also{apkCache.put(key,it)}
 }.getOrNull()
-internal suspend fun readApkDetails(context:Context,file:File):ApkDetails?=withContext(Dispatchers.IO){apkPreview(context,file)?.info}
+@Suppress("DEPRECATION")
+internal suspend fun readApkDetails(context:Context,file:File):ApkDetails?=withContext(Dispatchers.IO){
+    val info=apkPreview(context,file)?.info?:return@withContext null
+    val installed=runCatching{context.packageManager.getPackageInfo(info.packageName,0)}.getOrNull()
+    info.copy(installedCode=installed?.let{if(Build.VERSION.SDK_INT>=28)it.longVersionCode else it.versionCode.toLong()})
+}
 
 private fun mediaPreview(context:Context,file:File,category:FileCategory):Bitmap?=runCatching{
     val key=cacheKey(file)
-    filePreviews.get(key)?.let{return it}
+    filePreviews.get(key)?.let{return@runCatching it}
     val bitmap=when(category){
         FileCategory.INSTALLERS->if(file.extension.equals("apk",true))apkPreview(context,file)?.icon else null
         FileCategory.IMAGES->{

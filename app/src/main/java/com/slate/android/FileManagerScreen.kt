@@ -124,7 +124,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     }
     BackHandler(!showHome){if(!busy){when{marked.isNotEmpty()->marked=emptySet();selected!=null->selected=null;searching->{searching=false;query=""};else->if(folder==root)showHome=true else go(folder.parentFile?.takeIf{safeFile(root,it)}?:root)}}}
     if(showHome){
-        FilesOverview(granted,availableVolumes,catalog,request,onRefresh={revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()})
+        FilesOverview(granted,availableVolumes,catalog,request,onRefresh={onChanged();revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()})
         return
     }
     Column(Modifier.fillMaxSize()){
