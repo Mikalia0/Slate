@@ -49,7 +49,7 @@ private fun tabKey(root:File,folder:File)=root.path+"\n"+folder.path
 private fun tabFiles(key:String)=File(key.substringBefore('\n')) to File(key.substringAfter('\n'))
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->Unit,onChanged:()->Unit){
+internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->Unit,onChanged:()->Unit,model:com.slate.android.storage.StorageModel){
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val primary=Environment.getExternalStorageDirectory()
@@ -82,6 +82,12 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     var busy by remember{mutableStateOf(false)}
     var loading by remember{mutableStateOf(false)}
     var rows by remember{mutableStateOf<List<FileRow>>(emptyList())}
+    var showHome by rememberSaveable{mutableStateOf(true)}
+    val availableVolumes=volumes.ifEmpty{listOf(Volume(primary,"Internal storage"))}
+    val catalog by produceState<FileCatalog?>(null,granted,availableVolumes,revision){
+        value=null
+        if(granted)value=model.fileCatalog(availableVolumes)
+    }
     fun go(file:File,volume:File=root){tabs=ArrayList(tabs).apply{set(tab,tabKey(volume,file))};query="";searching=false;selected=null;marked=emptySet();message=null}
     fun saveBookmark(){
         val key=tabKey(root,folder)
@@ -116,7 +122,11 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         catch(_:Exception){message=context.getString(R.string.file_failed)}
         finally{loading=false}
     }
-    BackHandler(marked.isNotEmpty()||selected!=null||searching||path!=rootPath||busy){if(!busy){when{marked.isNotEmpty()->marked=emptySet();selected!=null->selected=null;searching->{searching=false;query=""};else->go(folder.parentFile?.takeIf{safeFile(root,it)}?:root)}}}
+    BackHandler(!showHome){if(!busy){when{marked.isNotEmpty()->marked=emptySet();selected!=null->selected=null;searching->{searching=false;query=""};else->if(folder==root)showHome=true else go(folder.parentFile?.takeIf{safeFile(root,it)}?:root)}}}
+    if(showHome){
+        FilesOverview(granted,availableVolumes,catalog,request,onRefresh={revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()})
+        return
+    }
     Column(Modifier.fillMaxSize()){
         val title=if(folder==root)tr(volumes.firstOrNull{it.root.path==rootPath}?.label?:"Internal storage")else folder.name
         Row(Modifier.fillMaxWidth().padding(start=8.dp,end=4.dp),verticalAlignment=Alignment.CenterVertically){
@@ -167,7 +177,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         }
         HorizontalDivider()
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically){
-            IconButton(onClick={go(folder.parentFile?:root)},enabled=!busy&&folder!=root){Icon(Icons.Default.ArrowBack,tr("Back"))}
+            IconButton(onClick={if(folder==root)showHome=true else go(folder.parentFile?:root)},enabled=!busy){Icon(Icons.Default.ArrowBack,tr("Back"))}
             TextButton(onClick={go(root)},enabled=!busy){Text(tr(volumes.firstOrNull{it.root.path==rootPath}?.label?:"Internal storage"))}
             var crumb=root
             folder.path.removePrefix(root.path).trim('/').split('/').filter{it.isNotEmpty()}.forEach{part->
@@ -233,7 +243,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
             items(shown,key={it.file.path}){row->
                 Surface(shape=MaterialTheme.shapes.medium,color=if(row.file.path in marked)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface){
                     Column(Modifier.fillMaxWidth().combinedClickable(enabled=!busy,onClick={tap(row)},onLongClick={marked=marked+row.file.path}).padding(10.dp),horizontalAlignment=Alignment.CenterHorizontally){
-                        Icon(painterResource(fileIcon(Entry(row.file,row.directory,row.size,0,0))),null,Modifier.size(40.dp),tint=MaterialTheme.colorScheme.primary)
+                        FilePreview(Entry(row.file,row.directory,row.size,0,0,row.modified),Modifier.size(40.dp),MaterialTheme.colorScheme.primary)
                         Text(row.file.name,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)
                         if(!row.directory)Text(Formatter.formatFileSize(context,row.size),style=MaterialTheme.typography.labelSmall)
                     }
@@ -242,7 +252,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         }else LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(vertical=2.dp)){
             items(shown,key={it.file.path}){row->
                 Row(Modifier.fillMaxWidth().combinedClickable(enabled=!busy,onClick={tap(row)},onLongClick={marked=marked+row.file.path}).background(if(row.file.path in marked)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface).heightIn(min=62.dp).padding(start=16.dp,end=4.dp,top=5.dp,bottom=5.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
-                    if(row.file.path in marked)Icon(Icons.Default.Check,null,Modifier.size(30.dp),tint=MaterialTheme.colorScheme.primary) else Icon(painterResource(fileIcon(Entry(row.file,row.directory,row.size,0,0))),null,Modifier.size(30.dp),tint=MaterialTheme.colorScheme.primary)
+                    if(row.file.path in marked)Icon(Icons.Default.Check,null,Modifier.size(30.dp),tint=MaterialTheme.colorScheme.primary) else FilePreview(Entry(row.file,row.directory,row.size,0,0,row.modified),Modifier.size(30.dp),MaterialTheme.colorScheme.primary)
                     Column(Modifier.weight(1f)){
                         Text(row.file.name,maxLines=1,overflow=TextOverflow.Ellipsis)
                         Text(listOfNotNull(if(row.directory)null else Formatter.formatFileSize(context,row.size),if(row.modified>0)DateFormat.getDateInstance(DateFormat.SHORT).format(Date(row.modified))else null).joinToString(" · "),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)

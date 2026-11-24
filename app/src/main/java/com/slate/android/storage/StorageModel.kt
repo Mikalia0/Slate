@@ -49,6 +49,13 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     private var largestJob: Job? = null
     private val partialRoots=HashSet<File>()
 
+    internal suspend fun fileCatalog(volumes:List<Volume>):com.slate.android.FileCatalog {
+        // A complete in-memory index can supply personal files without another disk walk.
+        // Cleanup exclusions and partial indexes must not hide files in the manager.
+        val current=indexes[primary]?.takeIf{primary !in partialRoots && exclusions.absolute().isEmpty()}
+        return withContext(Dispatchers.IO){com.slate.android.buildFileCatalog(volumes,current)}
+    }
+
     internal suspend fun personalCategories():List<CategoryStats>? {
         val indexed=indexes[primary] ?: savedIndex ?: return null
         return withContext(Dispatchers.Default){indexed.personalCategories()}

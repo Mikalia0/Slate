@@ -15,7 +15,8 @@ internal fun fileIcon(entry:Entry):Int=if(entry.directory)R.drawable.ic_storage_
     "png","jpg","jpeg","gif","webp","bmp","heic","dng"->R.drawable.ic_device_camera
     "mp4","mkv","webm","avi","mov","3gp"->R.drawable.ic_file_video
     "mp3","wav","flac","ogg","m4a","aac"->R.drawable.ic_file_audio
-    "zip","7z","rar","gz","tar","xz","apk"->R.drawable.ic_file_archive
+    "apk","apks","xapk","apkm"->R.drawable.ic_file_apk
+    "zip","7z","rar","gz","tar","xz","bz2","zst"->R.drawable.ic_file_archive
     else->R.drawable.ic_storage_file
 }
 internal fun openSharedFile(context:Context,root:File,file:File,share:Boolean):Boolean=runCatching {

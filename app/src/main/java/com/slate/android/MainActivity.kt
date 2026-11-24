@@ -240,7 +240,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         } else if(mainDestination&&destination!=0) {
              toolState.SaveableStateProvider(destination){
                  when(destination){
-                     1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()})
+                     1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()},model=model)
                      2 -> GalleryScreen(granted,request)
                      3 -> MonitorsScreen()
                  }
@@ -380,7 +380,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                     colors=CardDefaults.cardColors(containerColor=if(checked)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)) {
                                     Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                                         Row(verticalAlignment=Alignment.CenterVertically) {
-                                            Icon(painterResource(fileIcon(entry)),null,Modifier.size(32.dp),tint=MaterialTheme.colorScheme.primary)
+                                            FilePreview(entry,Modifier.size(32.dp),MaterialTheme.colorScheme.primary)
                                             Spacer(Modifier.weight(1f))
                                             if(selection.isNotEmpty()) Checkbox(checked=checked,onCheckedChange={toggle(entry)},enabled=!deleting)
                                         }
@@ -448,7 +448,7 @@ private fun AnalyzerListRow(entry:Entry,fraction:Float,checked:Boolean,selecting
         }
         Row(Modifier.fillMaxWidth().heightIn(min=58.dp).padding(horizontal=16.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
             if(selecting)Checkbox(checked=checked,onCheckedChange={onToggle()},enabled=enabled,modifier=Modifier.size(24.dp))
-            else Icon(painterResource(fileIcon(entry)),null,Modifier.size(25.dp),tint=colors.onSurfaceVariant)
+            else FilePreview(entry,Modifier.size(36.dp),colors.onSurfaceVariant)
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)){
                 Text(entry.file.name,style=MaterialTheme.typography.bodyLarge,fontWeight=FontWeight.Medium,maxLines=1,overflow=TextOverflow.Ellipsis,color=colors.onSurface)
                 Text(supporting,style=MaterialTheme.typography.bodySmall,maxLines=1,overflow=TextOverflow.Ellipsis,color=colors.onSurfaceVariant)

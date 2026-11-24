@@ -1,0 +1,15 @@
+<resources>
+    <string name="files_apks">APKs</string>
+    <string name="files_categories">Categorias</string>
+    <string name="files_recent">Arquivos recentes</string>
+    <string name="files_view_all">Ver todos</string>
+    <string name="files_partial">Não foi possível ler algumas pastas.</string>
+    <string name="files_version">Versão %1$s (%2$d)</string>
+    <string name="files_not_installed">Não instalado</string>
+    <string name="files_newer">Mais recente que a versão instalada</string>
+    <string name="files_older">Mais antigo que a versão instalada</string>
+    <string name="files_installed">Mesma versão instalada</string>
+    <string name="files_install">Instalar</string>
+    <string name="files_open">Abrir</string>
+    <string name="files_location">Abrir pasta do arquivo</string>
+</resources>
