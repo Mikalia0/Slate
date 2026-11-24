@@ -1,32 +1,93 @@
-# Slate
+<div align="center">
+  <img src="docs/slate.svg" width="104" height="104" alt="Slate app icon">
 
-Android storage manager and cleaner. GPL-3.0-only.
+  <h1>Slate</h1>
 
-## Current milestone
-Read-only storage analyzer for mounted shared internal and removable storage. Browse directories using an interactive treemap or list, sort by size or name, filter the current listing, inspect file details, and show up to 100 largest files across a scanned subtree. See logical file sizes and counts; cancel or refresh scans. Android restrictions can hide app-private files; inaccessible paths are reported when detectable. No files are deleted.
+  <p><strong>Storage management, cleanup and device diagnostics for Android.</strong></p>
 
-## Device information
-Independent, read-only device dashboard with hardware, Android system, battery, storage, network, sensor and camera metadata tabs. A redesigned overview shows RAM/storage gauges, per-core frequency relative to the reported maximum, GPU clock/utilization when exposed by the kernel, battery and charging metrics, thermal status, readable thermal sensors, display mode and network summary. Live measurements refresh only while the screen is visible. No overlay, background monitoring or camera capture. Network access is used only when the user checks for or downloads an app update. Restricted metrics are marked unavailable; full Vulkan extension enumeration, CPU utilization and privileged metrics remain future work.
+  <p>
+    <a href="https://github.com/stevenmx2/Slate-1/releases"><img alt="Download APK" src="https://img.shields.io/badge/Download-APK-A7E8CF?style=flat-square&amp;logo=android&amp;logoColor=15191D"></a>
+    <a href="LICENSE"><img alt="GPL-3.0-only" src="https://img.shields.io/badge/License-GPL--3.0--only-586069?style=flat-square"></a>
+    <img alt="Android 8.0+" src="https://img.shields.io/badge/Android-8.0%2B-586069?style=flat-square">
+    <a href="https://github.com/stevenmx2/Slate-1/actions/workflows/android.yml"><img alt="Build status" src="https://github.com/stevenmx2/Slate-1/actions/workflows/android.yml/badge.svg?branch=main"></a>
+  </p>
 
-## Build
-JDK 17, Android SDK 35 and Gradle 8.9:
+  <p><a href="#features">Features</a> · <a href="#installation">Installation</a> · <a href="#privacy-and-permissions">Privacy</a> · <a href="README.pt-BR.md">Português (Brasil)</a></p>
+</div>
+
+Slate brings storage analysis, app management and device information together in a single Material 3 interface. Find what's taking up space, review unnecessary files and inspect your hardware without switching between multiple utilities.
+
+## Features
+
+| Storage analyzer | Cleanup |
+| :--- | :--- |
+| Browse internal and removable storage | Find duplicate files by content |
+| List and grid views, search and sorting | Review temporary files and empty folders |
+| File categories and largest-file lists | Find possible remnants of uninstalled apps |
+| Persistent indexes and scan history | System-managed cache trimming with Shizuku or root |
+| Compare folder growth between sessions | Scheduled reviews and custom exclusions |
+
+| App management | Device information |
+| :--- | :--- |
+| Installed app sizes, data and cache | CPU frequencies, GPU capabilities and RAM |
+| User/system app filters and cache sorting | Battery temperature, charging power and capacity |
+| App details and accessible storage folders | Android, display, network and thermal information |
+| Launch apps and open Android app settings | Live sensors, display and touchscreen tests |
+| Uninstall user apps through Android | Manufacturer identification |
+
+The home dashboard highlights storage usage, device status, app cache and relevant recommendations. Slate supports light, dark and AMOLED appearances, dynamic colors and English/Brazilian Portuguese.
+
+## Installation
+
+**[Get Slate.apk from GitHub Releases](https://github.com/stevenmx2/Slate-1/releases)**
+
+1. Open the releases page and select the newest development build.
+2. Download `Slate.apk` from its assets and open it on your Android device.
+3. Allow installation from the source you're using if Android asks.
+
+Slate requires **Android 8.0 (API 26) or newer**. Root and Shizuku are optional; most features work with ordinary Android permissions.
+
+> Slate is in active development. Releases are signed development builds, and some features may behave differently depending on the device or Android version.
+
+The built-in updater checks GitHub Releases and verifies the APK's package, version and signing certificate before opening Android's installer.
+
+## Privacy and permissions
+
+- Storage scans, file indexes, app statistics and device readings are processed locally.
+- Storage access and usage access are requested for their respective features.
+- Internet access is used for update checks and downloads.
+- Cleanup candidates are reviewed before deletion. Scheduled scans do not automatically delete personal files.
+- Shizuku/root features require explicit authorization. Protected app data and system files remain subject to Android and backend restrictions.
+
+Storage measurements may be incomplete on restricted directories. App statistics and shared-file totals can overlap; they should not be added together as a complete filesystem accounting. Hardware readings are shown only when the device exposes them.
+
+## Development
+
+Built with Kotlin, Jetpack Compose and Material 3.
+
+<details>
+<summary>Build from source</summary>
+
+Requirements: JDK 17, Android SDK 35 and Gradle 8.9.
+
 ```sh
-gradle :app:assembleRelease :app:testReleaseUnitTest
-```
-The CI builds a signed, non-debuggable release APK, verifies its signature, runs release unit tests and publishes `Slate.apk` to the repository's GitHub prereleases. The package ID is unchanged; CI version codes increase with the workflow run number.
-
-One-time signing setup (run locally with JDK and GitHub CLI authenticated for the repository):
-
-```sh
-bash scripts/setup-signing.sh
+gradle :app:testReleaseUnitTest :app:assembleRelease
 ```
 
-The script creates a local PKCS12 signing identity (or reuses the existing backup), uploads the key and password directly to Actions secrets and dispatches the build. Keep the backup directory private and backed up offline. Do not rotate the key for routine updates. CI deliberately fails if signing secrets are missing. Old debug APKs signed with a different certificate must be uninstalled once before installing the signed release. For local signed builds, set SLATE_KEYSTORE_PATH and SLATE_KEYSTORE_PASSWORD; otherwise assembleRelease produces an unsigned APK.
+APK output: `app/build/outputs/apk/release/`.
 
-## Updates
-Settings → Updates checks the public GitHub releases for a newer signed `Slate.apk`. Downloads stay in the app's private cache, and package name, version and signing certificate are checked before handing the APK to Android's installer. The user must grant installation permission for Slate and confirm the installation. No silent installation, automatic background downloads or telemetry.
+To sign a local build, set `SLATE_KEYSTORE_PATH` and `SLATE_KEYSTORE_PASSWORD`. Without them, the release build is unsigned.
 
-## Roadmap
-Storage analyzer improvements (root and Shizuku, richer storage statistics and cached browsing); app cleaner; residual files; system cleaner; duplicates; app manager; media compression; media review; scheduling; custom exclusions; accessibility-based compatibility; history and localization.
+For repository maintainers, `bash scripts/setup-signing.sh` configures the persistent signing identity and GitHub Actions secrets. Keep the existing signing key backed up and private; rotating it prevents normal in-place updates. CI intentionally fails if signing secrets are missing.
 
-See CREDITS.md for upstream attribution. No SD Maid code is included in this milestone.
+GitHub Actions runs release unit tests, verifies the signed APK and publishes development prereleases.
+
+</details>
+
+Report reproducible bugs or suggest improvements through [GitHub Issues](https://github.com/stevenmx2/Slate-1/issues). See the [development tracker](ROADMAP.md) for implementation and validation status.
+
+## License and acknowledgements
+
+Slate is free and open-source software licensed under [GPL-3.0-only](LICENSE).
+
+[SD Maid SE](https://github.com/d4rken-org/sdmaid-se) is a feature and compatibility reference. Slate uses the [Shizuku API](https://github.com/RikkaApps/Shizuku-API), AndroidX and other open-source libraries. Manufacturer marks are used for device identification. See [CREDITS.md](CREDITS.md) for attribution and licensing details.
