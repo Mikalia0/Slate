@@ -103,6 +103,8 @@ class MainActivity : ComponentActivity() {
                                 HorizontalDivider()
                                 DashboardSettings(dashboard)
                                 HorizontalDivider()
+                                AdvancedCacheSettings(onChanged={storageModel.invalidate()})
+                                HorizontalDivider()
                                 ScheduledCleanupSettings()
                                 HorizontalDivider()
                                 ExclusionEditor(storageModel.exclusions,onChanged={storageModel.invalidate()})
