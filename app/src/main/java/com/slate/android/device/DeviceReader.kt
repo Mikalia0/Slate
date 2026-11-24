@@ -32,7 +32,7 @@ internal data class Meter(val title: String, val value: String, val subtitle: St
 internal data class LiveInfo(val meters: List<Meter>, val cpu: Section, val memory: Section, val battery: Section, val uptime: Section, val gpu: Section, val thermal: Section, val connection: Section, val display: Section, val cores: List<CoreReading>)
 internal data class StaticInfo(val hardware: List<Section>, val system: List<Section>, val sensors: List<Section>, val cameras: List<Section>)
 internal data class CoreReading(val id: Int, val current: Long?, val maximum: Long?, val online: Boolean?)
-internal data class GpuInfo(val renderer: String = UNKNOWN, val vendor: String = UNKNOWN, val version: String = UNKNOWN, val extensions: String = UNKNOWN)
+internal data class GpuInfo(val renderer: String = UNKNOWN, val vendor: String = UNKNOWN, val version: String = UNKNOWN, val extensions: String = UNKNOWN,val limits:List<Info> = emptyList())
 
 internal class DeviceReader(private val context: Context) {
     private fun fmt(bytes: Long) = Formatter.formatFileSize(context, bytes)
@@ -198,7 +198,7 @@ internal class DeviceReader(private val context: Context) {
         val hardware = listOf(Section("Processor", cpu), Section("Graphics", listOf(info("GPU renderer", gpu.renderer), info("Vendor", gpu.vendor),
             info("OpenGL ES", gpu.version), info("GL extensions (current context)", gpu.extensions),
             info("Vulkan support", context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_VULKAN_HARDWARE_VERSION)),
-            info("Vulkan API (reported)", context.packageManager.systemAvailableFeatures.firstOrNull { it.name == android.content.pm.PackageManager.FEATURE_VULKAN_HARDWARE_VERSION }?.version?.takeIf { it > 0 }?.let { "${it ushr 22}.${(it ushr 12) and 1023}.${it and 4095}" }))),
+            info("Vulkan API (reported)", context.packageManager.systemAvailableFeatures.firstOrNull { it.name == android.content.pm.PackageManager.FEATURE_VULKAN_HARDWARE_VERSION }?.version?.takeIf { it > 0 }?.let { "${it ushr 22}.${(it ushr 12) and 1023}.${it and 4095}" })) + gpu.limits),
             Section("Display", displays))
         val system = listOf(Section("Device", listOf(info("Manufacturer", Build.MANUFACTURER), info("Brand", Build.BRAND), info("Model", Build.MODEL), info("Device", Build.DEVICE), info("Product", Build.PRODUCT), info("Board", Build.BOARD))),
             Section("Android", listOf(info("Android version", Build.VERSION.RELEASE), info("API level", Build.VERSION.SDK_INT), info("Security patch", Build.VERSION.SECURITY_PATCH),
@@ -246,12 +246,34 @@ internal class DeviceReader(private val context: Context) {
         val link = net?.let { manager?.getLinkProperties(it) }
         val transports = listOf(NetworkCapabilities.TRANSPORT_WIFI to "Wi-Fi", NetworkCapabilities.TRANSPORT_CELLULAR to "Mobile",
             NetworkCapabilities.TRANSPORT_ETHERNET to "Ethernet", NetworkCapabilities.TRANSPORT_VPN to "VPN", NetworkCapabilities.TRANSPORT_BLUETOOTH to "Bluetooth")
-        return Section("Active connection", listOf(info("Connection", if (net == null) "Disconnected" else transports.filter { cap?.hasTransport(it.first) == true }.joinToString { it.second }),
+        val rows=mutableListOf(info("Connection", if (net == null) "Disconnected" else transports.filter { cap?.hasTransport(it.first) == true }.joinToString { it.second }),
             info("Internet validated", cap?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)),
             info("Metered", manager?.isActiveNetworkMetered), info("Interface", link?.interfaceName),
             info("Addresses", link?.linkAddresses?.joinToString()), info("DNS", link?.dnsServers?.joinToString { it.hostAddress.orEmpty() }),
             info("Estimated downlink", cap?.linkDownstreamBandwidthKbps?.takeIf { it > 0 }?.let { "$it kbps" }),
-            info("Estimated uplink", cap?.linkUpstreamBandwidthKbps?.takeIf { it > 0 }?.let { "$it kbps" })))
+            info("Estimated uplink", cap?.linkUpstreamBandwidthKbps?.takeIf { it > 0 }?.let { "$it kbps" }))
+        if(cap?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)==true) {
+            @Suppress("DEPRECATION")
+            val wifi=runCatching {
+                (if(Build.VERSION.SDK_INT>=29) cap.transportInfo as? android.net.wifi.WifiInfo else null)
+                    ?: context.getSystemService(android.net.wifi.WifiManager::class.java)?.connectionInfo
+            }.getOrNull()
+            rows.addAll(listOf(info("Wi-Fi signal",wifi?.rssi?.takeIf{it in -126..0}?.let{"$it dBm"}),
+                info("Frequency",wifi?.frequency?.takeIf{it>0}?.let{"$it MHz"}),
+                info("Link speed",wifi?.linkSpeed?.takeIf{it>0}?.let{"$it Mbps"})))
+            if(Build.VERSION.SDK_INT>=29) rows.addAll(listOf(info("Transmit link speed",wifi?.txLinkSpeedMbps?.takeIf{it>0}?.let{"$it Mbps"}),
+                info("Receive link speed",wifi?.rxLinkSpeedMbps?.takeIf{it>0}?.let{"$it Mbps"})))
+            if(Build.VERSION.SDK_INT>=30) rows.add(info("Wi-Fi standard",when(wifi?.wifiStandard){1->"Legacy";4->"Wi-Fi 4";5->"Wi-Fi 5";6->"Wi-Fi 6 / 6E";7->"Wi-Fi 7";else->null}))
+        }
+        if(cap?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)==true) {
+            val telephony=context.getSystemService(android.telephony.TelephonyManager::class.java)
+            val type=runCatching{telephony?.dataNetworkType}.getOrNull()
+            rows.addAll(listOf(info("Operator",runCatching{telephony?.networkOperatorName?.takeIf{it.isNotBlank()}}.getOrNull()),
+                info("Radio access",when(type){1->"GPRS";2->"EDGE";3->"UMTS";8->"HSDPA";9->"HSUPA";10->"HSPA";13->"LTE";15->"HSPA+";18->"IWLAN";20->"NR";else->null}),
+                info("Roaming",runCatching{telephony?.isNetworkRoaming}.getOrNull())))
+            if(Build.VERSION.SDK_INT>=28)rows.add(info("Signal level",runCatching{telephony?.signalStrength?.level?.let{"$it / 4"}}.getOrNull()))
+        }
+        return Section("Active connection",rows)
     }
 
     private fun gpuInfo(): GpuInfo {
@@ -272,8 +294,21 @@ internal class DeviceReader(private val context: Context) {
             if (ctx == EGL14.EGL_NO_CONTEXT) return GpuInfo()
             surface = EGL14.eglCreatePbufferSurface(display, config[0], intArrayOf(EGL14.EGL_WIDTH, 1, EGL14.EGL_HEIGHT, 1, EGL14.EGL_NONE), 0)
             if (surface == EGL14.EGL_NO_SURFACE || !EGL14.eglMakeCurrent(display, surface, surface, ctx)) return GpuInfo()
+            fun limit(name:String,key:Int):Info {
+                val value=IntArray(1)
+                GLES20.glGetIntegerv(key,value,0)
+                return info(name,value[0].takeIf{GLES20.glGetError()==GLES20.GL_NO_ERROR && it>0})
+            }
+            val limits=listOf(info("GLSL ES",GLES20.glGetString(GLES20.GL_SHADING_LANGUAGE_VERSION)),
+                limit("Max texture size",GLES20.GL_MAX_TEXTURE_SIZE),
+                limit("Max cube map size",GLES20.GL_MAX_CUBE_MAP_TEXTURE_SIZE),
+                limit("Max renderbuffer size",GLES20.GL_MAX_RENDERBUFFER_SIZE),
+                limit("Combined texture units",GLES20.GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS),
+                limit("Vertex attributes",GLES20.GL_MAX_VERTEX_ATTRIBS),
+                limit("Fragment uniform vectors",GLES20.GL_MAX_FRAGMENT_UNIFORM_VECTORS),
+                limit("Vertex uniform vectors",GLES20.GL_MAX_VERTEX_UNIFORM_VECTORS))
             return GpuInfo(GLES20.glGetString(GLES20.GL_RENDERER) ?: UNKNOWN, GLES20.glGetString(GLES20.GL_VENDOR) ?: UNKNOWN,
-                GLES20.glGetString(GLES20.GL_VERSION) ?: UNKNOWN, GLES20.glGetString(GLES20.GL_EXTENSIONS)?.split(' ')?.filter { it.isNotBlank() }?.sorted()?.joinToString("\n") ?: UNKNOWN)
+                GLES20.glGetString(GLES20.GL_VERSION) ?: UNKNOWN, GLES20.glGetString(GLES20.GL_EXTENSIONS)?.split(' ')?.filter { it.isNotBlank() }?.sorted()?.joinToString("\n") ?: UNKNOWN,limits)
         } catch (_: Exception) { return GpuInfo() }
         finally {
             if (initialized) {

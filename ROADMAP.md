@@ -29,11 +29,11 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 
 ## Device information (7)
 - [ ] More manufacturer logos
-- [ ] Detailed GPU information (partial)
+- [ ] Detailed GPU information (GL limits, Vulkan version and GPU activity; verify)
 - [ ] Live sensors (implemented; verify)
 - [ ] Charging speed and remaining time (system estimate and watts implemented; verify)
 - [ ] Battery capacity and wear (reported sysfs values and approximate capacity, if exposed; verify)
-- [ ] Detailed Wi-Fi/mobile network (partial)
+- [ ] Detailed Wi-Fi/mobile network (signal, frequency, link speeds and available cellular info; verify)
 - [ ] Display/touch/sensor tests (implemented; verify)
 
 ## Home and UI (8)
