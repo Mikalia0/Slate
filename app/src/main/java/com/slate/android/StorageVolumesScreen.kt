@@ -23,7 +23,7 @@ import kotlinx.coroutines.withContext
 
 private data class VolumeReading(val volume:Volume,val capacity:Long,val available:Long)
 @Composable
-internal fun StorageVolumesScreen(primary:File,volumes:List<Volume>,history:StorageHistory,onBack:()->Unit,onRoot:()->Unit,onOpen:(File)->Unit){
+internal fun StorageVolumesScreen(primary:File,volumes:List<Volume>,history:StorageHistory,rootAuthorized:Boolean,onRootRevoked:()->Unit,onBack:()->Unit,onRoot:()->Unit,onOpen:(File)->Unit){
     val context=LocalContext.current
     val listed=remember(primary,volumes){(listOf(Volume(primary,"Internal storage"))+volumes).distinctBy{it.root.absolutePath}}
     var refresh by remember{mutableIntStateOf(0)}
@@ -33,6 +33,10 @@ internal fun StorageVolumesScreen(primary:File,volumes:List<Volume>,history:Stor
             val free=runCatching{v.root.usableSpace}.getOrDefault(0L).coerceIn(0,total)
             VolumeReading(v,total,free)
         }}
+    }
+    val rootVerified by produceState(false,rootAuthorized,refresh){
+        value=false
+        if(rootAuthorized){value=com.slate.android.storage.verifyRootDataAccess();if(!value)onRootRevoked()}
     }
     BackHandler(onBack=onBack)
     Column(Modifier.fillMaxSize()){
@@ -77,7 +81,7 @@ internal fun StorageVolumesScreen(primary:File,volumes:List<Volume>,history:Stor
                     }
                 }
             }
-            item(key="root-data"){
+            if(rootAuthorized && rootVerified)item(key="root-data"){
                 OutlinedCard(onClick=onRoot,modifier=Modifier.fillMaxWidth()){
                     Row(Modifier.fillMaxWidth().padding(16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
                         Icon(painterResource(R.drawable.ic_device_system),null,Modifier.size(27.dp),tint=MaterialTheme.colorScheme.primary)

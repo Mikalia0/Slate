@@ -8,4 +8,10 @@
     <string name="root_data_explain">Scan regular files under /data, including private app files, using superuser access. Read-only; symbolic links and separate mounted filesystems are excluded. Shows up to 2,000 largest files by logical size. No files are deleted.</string>
     <string name="root_data_scan">Scan with root</string>
     <string name="root_data_copy">Copy path</string>
+    <string name="root_access_title">Superuser access</string>
+    <string name="root_access_checking">Checking permission…</string>
+    <string name="root_access_granted">Authorized for this session</string>
+    <string name="root_access_optional">Optional access for private storage analysis</string>
+    <string name="root_access_allow">Authorize</string>
+    <string name="root_access_disable">Disable</string>
 </resources>

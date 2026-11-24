@@ -6,7 +6,7 @@ Changes are listed newest first. Each signed development release also includes c
 
 - Add a read-only root scan of /data to the storage volume overview.
 - Rank up to 2,000 largest regular files across private app and system data, with progress, cancellation, search and size ordering.
-- Request superuser access explicitly and never delete private files from this view.
+- Request superuser access explicitly from Settings and hide /data until root is verified. Never delete private files from this view.
 
 ## 0.5.0-dev — Customizable performance HUD
 

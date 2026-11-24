@@ -94,6 +94,7 @@ class MainActivity : ComponentActivity() {
             val history=storageModel.history
             val dashboard=remember{DashboardPreferences(this@MainActivity)}
             var settings by rememberSaveable { mutableStateOf(false) }
+            var rootAuthorized by remember { mutableStateOf(false) }
             val screenState=rememberSaveableStateHolder()
             var manualUpdateRequest by remember { mutableIntStateOf(0) }
             val onMode: (SlateTheme)->Unit = { mode=it; prefs.edit().putString("theme",it.name).apply() }
@@ -112,6 +113,7 @@ class MainActivity : ComponentActivity() {
                                 HorizontalDivider()
                                 ListItem(headlineContent={Text(tr("Storage access"))},supportingContent={Text(tr(if(granted)"Granted" else "Not granted"))},trailingContent={TextButton(onClick=::requestStorage){Text(tr("Manage"))}})
                                 ShizukuAccessRow()
+                                RootAccessRow(rootAuthorized,onChanged={rootAuthorized=it})
                                 HorizontalDivider()
                                 DashboardSettings(dashboard)
                                 HorizontalDivider()
@@ -124,7 +126,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    else -> screenState.SaveableStateProvider("slate") { Slate(granted, volumes, ::requestStorage, onSettings={settings=true}, history=history,model=storageModel,dashboard=dashboard) }
+                    else -> screenState.SaveableStateProvider("slate") { Slate(granted, volumes, ::requestStorage, onSettings={settings=true}, history=history,model=storageModel,dashboard=dashboard,rootAuthorized=rootAuthorized,onRootRevoked={rootAuthorized=false}) }
                 }
                 if(setup) UpdatePrompt(manualUpdateRequest)
             }
@@ -134,7 +136,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, onSettings: () -> Unit, history: StorageHistory, model: StorageModel = viewModel(),dashboard:DashboardPreferences) {
+private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, onSettings: () -> Unit, history: StorageHistory, model: StorageModel = viewModel(),dashboard:DashboardPreferences,rootAuthorized:Boolean,onRootRevoked:()->Unit) {
     val context = LocalContext.current
     val primary = remember { Environment.getExternalStorageDirectory() }
     var selectedPath by rememberSaveable { mutableStateOf(primary.absolutePath) }
@@ -204,11 +206,11 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
             Box(Modifier.weight(1f).fillMaxHeight().graphicsLayer{alpha=screenAlpha.value}){
         if(about) {
             AboutScreen(onBack={about=false})
-        } else if(rootData) {
-            RootDataScreen(onBack={rootData=false;showVolumes=true})
-        } else if(showVolumes) {
-            StorageVolumesScreen(primary,volumes,history,onBack={showVolumes=false},onRoot={showVolumes=false;rootData=true},onOpen={file->
-                showVolumes=false;personalOnly=false;selectedPath=file.absolutePath;analyzer=true
+        } else if(rootData && rootAuthorized) {
+            RootDataScreen(onBack={rootData=false;showVolumes=true},onRootRevoked={onRootRevoked();rootData=false;showVolumes=true})
+        } else if(showVolumes || rootData) {
+            StorageVolumesScreen(primary,volumes,history,rootAuthorized=rootAuthorized,onRootRevoked=onRootRevoked,onBack={showVolumes=false;rootData=false},onRoot={showVolumes=false;rootData=true},onOpen={file->
+                showVolumes=false;rootData=false;personalOnly=false;selectedPath=file.absolutePath;analyzer=true
                 selection=emptySet();largeFiles=false;query="";search=false;expandedCategories=false
                 if(granted)model.open(file)
             })

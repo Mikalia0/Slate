@@ -41,10 +41,302 @@ private val scanCommand="""
     printf 'SLATE_ROOT_OK\n'
     newline='
     '
-    /system/bin/find /data -xdev -type f ! -path "*$newline*" -exec /system/bin/stat -c '%s %n' {} +
+    /system/bin/find /data -xdev -type f ! -path "*${'*" -exec /system/bin/stat -c '%s %n' {} +
+    result=$?
+    printf 'SLATE_ROOT_END %s\n' "${'"
+    exit "$result"
+""".trimIndent().replace("newline='\n    '","newline='\n'")
+
+internal suspend fun verifyRootDataAccess():Boolean=withContext(Dispatchers.IO){
+    val process=try{ProcessBuilder("su","-c","[ \"\$(/system/bin/id -u)\" = 0 ] && [ -r /data ] && [ -x /data ]").redirectErrorStream(true).start()}catch(_:java.io.IOException){return@withContext false}
+    try{
+        runInterruptible{process.waitFor(45,java.util.concurrent.TimeUnit.SECONDS)&&process.exitValue()==0}
+    }catch(e:kotlinx.coroutines.CancellationException){throw e}
+    catch(_:Exception){false}
+    finally{if(process.isAlive)process.destroyForcibly()}
+}
+internal suspend fun scanRootData(onProgress:(Long)->Unit):RootDataResult=withContext(Dispatchers.IO){
+    val process=ProcessBuilder("su","-c",scanCommand).redirectErrorStream(true).start()
+    val largest=RootLargest()
+    var authorized=false
+    var finished=false
+    var incomplete=false
+    var lastReport=0L
+    try{
+        process.inputStream.bufferedReader().use{reader->
+            val ctx=currentCoroutineContext()
+            while(true){
+                ctx.ensureActive()
+                if(!reader.ready()){
+                    if(!process.isAlive)break
+                    delay(40)
+                    continue
+                }
+                val line=runInterruptible{reader.readLine()}?:break
+                when{
+                    line=="SLATE_ROOT_OK"->authorized=true
+                    line.startsWith("SLATE_ROOT_END ")->{finished=true;incomplete=incomplete||line!="SLATE_ROOT_END 0"}
+                    authorized->{
+                        val file=parseRootFile(line)
+                        if(file!=null)largest.add(file)else incomplete=true
+                    }
+                }
+                val now=android.os.SystemClock.elapsedRealtime()
+                if(now-lastReport>=300){lastReport=now;onProgress(largest.scanned)}
+            }
+        }
+        check(authorized){"Root access denied"}
+        check(finished||largest.scanned>0){"Root scan failed"}
+        onProgress(largest.scanned)
+        RootDataResult(largest.results(),largest.scanned,incomplete||!finished)
+    }finally{if(process.isAlive)process.destroyForcibly()}
+}
+}newline*" -exec /system/bin/stat -c '%s %n' {} +
     result=$?
     printf 'SLATE_ROOT_END %s\n' "$result"
     exit "$result"
+""".trimIndent().replace("newline='\n    '","newline='\n'")
+
+internal suspend fun scanRootData(onProgress:(Long)->Unit):RootDataResult=withContext(Dispatchers.IO){
+    val process=ProcessBuilder("su","-c",scanCommand).redirectErrorStream(true).start()
+    val largest=RootLargest()
+    var authorized=false
+    var finished=false
+    var incomplete=false
+    var lastReport=0L
+    try{
+        process.inputStream.bufferedReader().use{reader->
+            val ctx=currentCoroutineContext()
+            while(true){
+                ctx.ensureActive()
+                if(!reader.ready()){
+                    if(!process.isAlive)break
+                    delay(40)
+                    continue
+                }
+                val line=runInterruptible{reader.readLine()}?:break
+                when{
+                    line=="SLATE_ROOT_OK"->authorized=true
+                    line.startsWith("SLATE_ROOT_END ")->{finished=true;incomplete=incomplete||line!="SLATE_ROOT_END 0"}
+                    authorized->{
+                        val file=parseRootFile(line)
+                        if(file!=null)largest.add(file)else incomplete=true
+                    }
+                }
+                val now=android.os.SystemClock.elapsedRealtime()
+                if(now-lastReport>=300){lastReport=now;onProgress(largest.scanned)}
+            }
+        }
+        check(authorized){"Root access denied"}
+        check(finished||largest.scanned>0){"Root scan failed"}
+        onProgress(largest.scanned)
+        RootDataResult(largest.results(),largest.scanned,incomplete||!finished)
+    }finally{if(process.isAlive)process.destroyForcibly()}
+}
+}result"
+    exit "${'"
+""".trimIndent().replace("newline='\n    '","newline='\n'")
+
+internal suspend fun scanRootData(onProgress:(Long)->Unit):RootDataResult=withContext(Dispatchers.IO){
+    val process=ProcessBuilder("su","-c",scanCommand).redirectErrorStream(true).start()
+    val largest=RootLargest()
+    var authorized=false
+    var finished=false
+    var incomplete=false
+    var lastReport=0L
+    try{
+        process.inputStream.bufferedReader().use{reader->
+            val ctx=currentCoroutineContext()
+            while(true){
+                ctx.ensureActive()
+                if(!reader.ready()){
+                    if(!process.isAlive)break
+                    delay(40)
+                    continue
+                }
+                val line=runInterruptible{reader.readLine()}?:break
+                when{
+                    line=="SLATE_ROOT_OK"->authorized=true
+                    line.startsWith("SLATE_ROOT_END ")->{finished=true;incomplete=incomplete||line!="SLATE_ROOT_END 0"}
+                    authorized->{
+                        val file=parseRootFile(line)
+                        if(file!=null)largest.add(file)else incomplete=true
+                    }
+                }
+                val now=android.os.SystemClock.elapsedRealtime()
+                if(now-lastReport>=300){lastReport=now;onProgress(largest.scanned)}
+            }
+        }
+        check(authorized){"Root access denied"}
+        check(finished||largest.scanned>0){"Root scan failed"}
+        onProgress(largest.scanned)
+        RootDataResult(largest.results(),largest.scanned,incomplete||!finished)
+    }finally{if(process.isAlive)process.destroyForcibly()}
+}
+}newline*" -exec /system/bin/stat -c '%s %n' {} +
+    result=$?
+    printf 'SLATE_ROOT_END %s\n' "$result"
+    exit "$result"
+""".trimIndent().replace("newline='\n    '","newline='\n'")
+
+internal suspend fun scanRootData(onProgress:(Long)->Unit):RootDataResult=withContext(Dispatchers.IO){
+    val process=ProcessBuilder("su","-c",scanCommand).redirectErrorStream(true).start()
+    val largest=RootLargest()
+    var authorized=false
+    var finished=false
+    var incomplete=false
+    var lastReport=0L
+    try{
+        process.inputStream.bufferedReader().use{reader->
+            val ctx=currentCoroutineContext()
+            while(true){
+                ctx.ensureActive()
+                if(!reader.ready()){
+                    if(!process.isAlive)break
+                    delay(40)
+                    continue
+                }
+                val line=runInterruptible{reader.readLine()}?:break
+                when{
+                    line=="SLATE_ROOT_OK"->authorized=true
+                    line.startsWith("SLATE_ROOT_END ")->{finished=true;incomplete=incomplete||line!="SLATE_ROOT_END 0"}
+                    authorized->{
+                        val file=parseRootFile(line)
+                        if(file!=null)largest.add(file)else incomplete=true
+                    }
+                }
+                val now=android.os.SystemClock.elapsedRealtime()
+                if(now-lastReport>=300){lastReport=now;onProgress(largest.scanned)}
+            }
+        }
+        check(authorized){"Root access denied"}
+        check(finished||largest.scanned>0){"Root scan failed"}
+        onProgress(largest.scanned)
+        RootDataResult(largest.results(),largest.scanned,incomplete||!finished)
+    }finally{if(process.isAlive)process.destroyForcibly()}
+}
+}result"
+""".trimIndent().replace("newline='\n    '","newline='\n'")
+
+internal suspend fun scanRootData(onProgress:(Long)->Unit):RootDataResult=withContext(Dispatchers.IO){
+    val process=ProcessBuilder("su","-c",scanCommand).redirectErrorStream(true).start()
+    val largest=RootLargest()
+    var authorized=false
+    var finished=false
+    var incomplete=false
+    var lastReport=0L
+    try{
+        process.inputStream.bufferedReader().use{reader->
+            val ctx=currentCoroutineContext()
+            while(true){
+                ctx.ensureActive()
+                if(!reader.ready()){
+                    if(!process.isAlive)break
+                    delay(40)
+                    continue
+                }
+                val line=runInterruptible{reader.readLine()}?:break
+                when{
+                    line=="SLATE_ROOT_OK"->authorized=true
+                    line.startsWith("SLATE_ROOT_END ")->{finished=true;incomplete=incomplete||line!="SLATE_ROOT_END 0"}
+                    authorized->{
+                        val file=parseRootFile(line)
+                        if(file!=null)largest.add(file)else incomplete=true
+                    }
+                }
+                val now=android.os.SystemClock.elapsedRealtime()
+                if(now-lastReport>=300){lastReport=now;onProgress(largest.scanned)}
+            }
+        }
+        check(authorized){"Root access denied"}
+        check(finished||largest.scanned>0){"Root scan failed"}
+        onProgress(largest.scanned)
+        RootDataResult(largest.results(),largest.scanned,incomplete||!finished)
+    }finally{if(process.isAlive)process.destroyForcibly()}
+}
+}newline*" -exec /system/bin/stat -c '%s %n' {} +
+    result=$?
+    printf 'SLATE_ROOT_END %s\n' "${'"
+    exit "$result"
+""".trimIndent().replace("newline='\n    '","newline='\n'")
+
+internal suspend fun scanRootData(onProgress:(Long)->Unit):RootDataResult=withContext(Dispatchers.IO){
+    val process=ProcessBuilder("su","-c",scanCommand).redirectErrorStream(true).start()
+    val largest=RootLargest()
+    var authorized=false
+    var finished=false
+    var incomplete=false
+    var lastReport=0L
+    try{
+        process.inputStream.bufferedReader().use{reader->
+            val ctx=currentCoroutineContext()
+            while(true){
+                ctx.ensureActive()
+                if(!reader.ready()){
+                    if(!process.isAlive)break
+                    delay(40)
+                    continue
+                }
+                val line=runInterruptible{reader.readLine()}?:break
+                when{
+                    line=="SLATE_ROOT_OK"->authorized=true
+                    line.startsWith("SLATE_ROOT_END ")->{finished=true;incomplete=incomplete||line!="SLATE_ROOT_END 0"}
+                    authorized->{
+                        val file=parseRootFile(line)
+                        if(file!=null)largest.add(file)else incomplete=true
+                    }
+                }
+                val now=android.os.SystemClock.elapsedRealtime()
+                if(now-lastReport>=300){lastReport=now;onProgress(largest.scanned)}
+            }
+        }
+        check(authorized){"Root access denied"}
+        check(finished||largest.scanned>0){"Root scan failed"}
+        onProgress(largest.scanned)
+        RootDataResult(largest.results(),largest.scanned,incomplete||!finished)
+    }finally{if(process.isAlive)process.destroyForcibly()}
+}
+}result"
+    exit "${'"
+""".trimIndent().replace("newline='\n    '","newline='\n'")
+
+internal suspend fun scanRootData(onProgress:(Long)->Unit):RootDataResult=withContext(Dispatchers.IO){
+    val process=ProcessBuilder("su","-c",scanCommand).redirectErrorStream(true).start()
+    val largest=RootLargest()
+    var authorized=false
+    var finished=false
+    var incomplete=false
+    var lastReport=0L
+    try{
+        process.inputStream.bufferedReader().use{reader->
+            val ctx=currentCoroutineContext()
+            while(true){
+                ctx.ensureActive()
+                if(!reader.ready()){
+                    if(!process.isAlive)break
+                    delay(40)
+                    continue
+                }
+                val line=runInterruptible{reader.readLine()}?:break
+                when{
+                    line=="SLATE_ROOT_OK"->authorized=true
+                    line.startsWith("SLATE_ROOT_END ")->{finished=true;incomplete=incomplete||line!="SLATE_ROOT_END 0"}
+                    authorized->{
+                        val file=parseRootFile(line)
+                        if(file!=null)largest.add(file)else incomplete=true
+                    }
+                }
+                val now=android.os.SystemClock.elapsedRealtime()
+                if(now-lastReport>=300){lastReport=now;onProgress(largest.scanned)}
+            }
+        }
+        check(authorized){"Root access denied"}
+        check(finished||largest.scanned>0){"Root scan failed"}
+        onProgress(largest.scanned)
+        RootDataResult(largest.results(),largest.scanned,incomplete||!finished)
+    }finally{if(process.isAlive)process.destroyForcibly()}
+}
+}result"
 """.trimIndent().replace("newline='\n    '","newline='\n'")
 
 internal suspend fun scanRootData(onProgress:(Long)->Unit):RootDataResult=withContext(Dispatchers.IO){

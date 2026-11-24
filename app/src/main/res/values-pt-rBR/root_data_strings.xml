@@ -8,4 +8,10 @@
     <string name="root_data_explain">Analisa arquivos em /data, inclusive arquivos privados de apps, usando acesso de superusuário. Somente leitura; links simbólicos e sistemas de arquivos montados separadamente são excluídos. Mostra até os 2.000 maiores arquivos pelo tamanho lógico. Nenhum arquivo é apagado.</string>
     <string name="root_data_scan">Analisar com root</string>
     <string name="root_data_copy">Copiar caminho</string>
+    <string name="root_access_title">Acesso superusuário</string>
+    <string name="root_access_checking">Verificando permissão…</string>
+    <string name="root_access_granted">Autorizado nesta sessão</string>
+    <string name="root_access_optional">Opcional para analisar armazenamento privado</string>
+    <string name="root_access_allow">Autorizar</string>
+    <string name="root_access_disable">Desativar</string>
 </resources>

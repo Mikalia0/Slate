@@ -25,7 +25,7 @@ import com.slate.android.storage.*
 import kotlinx.coroutines.*
 
 @Composable
-internal fun RootDataScreen(onBack:()->Unit){
+internal fun RootDataScreen(onBack:()->Unit,onRootRevoked:()->Unit){
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     var result by remember{mutableStateOf<RootDataResult?>(null)}
@@ -42,7 +42,10 @@ internal fun RootDataScreen(onBack:()->Unit){
         if(job!=null)return
         scanned=0;error=false;result=null
         job=scope.launch{
-            try{result=scanRootData{n->scanned=n}}
+            try{
+                if(!verifyRootDataAccess()){onRootRevoked();return@launch}
+                result=scanRootData{n->scanned=n}
+            }
             catch(e:CancellationException){throw e}
             catch(_:Exception){error=true}
             finally{job=null}
