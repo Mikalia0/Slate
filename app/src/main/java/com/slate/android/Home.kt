@@ -25,6 +25,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.slate.android.device.DeviceReader
 import com.slate.android.device.LiveInfo
 import com.slate.android.device.StaticInfo
+import com.slate.android.device.DeviceStatus
+import com.slate.android.device.DeviceGlyph
+import com.slate.android.device.powerReading
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
@@ -33,30 +36,19 @@ import com.slate.android.storage.Volume
 import java.io.File
 
 @Composable
-internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit) {
+internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit) {
     val context = LocalContext.current
     val capacity = primary.totalSpace
     val free = primary.usableSpace
     val used = (capacity-free).coerceAtLeast(0)
     val fraction = if(capacity>0) (used.toDouble()/capacity).toFloat().coerceIn(0f,1f) else 0f
     val fmt: (Long)->String = { Formatter.formatFileSize(context,it) }
-    val reader=remember(context){DeviceReader(context.applicationContext)}
-    val lifecycle=LocalLifecycleOwner.current.lifecycle
-    var live by remember { mutableStateOf<LiveInfo?>(null) }
-    var fixed by remember { mutableStateOf<StaticInfo?>(null) }
-    LaunchedEffect(reader) { fixed=withContext(Dispatchers.IO){runCatching{reader.static()}.getOrNull()} }
-    LaunchedEffect(reader,lifecycle) {
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while(true) {
-                withContext(Dispatchers.IO){runCatching{reader.live()}.getOrNull()}?.let{live=it}
-                delay(2000)
-            }
-        }
-    }
+    val live=status.live
+    val fixed=status.fixed
     val ram=live?.meters?.firstOrNull{it.title=="Memory"}
     val battery=live?.meters?.firstOrNull{it.title=="Battery"}
     val temperature=live?.battery?.rows?.firstOrNull{it.label=="Temperature"}?.value ?: "—"
-    val cpu=fixed?.hardware?.firstOrNull()?.rows?.firstOrNull{it.label=="SoC"}?.value
+    val cpu=fixed?.hardware?.firstOrNull()?.rows?.firstOrNull{it.label=="SoC"}?.value?.takeUnless{it=="Unavailable"} ?: fixed?.hardware?.firstOrNull()?.rows?.firstOrNull{it.label=="Hardware"}?.value
     val gpu=fixed?.hardware?.getOrNull(1)?.rows?.firstOrNull{it.label=="GPU renderer"}?.value
     val display=live?.display?.rows?.joinToString(" · "){it.value}
     val network=live?.connection?.rows?.firstOrNull{it.label=="Connection"}?.value
@@ -99,6 +91,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                                 Text(temperature,style=MaterialTheme.typography.titleMedium)
                             }
                             Text("Battery temp.",style=MaterialTheme.typography.labelSmall)
+                            live?.battery.powerReading()?.takeIf{it.label=="Charging power" && it.value!="Unavailable"}?.let{Text(it.value,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)}
                         }
                     }
                 }
@@ -108,13 +101,13 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
             Card(onClick=device,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                        DashboardValue("CPU",cpu ?: "—",Modifier.weight(1f))
-                        DashboardValue("GPU",gpu?.removeSuffix(" (TM)") ?: "—",Modifier.weight(1f))
+                        DashboardValue("CPU",cpu ?: "—",Modifier.weight(1f),R.drawable.ic_device_cpu)
+                        DashboardValue("GPU",gpu?.removeSuffix(" (TM)") ?: "—",Modifier.weight(1f),R.drawable.ic_device_gpu)
                     }
                     HorizontalDivider()
                     Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                        DashboardValue("Display",display ?: "—",Modifier.weight(1f))
-                        DashboardValue("Network",network ?: "—",Modifier.weight(1f))
+                        DashboardValue("Display",display ?: "—",Modifier.weight(1f),R.drawable.ic_device_display)
+                        DashboardValue("Network",network ?: "—",Modifier.weight(1f),R.drawable.ic_device_network)
                     }
                     live?.uptime?.rows?.firstOrNull{it.label=="Since boot"}?.let {
                         Text("Uptime · "+it.value,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -163,9 +156,12 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
 }
 
 @Composable
-private fun DashboardValue(label:String,value:String,modifier:Modifier) {
+private fun DashboardValue(label:String,value:String,modifier:Modifier,icon:Int) {
     Column(modifier) {
-        Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+            DeviceGlyph(icon,modifier=Modifier.size(18.dp))
+            Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Text(value,style=MaterialTheme.typography.titleSmall,maxLines=2,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }

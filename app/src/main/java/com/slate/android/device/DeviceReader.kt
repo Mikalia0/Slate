@@ -21,6 +21,11 @@ import java.io.File
 import java.util.Locale
 
 internal const val UNKNOWN = "Unavailable"
+
+// Net power at the battery, not USB input or charger-rated power.
+internal fun batteryWatts(currentUa:Int?, voltageMv:Int?):Double? =
+    if(currentUa==null || currentUa==Int.MIN_VALUE || voltageMv==null || voltageMv<=0) null
+    else kotlin.math.abs(currentUa.toDouble())*voltageMv/1_000_000_000.0
 internal data class Info(val label: String, val value: String)
 internal data class Section(val title: String, val rows: List<Info>)
 internal data class Meter(val title: String, val value: String, val subtitle: String, val fraction: Float?)
@@ -121,8 +126,17 @@ internal class DeviceReader(private val context: Context) {
         val scale = intent.int(BatteryManager.EXTRA_SCALE)
         val percent = if (level != null && scale != null && scale > 0 && level in 0..scale) (100.0 * level / scale).toInt() else null
         val temp = intent.int(BatteryManager.EXTRA_TEMPERATURE)?.let { decimal(it / 10.0, "°C") }
-        val voltage = intent.int(BatteryManager.EXTRA_VOLTAGE)?.takeIf { it > 0 }?.let { "$it mV" }
-        val current = batteryProperty(bm, BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)?.let { decimal(it / 1000.0, "mA") }
+        val voltageMv = intent.int(BatteryManager.EXTRA_VOLTAGE)?.takeIf { it > 0 }
+        val voltage = voltageMv?.let { "$it mV" }
+        val batteryStatus = intent.int(BatteryManager.EXTRA_STATUS)
+        val currentUa = batteryProperty(bm, BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+        val power = batteryWatts(currentUa, voltageMv)
+        val powerLabel = when(batteryStatus) {
+            BatteryManager.BATTERY_STATUS_CHARGING -> "Charging power"
+            BatteryManager.BATTERY_STATUS_DISCHARGING -> "Discharge power"
+            else -> "Battery power"
+        }
+        val current = currentUa?.let { decimal(it / 1000.0, "mA") }
         val average = batteryProperty(bm, BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE)?.let { decimal(it / 1000.0, "mA") }
         val charge = batteryProperty(bm, BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)?.takeIf { it >= 0 }?.let { decimal(it / 1000.0, "mAh") }
         val plugged = when (intent.int(BatteryManager.EXTRA_PLUGGED)) {
@@ -140,7 +154,7 @@ internal class DeviceReader(private val context: Context) {
         val batteryRows = mutableListOf(info("Level", percent?.let { "$it%" }), info("Status", status(intent.int(BatteryManager.EXTRA_STATUS))),
             info("Health (system status)", health(intent.int(BatteryManager.EXTRA_HEALTH))), info("Power source", plugged),
             info("Technology", intent?.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY)), info("Temperature", temp), info("Voltage", voltage),
-            info("Instant current (+ charging)", current), info("Average current (+ charging)", average), info("Remaining charge", charge))
+            info(powerLabel, power?.let { decimal(it, "W") }), info("Instant current (+ charging)", current), info("Average current (+ charging)", average), info("Remaining charge", charge))
         if (Build.VERSION.SDK_INT >= 34) batteryRows.add(info("Charge cycles", intent.int(BatteryManager.EXTRA_CYCLE_COUNT)?.takeIf { it >= 0 }))
         return LiveInfo(listOf(
             Meter("Memory", if (memory.totalMem > 0) fmt(used) else UNKNOWN, "of " + fmt(memory.totalMem), ratio(used, memory.totalMem)),

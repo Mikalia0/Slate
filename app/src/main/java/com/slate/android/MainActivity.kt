@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.slate.android.storage.*
 import com.slate.android.device.DeviceScreen
+import com.slate.android.device.rememberDeviceStatus
 import java.io.File
 
 
@@ -116,6 +117,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     LaunchedEffect(state.scanId,state.fresh) { if(state.fresh) state.snapshot?.let{history.record(it,state.scanId)} }
     var analyzer by rememberSaveable { mutableStateOf(false) }
     var device by rememberSaveable { mutableStateOf(false) }
+    var devicePage by rememberSaveable { mutableIntStateOf(0) }
+    val deviceStatus=rememberDeviceStatus()
     var about by rememberSaveable { mutableStateOf(false) }
     var sortMode by rememberSaveable { mutableStateOf(0) }
     var sortMenu by remember { mutableStateOf(false) }
@@ -144,7 +147,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     BackHandler(analyzer || device) { if (device) device = false else back() }
     Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets.safeDrawing) { padding ->
         if (device) {
-            Box(Modifier.fillMaxSize().padding(padding)) { DeviceScreen(onBack = { device = false }) }
+            Box(Modifier.fillMaxSize().padding(padding)) { DeviceScreen(onBack = { device = false },status=deviceStatus,initialPage=devicePage) }
         } else Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 14.dp)) {
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (analyzer) IconButton(onClick = ::back) { Icon(Icons.Default.ArrowBack,"Back") }
@@ -157,10 +160,10 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
             if (!analyzer) {
                 HomeScreen(primary,volumes,analyze={file ->
                     selectedPath=file.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query=""; search=false; if(granted)model.open(file)
-                },device={device=true},history=history,review={folder->
+                },device={devicePage=0;device=true},history=history,review={folder->
                     selectedPath=primary.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query="";search=false
                     if(granted) model.open(folder)
-                })
+                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true})
             } else if (!granted) {
                 LaunchedEffect(granted) { model.cancel() }
                 Text("Storage access", style = MaterialTheme.typography.titleLarge)

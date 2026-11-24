@@ -69,7 +69,7 @@ internal fun LazyListScope.deviceOverview(live:LiveInfo?, fixed:StaticInfo?, nav
         }
         item(key="cores") {
             Panel("CPU frequencies","Hardware",{navigate(1)}) {
-                Text("Current / maximum clock · not CPU utilization",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                
                 live.cores.chunked(2).forEach { cores ->
                     Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                         cores.forEach { core ->
@@ -91,6 +91,7 @@ internal fun LazyListScope.deviceOverview(live:LiveInfo?, fixed:StaticInfo?, nav
         item(key="battery") {
             Panel("Battery details","Battery",{navigate(3)}) {
                 DataLine("Power source",live.battery.value("Power source"))
+                live.battery.powerReading()?.let{DataLine(it.label,it.value)}
                 DataLine("Voltage",live.battery.value("Voltage"))
                 DataLine("Current",live.battery.value("Instant current (+ charging)"))
                 DataLine("Remaining charge",live.battery.value("Remaining charge"))
@@ -122,7 +123,6 @@ internal fun LazyListScope.deviceOverview(live:LiveInfo?, fixed:StaticInfo?, nav
             DataLine("ABI",Build.SUPPORTED_ABIS.firstOrNull()?:UNKNOWN)
         }
     }
-    item(key="note"){Text("Unavailable means the system did not expose a value.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
 }
 
 @Composable
@@ -144,7 +144,10 @@ internal fun ManufacturerIcon() {
 private fun SummaryTile(label:String,value:String,subtitle:String,modifier:Modifier,onClick:()->Unit) {
     Card(onClick=onClick,modifier=modifier,colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-            Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                DeviceGlyph(when(label){"Processor"->R.drawable.ic_device_cpu;"Graphics"->R.drawable.ic_device_gpu;"Display"->R.drawable.ic_device_display;else->R.drawable.ic_device_thermal},modifier=Modifier.size(18.dp))
+                Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Text(value,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Medium)
             Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -155,7 +158,7 @@ private fun SummaryTile(label:String,value:String,subtitle:String,modifier:Modif
 private fun UsageLine(meter:Meter,onClick:()->Unit) {
     Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment=Alignment.CenterVertically) {
-            Icon(if(meter.title=="Battery")Icons.Default.Info else Icons.Default.List,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(20.dp))
+            DeviceGlyph(when(meter.title){"Battery"->R.drawable.ic_device_battery;"Storage"->R.drawable.ic_device_storage;else->R.drawable.ic_device_cpu},modifier=Modifier.size(20.dp))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(meter.title,style=MaterialTheme.typography.titleSmall)
