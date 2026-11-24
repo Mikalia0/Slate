@@ -45,7 +45,27 @@ internal fun frameRateFromDelta(before:Long,after:Long,elapsedNs:Long):Double? {
     return ((after-before)*1_000_000_000.0/elapsedNs).takeIf{it in 0.0..1000.0}
 }
 
+internal fun cpuTimes(line:String):Pair<Long,Long>?{
+    val parts=line.trim().split(Regex("\\s+"))
+    if(parts.firstOrNull()!="cpu"||parts.size<5)return null
+    val values=parts.drop(1).take(8).map{it.toLongOrNull()?:return null}
+    if(values.any{it<0})return null
+    return values.sum() to (values[3]+(values.getOrNull(4)?:0L))
+}
+internal fun cpuPercent(before:Pair<Long,Long>?,after:Pair<Long,Long>?):Int?{
+    if(before==null||after==null)return null
+    val elapsed=after.first-before.first
+    val idle=after.second-before.second
+    if(elapsed<=0||idle !in 0..elapsed)return null
+    return ((elapsed-idle)*100.0/elapsed).toInt()
+}
+internal fun frameIntervals(frames:Collection<Long>):List<Double> =
+    frames.distinct().sorted().zipWithNext{a,b->(b-a)/1_000_000.0}.filter{it.isFinite()&&it>0&&it<=1000}.takeLast(48)
+
 class FpsUserService:IFpsService.Stub(){
+    private var previousCpu:Pair<Long,Long>?=null
+    private var frameHistory=emptyList<Double>()
+    private var wantsFrames=false
     private var pkg:String?=null
     private var focusAt=0L
     private var layers=emptyList<String>()
@@ -73,7 +93,14 @@ class FpsUserService:IFpsService.Stub(){
         layers=emptyList();layerAt=0;frames.clear();latencyFailures=0
         statsPrevious=emptyMap();statsAt=0
     }
-    @Synchronized override fun sample():Array<String>{
+    @Synchronized override fun sample(includeCpu:Boolean,includeFrames:Boolean):Array<String>{
+        wantsFrames=includeFrames;frameHistory=emptyList()
+        val current=if(includeCpu)runCatching{java.io.File("/proc/stat").bufferedReader().use{cpuTimes(it.readLine().orEmpty())}}.getOrNull()else null
+        val cpu=cpuPercent(previousCpu,current);previousCpu=current
+        val fps=sampleFps()
+        return fps+arrayOf(cpu?.toString().orEmpty(),frameHistory.joinToString(","))
+    }
+    private fun sampleFps():Array<String>{
         val now=SystemClock.elapsedRealtime()
         if(focusAt==0L||now-focusAt>=1000){
             val found=focusedPackage(command("window","displays"))?:focusedPackage(command("window","windows"))
@@ -100,7 +127,7 @@ class FpsUserService:IFpsService.Stub(){
                 if(history.isNotEmpty())result.add(layer to history.size.toDouble())
             }
             val best=result.filter{it.second>0}.maxWithOrNull(compareBy<Pair<String,Double>>{layerPriority(it.first)}.thenBy{it.second})
-            if(best!=null){latencyFailures=0;return arrayOf(target,best.second.toString())}
+            if(best!=null){latencyFailures=0;if(wantsFrames)frameHistory=frameIntervals(frames[best.first].orEmpty());return arrayOf(target,best.second.toString())}
             if(++latencyFailures<3)return arrayOf(target,"")
             timeStats=true
             val existing=timeStatsLayers(command("SurfaceFlinger","--timestats","-dump"))
@@ -122,13 +149,13 @@ class FpsUserService:IFpsService.Stub(){
     }
     @Synchronized override fun finish(){
         if(startedStats)runCatching{command("SurfaceFlinger","--timestats","-disable")}
-        startedStats=false;timeStats=false;reset();pkg=null;focusAt=0
+        startedStats=false;timeStats=false;reset();pkg=null;focusAt=0;previousCpu=null;frameHistory=emptyList()
     }
     override fun destroy(){finish();kotlin.system.exitProcess(0)}
 }
 internal suspend fun withFpsService(context:Context,block:suspend(IFpsService)->Unit){
     check(shizukuGranted())
-    val args=Shizuku.UserServiceArgs(ComponentName(context,FpsUserService::class.java)).daemon(false).processNameSuffix("fps_service").version(1)
+    val args=Shizuku.UserServiceArgs(ComponentName(context,FpsUserService::class.java)).daemon(false).processNameSuffix("fps_service").version(2)
     val ready=CompletableDeferred<IFpsService>()
     var remote:IFpsService?=null
     val connection=object:ServiceConnection{

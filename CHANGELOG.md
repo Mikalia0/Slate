@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Customizable performance HUD
+
+- Replace the plain overlay with a dark compact panel, colored metric rows, fine separators, RAM usage bar and measured frame interval graph.
+- Add FPS-only, compact, detailed and all-metrics presets, independent toggles, opacity and scale controls.
+- Read CPU counters through Shizuku when permitted and use KGSL fallback for GPU load. Show missing measurements as unavailable rather than simulated.
+
 ## 0.5.0-dev — Appearance and GPU monitoring
 
 - Refine the three-step onboarding with a compact layout, clearer permission actions and appearance previews.

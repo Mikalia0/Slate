@@ -22,7 +22,7 @@ class PerformanceOverlayService:Service(){
         @Volatile var fps:String?=null;private set
     }
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
-    private var view:TextView?=null
+    private var view:HudOverlayView?=null
     override fun onBind(intent:Intent?):IBinder?=null
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
         if(intent?.action=="stop"){stopSelf();return START_NOT_STICKY}
@@ -37,16 +37,10 @@ class PerformanceOverlayService:Service(){
         val wm=getSystemService(WindowManager::class.java)
         val density=resources.displayMetrics.density
         val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.TOP or Gravity.START;x=12;y=(100*density).toInt()}
-        val text=TextView(this).apply{
-            setTextColor(Color.WHITE);textSize=13f;typeface=Typeface.MONOSPACE;setText("— FPS")
-            val pad=(8*density).toInt();setPadding(pad,pad,pad,pad)
-            val neon=getSharedPreferences("monitor",MODE_PRIVATE).getBoolean("neon_edge",false)
-            if(neon)setTextColor(0xFFE6D9FF.toInt())
-            background=GradientDrawable().apply{
-                setColor(if(neon)0xD91A1424.toInt()else 0xD9222927.toInt())
-                cornerRadius=10*density
-                if(neon)setStroke((density*1.25f).toInt().coerceAtLeast(1),0xFFA98AEF.toInt())
-            }
+        val prefs=getSharedPreferences("monitor",MODE_PRIVATE)
+        val metrics=HudMetrics(applicationContext)
+        val text=HudOverlayView(this).apply{
+            update(prefs.getInt("metrics",HUD_DEFAULT).let{if(it==0)HUD_MINIMAL else it},HudSnapshot(),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f))
             var sx=0f;var sy=0f;var ox=0;var oy=0
             setOnTouchListener{_,event->
                 when(event.actionMasked){
@@ -64,18 +58,21 @@ class PerformanceOverlayService:Service(){
                 withFpsService(applicationContext){service->
                     while(currentCoroutineContext().isActive){
                         if(!shizukuGranted()||!Settings.canDrawOverlays(this@PerformanceOverlayService))break
-                        val sample=runCatching{service.sample()}.getOrNull()
+                        val mask=prefs.getInt("metrics",HUD_DEFAULT).and(HUD_ALL).let{if(it==0)HUD_MINIMAL else it}
+                        val sample=runCatching{service.sample(mask.shows(HudMetric.CPU),mask.shows(HudMetric.FRAMES))}.getOrNull()
                         val app=sample?.getOrNull(0)?.takeIf{it.isNotBlank()}
                         val rate=sample?.getOrNull(1)?.toDoubleOrNull()?.takeIf{it.isFinite()&&it in 0.0..1000.0}?.roundToInt()?.toString()
+                        val intervals=sample?.getOrNull(3)?.split(',')?.mapNotNull{it.toDoubleOrNull()?.takeIf{n->n.isFinite()&&n>0&&n<=1000}}.orEmpty()
+                        val rows=metrics.read(mask,sample?.getOrNull(2))
                         withContext(Dispatchers.Main){
                             PerformanceOverlayService.packageName=app;fps=rate
-                            text.text=(rate?:"—")+" FPS"+(app?.let{"\n"+it}?:"")
+                            text.update(mask,HudSnapshot(rate,app,intervals,rows),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f))
                         }
                         delay(500)
                     }
                 }
             }catch(e:CancellationException){throw e}
-            catch(_:Exception){withContext(Dispatchers.Main){fps=null;text.text="— FPS"}}
+            catch(_:Exception){withContext(Dispatchers.Main){fps=null}}
             finally{stopSelf()}
         }
         return START_NOT_STICKY
