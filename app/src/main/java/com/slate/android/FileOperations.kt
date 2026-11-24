@@ -23,6 +23,11 @@ internal class FileOperations(private val remote:ProtectedReadClient?){
             if(mutation)require(validWriteRelative(rel))
         }else{
             require(!protectedAppPath(path)&&safeFile(root,file))
+            var ancestor=file.absoluteFile
+            while(ancestor.toPath().normalize()!=base){
+                require(!Files.isSymbolicLink(ancestor.toPath()))
+                ancestor=ancestor.parentFile?:error("Outside volume")
+            }
             if(mutation)require(path!=base&&!(file.name=="Android"&&file.parentFile==root))
         }
     }

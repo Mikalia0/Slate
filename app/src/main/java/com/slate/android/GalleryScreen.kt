@@ -15,6 +15,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.pager.HorizontalPager
@@ -94,17 +98,26 @@ private fun thumbnail(context:Context,item:MediaItem,size:Int):Bitmap?=runCatchi
 }.getOrNull()
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MediaTile(item:MediaItem,modifier:Modifier=Modifier,selected:Boolean=false,onLongClick:(()->Unit)?=null,onClick:()->Unit){
+private fun MediaTile(item:MediaItem,modifier:Modifier=Modifier,selected:Boolean=false,favorite:Boolean=false,selecting:Boolean=false,onLongClick:(()->Unit)?=null,onClick:()->Unit){
     val context=LocalContext.current
     val bitmap by produceState<Bitmap?>(null,item.uri){value=withContext(Dispatchers.IO){cachedThumbnail(context,item)}}
-    Box(modifier.aspectRatio(1f).combinedClickable(onClick=onClick,onLongClick=onLongClick),contentAlignment=Alignment.Center){
+    Box(modifier.aspectRatio(1f).clip(RoundedCornerShape(3.dp)).combinedClickable(onClick=onClick,onLongClick=onLongClick),contentAlignment=Alignment.Center){
         val image=bitmap
         if(image!=null)Image(image.asImageBitmap(),item.name,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
         else Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.surfaceContainer){Box(contentAlignment=Alignment.Center){Icon(Icons.Default.Info,null)}}
         if(item.video)Surface(Modifier.align(Alignment.BottomEnd).padding(4.dp),shape=MaterialTheme.shapes.small,color=Color.Black.copy(alpha=.65f)){
             Row(Modifier.padding(4.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.PlayArrow,null,Modifier.size(15.dp),tint=Color.White);Text(videoDuration(item.duration),color=Color.White,style=MaterialTheme.typography.labelSmall)}
         }
-        if(selected)Surface(Modifier.align(Alignment.TopEnd).padding(4.dp),shape=MaterialTheme.shapes.small,color=MaterialTheme.colorScheme.primary){Icon(Icons.Default.Check,null,Modifier.padding(4.dp).size(20.dp),tint=MaterialTheme.colorScheme.onPrimary)}
+        if(favorite&&!selecting)Icon(Icons.Default.Favorite,null,Modifier.align(Alignment.TopEnd).padding(6.dp).size(16.dp),tint=Color.White)
+        if(selecting||selected){
+            if(selected)Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary.copy(alpha=.22f)).border(2.dp,MaterialTheme.colorScheme.primary,RoundedCornerShape(3.dp)))
+            Surface(Modifier.align(Alignment.TopEnd).padding(5.dp),shape=androidx.compose.foundation.shape.CircleShape,color=if(selected)MaterialTheme.colorScheme.primary else Color.Black.copy(alpha=.45f)){
+                Box(Modifier.size(24.dp),contentAlignment=Alignment.Center){
+                    if(selected)Icon(Icons.Default.Check,null,Modifier.size(17.dp),tint=MaterialTheme.colorScheme.onPrimary)
+                    else Box(Modifier.size(19.dp).border(1.5.dp,Color.White,androidx.compose.foundation.shape.CircleShape))
+                }
+            }
+        }
     }
 }
 private fun openMedia(context:Context,item:MediaItem,share:Boolean){
@@ -224,6 +237,10 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
     var albums by rememberSaveable{mutableStateOf(false)}
     var bucket by rememberSaveable{mutableStateOf<String?>(null)}
     var filter by rememberSaveable{mutableIntStateOf(0)}
+    var columns by rememberSaveable{mutableIntStateOf(prefs.getInt("columns",3).coerceIn(2,5))}
+    var menu by remember{mutableStateOf(false)}
+    var search by rememberSaveable{mutableStateOf(false)}
+    var query by rememberSaveable{mutableStateOf("")}
     var selected by remember{mutableStateOf<Set<String>>(emptySet())}
     var preview by remember{mutableStateOf<String?>(null)}
     var deletion by remember{mutableStateOf<List<MediaItem>>(emptyList())}
@@ -247,9 +264,9 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
         catch(_:Exception){error=true}
         finally{loading=false}
     }
-    BackHandler(preview!=null||selected.isNotEmpty()||bucket!=null){when{preview!=null->preview=null;selected.isNotEmpty()->selected=emptySet();else->bucket=null}}
-    val visible=remember(media,bucket,filter,favorites){media.filter{(bucket==null||it.bucket==bucket)&&when(filter){1->!it.video;2->it.video;3->it.uri.toString() in favorites;else->true}}}
-    val groups=remember(media){media.groupBy{it.bucket}.values.sortedByDescending{it.first().date}}
+    BackHandler(preview!=null||selected.isNotEmpty()||bucket!=null||search){when{preview!=null->preview=null;selected.isNotEmpty()->selected=emptySet();search->{search=false;query=""};else->bucket=null}}
+    val visible=remember(media,bucket,filter,favorites,query){media.filter{(bucket==null||it.bucket==bucket)&&(query.isBlank()||it.name.contains(query,true)||it.folder.contains(query,true))&&when(filter){1->!it.video;2->it.video;3->it.uri.toString() in favorites;else->true}}}
+    val groups=remember(media,query){media.groupBy{it.bucket}.values.filter{group->query.isBlank()||group.any{it.folder.contains(query,true)||it.name.contains(query,true)}}.sortedByDescending{it.first().date}}
     val days=remember(visible){val format=DateFormat.getDateInstance();visible.groupBy{format.format(Date(it.date*1000))}}
     Column(Modifier.fillMaxSize()){
         Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){
@@ -259,7 +276,18 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
                 IconButton(onClick={selected=visible.map{it.uri.toString()}.toSet()}){Icon(Icons.Default.Check,stringResource(R.string.cache_select_all))}
                 IconButton(onClick={shareMedia(context,media.filter{it.uri.toString() in selected})}){Icon(Icons.Default.Share,null)}
                 IconButton(onClick={deletion=media.filter{it.uri.toString() in selected}}){Icon(Icons.Default.Delete,null)}
-            }else IconButton(onClick={revision++}){Icon(Icons.Default.Refresh,null)}
+            }else{
+                IconButton(onClick={search=!search;if(!search)query=""}){Icon(Icons.Default.Search,tr("Search"))}
+                Box{
+                    IconButton(onClick={menu=true}){Icon(Icons.Default.MoreVert,null)}
+                    DropdownMenu(expanded=menu,onDismissRequest={menu=false}){
+                        DropdownMenuItem(text={Text(tr("Refresh"))},onClick={revision++;menu=false})
+                        (2..5).forEach{count->
+                            DropdownMenuItem(text={Text(stringResource(R.string.gallery_grid_columns,count))},trailingIcon={if(columns==count)Icon(Icons.Default.Check,null)},onClick={columns=count;prefs.edit().putInt("columns",count).apply();menu=false})
+                        }
+                    }
+                }
+            }
         }
         if(!allowed||error){
             Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
@@ -268,35 +296,43 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
             }
             return@Column
         }
-        if(bucket==null&&selected.isEmpty())Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-            FilledTonalButton(onClick={albums=false;filter=0},modifier=Modifier.weight(1f),colors=ButtonDefaults.filledTonalButtonColors(containerColor=if(!albums)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)){Text(stringResource(R.string.gallery_photos))}
-            FilledTonalButton(onClick={albums=true;filter=0},modifier=Modifier.weight(1f),colors=ButtonDefaults.filledTonalButtonColors(containerColor=if(albums)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)){Text(stringResource(R.string.gallery_folders))}
+        if(bucket==null&&selected.isEmpty()){
+            TabRow(selectedTabIndex=if(albums)1 else 0,containerColor=MaterialTheme.colorScheme.surface){
+                Tab(selected=!albums,onClick={albums=false;filter=0},text={Text(stringResource(R.string.gallery_photos))})
+                Tab(selected=albums,onClick={albums=true;filter=0},text={Text(stringResource(R.string.gallery_folders))})
+            }
         }
+        if(search)OutlinedTextField(value=query,onValueChange={query=it},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=6.dp),singleLine=true,leadingIcon={Icon(Icons.Default.Search,null)},placeholder={Text(tr("Search"))},trailingIcon={if(query.isNotEmpty())IconButton(onClick={query=""}){Icon(Icons.Default.Close,null)}})
         if((!albums||bucket!=null)&&selected.isEmpty())Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)){
             listOf(R.string.gallery_all,R.string.gallery_images,R.string.gallery_videos,R.string.gallery_favorites).forEachIndexed{index,id->FilterChip(selected=filter==index,onClick={filter=index},label={Text(stringResource(id))})}
         }
         if(loading)LinearProgressIndicator(Modifier.fillMaxWidth())
         message?.let{Text(it,Modifier.padding(8.dp),color=MaterialTheme.colorScheme.error)}
-        if(visible.isEmpty()&&!loading)Text(stringResource(R.string.gallery_empty),Modifier.padding(16.dp))
-        LazyVerticalGrid(columns=GridCells.Adaptive(if(albums&&bucket==null)155.dp else 105.dp),modifier=Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)8.dp else 2.dp),verticalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)8.dp else 2.dp),contentPadding=PaddingValues(if(albums&&bucket==null)12.dp else 3.dp)){
+        if((if(albums&&bucket==null)groups.isEmpty()else visible.isEmpty())&&!loading){
+            Box(Modifier.fillMaxWidth().weight(1f),contentAlignment=Alignment.Center){
+                Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
+                    Icon(Icons.Default.Info,null,Modifier.size(36.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.gallery_empty),color=MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        if(if(albums&&bucket==null)groups.isNotEmpty()||loading else visible.isNotEmpty()||loading)LazyVerticalGrid(columns=if(albums&&bucket==null)GridCells.Adaptive(152.dp)else GridCells.Fixed(columns),modifier=Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)12.dp else 3.dp),verticalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)14.dp else 3.dp),contentPadding=PaddingValues(if(albums&&bucket==null)14.dp else 4.dp)){
             if(albums&&bucket==null){
                 items(groups,key={it.first().bucket}){group->
-                    Card(onClick={bucket=group.first().bucket;filter=0}){
-                        Column{
-                            MediaTile(group.first(),Modifier.fillMaxWidth()){bucket=group.first().bucket;filter=0}
-                            Column(Modifier.padding(10.dp)){
+                    Column(Modifier.fillMaxWidth().clickable{bucket=group.first().bucket;filter=0;query=""}){
+                            MediaTile(group.first(),Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)){bucket=group.first().bucket;filter=0;query=""}
+                            Column(Modifier.padding(top=8.dp,bottom=4.dp)){
                                 Text(group.first().folder.ifBlank{stringResource(R.string.gallery_folders)},maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.titleSmall)
                                 Text(stringResource(R.string.file_items,group.size),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                        }
                     }
                 }
             }else{
                 days.forEach{(day,photos)->
-                    item(key="day-$day",span={GridItemSpan(maxLineSpan)}){Text(day,Modifier.padding(horizontal=10.dp,vertical=12.dp),style=MaterialTheme.typography.titleSmall)}
+                    item(key="day-$day",span={GridItemSpan(maxLineSpan)}){Row(Modifier.fillMaxWidth().padding(horizontal=10.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically){Text(day,Modifier.weight(1f),style=MaterialTheme.typography.titleSmall);Text(stringResource(R.string.file_items,photos.size),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
                     items(photos,key={it.uri.toString()}){item->
                         val key=item.uri.toString()
-                        MediaTile(item,Modifier.fillMaxWidth(),selected=key in selected,onLongClick={toggle(key)}){
+                        MediaTile(item,Modifier.fillMaxWidth(),selected=key in selected,favorite=key in favorites,selecting=selected.isNotEmpty(),onLongClick={toggle(key)}){
                             if(selected.isNotEmpty())toggle(key)else preview=key
                         }
                     }

@@ -2,6 +2,10 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Gallery layout
+
+- Refine the gallery with photo/album tabs, borderless album covers, search, adjustable grid density, date-group counts and clearer multi-selection and favorites.
+
 ## 0.5.0-dev — Advanced file manager
 
 - Support explicit create, rename, recursive deletion, copy and move in Android/data and Android/obb using authorized Shizuku file operations, without overwriting existing files.

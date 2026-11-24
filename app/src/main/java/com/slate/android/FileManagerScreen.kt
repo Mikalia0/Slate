@@ -88,7 +88,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         bookmarks=if(key in bookmarks)bookmarks-key else bookmarks+key
         prefs.edit().putStringSet("bookmarks",bookmarks).apply()
     }
-    fun writable(file:File)=!protectedAppPath(file.toPath())|| (shizuku&&protectedRelative(file,primary)?.let{com.slate.android.storage.validWriteRelative(it)}==true)
+    fun writable(file:File)=file!=root&&!(file.name=="Android"&&file.parentFile==root)&&(!protectedAppPath(file.toPath())|| (shizuku&&protectedRelative(file,primary)?.let{com.slate.android.storage.validWriteRelative(it)}==true))
     fun runOperation(block:suspend ()->Unit){
         busy=true;message=null
         scope.launch{
@@ -209,7 +209,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                         withContext(Dispatchers.Main){clipboard=null}
                     }
                 }){Text(stringResource(R.string.file_paste))}
-                TextButton(onClick={clipboard=null}){Text(tr("Cancel"))}
+                TextButton(enabled=!busy,onClick={clipboard=null}){Text(tr("Cancel"))}
             }
         }
         if(loading||busy)LinearProgressIndicator(Modifier.fillMaxWidth())
