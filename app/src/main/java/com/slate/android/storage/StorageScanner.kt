@@ -68,7 +68,7 @@ class StorageScanner {
             return if(protectedReader!=null&&dir==File(android.os.Environment.getExternalStorageDirectory(),"Android"))
                 (normal.toList()+listOf(File(dir,"data"),File(dir,"obb"))).distinct().toTypedArray() else normal
         }
-        if(protectedRelative(directory)==null||protectedReader==null){
+        if(protectedReader==null||protectedRelative(directory)==null){
             if(attributes(directory)?.isDirectory!=true)return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
         }
         val rootChildren=listChildren(directory) ?: return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
@@ -126,8 +126,8 @@ class StorageScanner {
                 continue
             }
             val file=frame.children.next()
-            if(isExcluded(file,excluded)) { frame.add(Entry(file,false,0,0,1)); continue }
             val remote=protectedEntries.remove(file)
+            if(isExcluded(file,excluded)) { frame.add(Entry(file,false,0,0,1)); continue }
             val protectedRoot=protectedReader!=null&&protectedRelative(file) in listOf("Android/data","Android/obb")
             val attr=if(remote==null&&!protectedRoot)attributes(file)else null
             val isDir=remote?.directory?: (protectedRoot||attr?.isDirectory==true)

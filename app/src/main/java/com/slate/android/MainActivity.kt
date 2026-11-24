@@ -186,6 +186,16 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var expandedCategories by rememberSaveable{mutableStateOf(false)}
     var selectedCategory by remember{mutableStateOf<CategoryStats?>(null)}
     val directory = state.directory?.takeIf { it.toPath().startsWith(root.toPath()) } ?: root
+    LaunchedEffect(analyzer,granted){
+        while(true){
+            val current=model.state.value.directory
+            if(model.syncProtectedAccess()){
+                selection=emptySet();detail=null;selectedCategory=null
+                if(analyzer&&granted)model.open(current?:root,refresh=true)
+            }
+            kotlinx.coroutines.delay(1000)
+        }
+    }
     fun openFolder(file: File) { selection = emptySet(); largeFiles = false; query = ""; search = false; model.open(file) }
     fun selectEntry(entry: Entry) { if (entry.directory) openFolder(entry.file) else detail = entry }
     fun back() {

@@ -87,7 +87,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         prefs.edit().putStringSet("bookmarks",bookmarks).apply()
     }
     fun runOperation(block:()->Unit){
-        if(protected){message=context.getString(R.string.protected_read_only);return}
+        if(protected||protectedAppPath(folder.toPath())){message=context.getString(R.string.protected_read_only);return}
         busy=true;message=null
         scope.launch{
             try{withContext(Dispatchers.IO){block()};selected=null;marked=emptySet()}
@@ -118,8 +118,8 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     Column(Modifier.fillMaxSize().padding(horizontal=14.dp)){
         Row(verticalAlignment=Alignment.CenterVertically){
             Text(stringResource(R.string.tool_files),Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall)
-            IconButton(onClick={searching=!searching;if(!searching)query=""},enabled=granted&&!busy){Icon(Icons.Default.Search,stringResource(R.string.file_search))}
-            IconButton(onClick={grid=!grid;prefs.edit().putBoolean("grid",grid).apply()},enabled=granted&&!busy){Icon(painterResource(if(grid)R.drawable.ic_storage_file else R.drawable.ic_storage_folder),stringResource(R.string.file_view))}
+            IconButton(onClick={searching=!searching;if(!searching)query=""},enabled=(granted||shizuku)&&!busy){Icon(Icons.Default.Search,stringResource(R.string.file_search))}
+            IconButton(onClick={grid=!grid;prefs.edit().putBoolean("grid",grid).apply()},enabled=(granted||shizuku)&&!busy){Icon(painterResource(if(grid)R.drawable.ic_storage_file else R.drawable.ic_storage_folder),stringResource(R.string.file_view))}
             Box{
                 IconButton(onClick={volumeMenu=true},enabled=!busy){Icon(Icons.Default.Menu,stringResource(R.string.file_volumes))}
                 DropdownMenu(expanded=volumeMenu,onDismissRequest={volumeMenu=false}){
@@ -140,7 +140,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 }
             }
             Box{
-                IconButton(onClick={menu=true},enabled=!busy&&granted){Icon(Icons.Default.MoreVert,null)}
+                IconButton(onClick={menu=true},enabled=!busy&&(granted||shizuku)){Icon(Icons.Default.MoreVert,null)}
                 DropdownMenu(expanded=menu,onDismissRequest={menu=false}){
                     DropdownMenuItem(text={Text(stringResource(R.string.file_new_folder))},enabled=!protected,onClick={menu=false;name="";operation="mkdir"})
                     DropdownMenuItem(text={Text(stringResource(R.string.file_hidden))},onClick={hidden=!hidden;menu=false},trailingIcon={Checkbox(checked=hidden,onCheckedChange=null)})
@@ -193,7 +193,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                     runOperation{
                         check(safeFile(root,folder))
                         val targets=clip.files.map{File(folder,it.name)}
-                        check(clip.files.zip(targets).all{(source,target)->safeFile(clip.root,source)&&source.isFile&&safeFile(root,target)&&!Files.exists(target.toPath(),java.nio.file.LinkOption.NOFOLLOW_LINKS)})
+                        check(clip.files.zip(targets).all{(source,target)->!protectedAppPath(source.toPath())&&!protectedAppPath(target.toPath())&&safeFile(clip.root,source)&&source.isFile&&safeFile(root,target)&&!Files.exists(target.toPath(),java.nio.file.LinkOption.NOFOLLOW_LINKS)})
                         for((source,target) in clip.files.zip(targets)){
                             Files.copy(source.toPath(),target.toPath())
                             if(clip.move&&!source.delete())error("source retained")
@@ -275,10 +275,10 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 operation=null;selected=null
                 runOperation{
                     when(op){
-                        "mkdir"->{val child=File(folder,input);check(validFileName(input)&&safeFile(root,child)&&!child.exists()&&child.mkdir())}
-                        "rename"->{val source=checkNotNull(target);val dest=File(folder,input);check(validFileName(input)&&safeFile(root,source)&&safeFile(root,dest)&&!dest.exists());Files.move(source.toPath(),dest.toPath());MediaScannerConnection.scanFile(context,arrayOf(source.path,dest.path),null,null)}
-                        "batch_delete"->{check(batch.all{safeFile(root,it)&&it.canonicalFile!=root.canonicalFile&&(!it.isDirectory||it.list()?.isEmpty()==true)});for(source in batch){Files.delete(source.toPath());MediaScannerConnection.scanFile(context,arrayOf(source.path),null,null)}}
-                        "delete"->{val source=checkNotNull(target);check(safeFile(root,source)&&source.canonicalFile!=root.canonicalFile);Files.delete(source.toPath());MediaScannerConnection.scanFile(context,arrayOf(source.path),null,null)}
+                        "mkdir"->{val child=File(folder,input);check(validFileName(input)&&!protectedAppPath(child.toPath())&&safeFile(root,child)&&!child.exists()&&child.mkdir())}
+                        "rename"->{val source=checkNotNull(target);val dest=File(folder,input);check(validFileName(input)&&!protectedAppPath(source.toPath())&&!protectedAppPath(dest.toPath())&&source.name!="Android"&&safeFile(root,source)&&safeFile(root,dest)&&!dest.exists());Files.move(source.toPath(),dest.toPath());MediaScannerConnection.scanFile(context,arrayOf(source.path,dest.path),null,null)}
+                        "batch_delete"->{check(batch.all{!protectedAppPath(it.toPath())&&it.name!="Android"&&safeFile(root,it)&&it.canonicalFile!=root.canonicalFile&&(!it.isDirectory||it.list()?.isEmpty()==true)});for(source in batch){Files.delete(source.toPath());MediaScannerConnection.scanFile(context,arrayOf(source.path),null,null)}}
+                        "delete"->{val source=checkNotNull(target);check(!protectedAppPath(source.toPath())&&source.name!="Android"&&safeFile(root,source)&&source.canonicalFile!=root.canonicalFile);Files.delete(source.toPath());MediaScannerConnection.scanFile(context,arrayOf(source.path),null,null)}
                     }
                 }
             }){Text(tr(if(op=="delete"||op=="batch_delete")"Delete" else "Continue"))}

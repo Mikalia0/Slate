@@ -54,9 +54,14 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         return withContext(Dispatchers.Default){indexed.personalCategories()}
     }
 
-    fun open(directory: File, refresh: Boolean = false) {
+    internal fun syncProtectedAccess():Boolean{
         val allowed=shizukuGranted()
-        if(allowed!=privilegedIndex){clearIndexes();privilegedIndex=allowed;checkedSession=false}
+        if(allowed==privilegedIndex)return false
+        invalidate();privilegedIndex=allowed;checkedSession=false
+        return true
+    }
+    fun open(directory: File, refresh: Boolean = false) {
+        syncProtectedAccess()
         if(!refresh && mutable.value.directory==directory && mutable.value.running) return
         job?.cancel()
         largestJob?.cancel()
