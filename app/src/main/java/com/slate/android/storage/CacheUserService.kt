@@ -15,7 +15,32 @@ internal fun trimCaches(target:Long,root:Boolean):Int {
     }finally{if(process.isAlive)process.destroyForcibly()}
 }
 
+internal fun validCachePackage(name:String):Boolean =
+    name.length in 1..255 && name.matches(Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*"))
+
 class CacheUserService:ICacheService.Stub(){
+    private fun privileged()=android.os.Process.myUid() in listOf(0,2000)
+    private val cacheOnlySupported by lazy {
+        if(!privileged()) false else runCatching {
+            val process=ProcessBuilder("/system/bin/pm","help").redirectErrorStream(true).start()
+            try {
+                val help=process.inputStream.bufferedReader().use{it.readText()}
+                process.waitFor(10,TimeUnit.SECONDS) && process.exitValue()==0 &&
+                    help.lineSequence().any{it.trimStart().startsWith("clear ") && it.contains("--cache-only")}
+            } finally { if(process.isAlive)process.destroyForcibly() }
+        }.getOrDefault(false)
+    }
+    override fun supportsCacheOnly():Boolean=cacheOnlySupported
+    override fun clearCache(user:Int,packageName:String):Boolean {
+        if(!privileged() || user !in 0..99999 || !validCachePackage(packageName) || !cacheOnlySupported)return false
+        // Never fall back to pm clear without the cache-only flag.
+        return runCatching {
+            val process=ProcessBuilder("/system/bin/pm","clear","--user",user.toString(),"--cache-only",packageName)
+                .redirectErrorStream(true).redirectOutput(File("/dev/null")).start()
+            try { process.waitFor(30,TimeUnit.SECONDS) && process.exitValue()==0 }
+            finally { if(process.isAlive)process.destroyForcibly() }
+        }.getOrDefault(false)
+    }
     override fun trim(target:Long):Int = try {
         if(android.os.Process.myUid() !in listOf(0,2000)) -1 else trimCaches(target,false)
     }catch(_:Exception){-1}

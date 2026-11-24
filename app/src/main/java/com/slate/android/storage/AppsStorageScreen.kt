@@ -143,6 +143,7 @@ internal fun AppsStorageScreen(onBack:()->Unit,reviewFolder:(File)->Unit,initial
             Text(tr("App storage"),modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
             IconButton(onClick={usage.refresh(true)},enabled=allowed&&!busy){Icon(Icons.Default.Refresh,"Refresh")}
         }
+        ClearAllAppCaches(enabled=!busy,onChanged={usage.invalidate();usage.refresh(true)})
         if(!allowed) {
             Card(Modifier.fillMaxWidth().padding(top=12.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {

@@ -1,0 +1,18 @@
+<resources>
+    <string name="shizuku_install">Install</string>
+    <string name="shizuku_start">Open</string>
+    <string name="shizuku_authorize">Allow</string>
+    <string name="shizuku_manage">Manage</string>
+    <string name="shizuku_optional">Optional · Clear app caches without root.</string>
+    <string name="shizuku_stopped">Not running. Start Shizuku to enable advanced access.</string>
+    <string name="shizuku_permission">Permission required.</string>
+    <string name="shizuku_ready">Connected · Authorized</string>
+    <string name="shizuku_action_failed">Could not open or authorize Shizuku.</string>
+    <string name="clear_all_caches">Clear all app caches</string>
+    <string name="cache_requires_shizuku">Requires Shizuku (ADB or root).</string>
+    <string name="cache_progress">%1$d of %2$d apps</string>
+    <string name="cache_all_confirmation">Clear caches of all installed apps, including system apps, in this Android profile? App data, accounts and settings are not targeted. Apps may recreate their caches.</string>
+    <string name="cache_only_unsupported">This Android build does not expose cache-only clearing. Use advanced cache cleanup in Settings instead.</string>
+    <string name="cache_all_result">%1$d apps processed successfully · %2$d failed. Free space increased by %3$s.</string>
+    <string name="cache_all_interrupted">Cleanup interrupted after %1$d of %2$d apps. Check Shizuku and try again.</string>
+</resources>

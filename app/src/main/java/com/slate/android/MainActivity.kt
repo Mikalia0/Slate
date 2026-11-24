@@ -106,6 +106,7 @@ class MainActivity : ComponentActivity() {
                                 ThemeOptions(mode,dynamic,onMode,onDynamic)
                                 HorizontalDivider()
                                 ListItem(headlineContent={Text(tr("Storage access"))},supportingContent={Text(tr(if(granted)"Granted" else "Not granted"))},trailingContent={TextButton(onClick=::requestStorage){Text(tr("Manage"))}})
+                                ShizukuAccessRow()
                                 HorizontalDivider()
                                 DashboardSettings(dashboard)
                                 HorizontalDivider()

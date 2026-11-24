@@ -95,6 +95,7 @@ internal fun Onboarding(granted: Boolean, request: () -> Unit, mode: SlateTheme,
                             ListItem(headlineContent={Text(tr("Storage access"))}, supportingContent={Text(tr(if(granted) "Granted" else "Required to scan shared files and folders."))}, leadingContent={Icon(Icons.Default.Search,null)}, trailingContent={ if(granted) Icon(Icons.Default.Check,"Granted") else TextButton(onClick=request){Text(tr("Allow"))} })
                         }
                         ListItem(headlineContent={Text(tr("Device information"))}, supportingContent={Text(tr("No additional permission required."))}, leadingContent={Icon(Icons.Default.Info,null)})
+                        com.slate.android.storage.ShizukuAccessRow()
                         Text(tr("You can continue without storage access and enable it later."), style=MaterialTheme.typography.bodySmall)
                     }
                     else -> {
