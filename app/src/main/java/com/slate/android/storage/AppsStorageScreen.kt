@@ -12,6 +12,9 @@ import android.os.storage.StorageManager
 import android.provider.Settings
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -141,7 +144,7 @@ internal fun AppsStorageScreen(onBack:()->Unit) {
                 items(filtered,key={it.packageName}){row->
                     Card(onClick={selected=row},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
                         ListItem(headlineContent={Text(row.label,maxLines=1,overflow=TextOverflow.Ellipsis)},supportingContent={Text("Cache · "+fmt(row.cacheBytes),style=MaterialTheme.typography.bodySmall)},
-                            leadingContent={DeviceGlyph(R.drawable.ic_device_overview)},trailingContent={Text(fmt(row.total),color=MaterialTheme.colorScheme.primary)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                            leadingContent={AppIcon(row.packageName)},trailingContent={Text(fmt(row.total),color=MaterialTheme.colorScheme.primary)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
                     }
                 }
             }
@@ -160,4 +163,15 @@ internal fun AppsStorageScreen(onBack:()->Unit) {
             runCatching{context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+row.packageName)))}
         }){Text("App settings")}},dismissButton={TextButton(onClick={selected=null}){Text("Close")}})
     }
+}
+
+@Composable
+private fun AppIcon(packageName:String) {
+    val context=LocalContext.current
+    val image by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null,packageName){
+        value=withContext(Dispatchers.IO){runCatching{context.packageManager.getApplicationIcon(packageName).toBitmap(96,96).asImageBitmap()}.getOrNull()}
+    }
+    val bitmap=image
+    if(bitmap!=null)Image(bitmap,null,Modifier.size(40.dp))
+    else DeviceGlyph(R.drawable.ic_device_overview,modifier=Modifier.size(40.dp))
 }

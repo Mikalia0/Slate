@@ -37,7 +37,7 @@ import com.slate.android.storage.Volume
 import java.io.File
 
 @Composable
-internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit) {
+internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit, openCleanup: ()->Unit) {
     val context = LocalContext.current
     val capacity = primary.totalSpace
     val free = primary.usableSpace
@@ -119,6 +119,11 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
         item {
             Card(onClick=openApps,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                 ListItem(headlineContent={Text("App storage")},leadingContent={DeviceGlyph(R.drawable.ic_device_overview)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+            }
+        }
+        item {
+            Card(onClick=openCleanup,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
+                ListItem(headlineContent={Text("Cleanup")},supportingContent={Text("Duplicates · Temporary · Empty folders")},leadingContent={Icon(Icons.Default.Delete,null,tint=MaterialTheme.colorScheme.primary)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
             }
         }
         val change=history.sessionChange

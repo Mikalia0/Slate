@@ -124,6 +124,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     LaunchedEffect(state.scanId,state.fresh) { if(state.fresh) state.snapshot?.let{history.record(it,state.scanId)} }
     var analyzer by rememberSaveable { mutableStateOf(false) }
     var device by rememberSaveable { mutableStateOf(false) }
+    var cleanup by rememberSaveable{mutableStateOf(false)}
     var apps by rememberSaveable { mutableStateOf(false) }
     var devicePage by rememberSaveable { mutableIntStateOf(0) }
     val deviceStatus=rememberDeviceStatus()
@@ -154,12 +155,12 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         else if (directory != root && directory.parentFile != null) openFolder(directory.parentFile!!)
         else { model.cancel(); analyzer = false }
     }
-    BackHandler(analyzer || device || apps) { if(apps) apps=false else if (device) device = false else back() }
-    fun goHome(){device=false;apps=false;analyzer=false;selection=emptySet();search=false;query=""}
-    fun goStorage(){device=false;apps=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();search=false;query="";largeFiles=false;if(granted)model.open(primary)}
+    BackHandler(analyzer || device || apps || cleanup) { if(cleanup)cleanup=false else if(apps) apps=false else if (device) device = false else back() }
+    fun goHome(){device=false;apps=false;cleanup=false;analyzer=false;selection=emptySet();search=false;query=""}
+    fun goStorage(){device=false;apps=false;cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();search=false;query="";largeFiles=false;if(granted)model.open(primary)}
     Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar={
-            if(!apps && !deleting && selection.isEmpty() && (!analyzer || directory==root)) {
+            if(!apps && !cleanup && !deleting && selection.isEmpty() && (!analyzer || directory==root)) {
                 NavigationBar {
                     NavigationBarItem(selected=!device&&!analyzer,onClick={goHome()},icon={Icon(Icons.Default.Home,null)},label={Text("Home")})
                     NavigationBarItem(selected=analyzer&&!device,onClick={goStorage()},icon={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},label={Text("Storage")})
@@ -167,7 +168,9 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 }
             }
         }) { padding ->
-        if(apps) {
+        if(cleanup) {
+            Box(Modifier.fillMaxSize().padding(padding)){CleanupScreen(primary,granted,request,onBack={cleanup=false},onChanged={model.invalidate()})}
+        } else if(apps) {
             Box(Modifier.fillMaxSize().padding(padding)){AppsStorageScreen(onBack={apps=false})}
         } else if (device) {
             Box(Modifier.fillMaxSize().padding(padding)) { DeviceScreen(onBack = { device = false },status=deviceStatus,initialPage=devicePage) }
@@ -186,7 +189,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 },device={devicePage=0;device=true},history=history,review={folder->
                     selectedPath=primary.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query="";search=false
                     if(granted) model.open(folder)
-                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={apps=true})
+                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={apps=true},openCleanup={cleanup=true})
             } else if (!granted) {
                 LaunchedEffect(granted) { model.cancel() }
                 Text("Storage access", style = MaterialTheme.typography.titleLarge)

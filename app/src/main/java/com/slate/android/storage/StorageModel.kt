@@ -90,6 +90,14 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         }
     }
 
+    fun invalidate() {
+        ++generation
+        job?.cancel()
+        largestJob?.cancel()
+        cache.clear();indexes.clear();savedIndex=null;diskChecked=true;store.clear()
+        mutable.value=ScanState()
+    }
+
     fun cancel() {
         if (!mutable.value.running) return
         ++generation
