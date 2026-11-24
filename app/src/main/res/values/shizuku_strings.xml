@@ -12,7 +12,7 @@
     <string name="cache_requires_shizuku">Requires Shizuku (ADB or root).</string>
     <string name="cache_progress">%1$d of %2$d apps</string>
     <string name="cache_all_confirmation">Clear caches of all installed apps, including system apps, in this Android profile? App data, accounts and settings are not targeted. Apps may recreate their caches.</string>
-    <string name="cache_only_unsupported">This Android build does not expose cache-only clearing. No files were deleted.</string>
+    <string name="cache_only_unsupported">Shizuku lacks a supported cache-cleaning permission on this device. No files were deleted.</string>
     <string name="cache_all_result">%1$d apps processed successfully · %2$d failed. Free space increased by %3$s.</string>
     <string name="cache_all_interrupted">Cleanup interrupted after %1$d of %2$d apps. Check Shizuku and try again.</string>
     <string name="cache_analyze">Analyze app caches</string>
@@ -31,4 +31,12 @@
     <string name="cache_none">No measurable cache found. Apps not measured: %1$d.</string>
     <string name="cache_scan_failed">Unable to analyze caches. Check usage access and Shizuku.</string>
     <string name="update_whats_new">What is new</string>
+    <string name="cache_global_estimate_total">%1$d apps measured · %2$s estimated</string>
+    <string name="cache_global_explanation">Shizuku can request Android to trim all internal storage caches, but cannot select individual apps on this device. Android decides what to remove. This may include caches outside the list.</string>
+    <string name="cache_global_unmeasured">%1$d apps could not be measured and may also be affected.</string>
+    <string name="cache_global_title">Trim all app caches</string>
+    <string name="cache_global_confirm">Ask Android to trim caches across internal storage, including system apps and potentially other profiles? Measured cache: %1$s. The amount actually freed may differ. App data and accounts are not targeted.</string>
+    <string name="cache_global_running">Android is trimming caches…</string>
+    <string name="cache_global_result">Cache trim completed. Observed free-space increase: %1$s.</string>
+    <string name="cache_global_incomplete">Android did not confirm completion. Observed free-space increase: %1$s.</string>
 </resources>

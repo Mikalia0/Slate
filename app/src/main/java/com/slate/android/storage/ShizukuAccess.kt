@@ -92,6 +92,9 @@ internal fun ClearAllAppCaches(enabled:Boolean,onChanged:()->Unit){
     val scope=rememberCoroutineScope()
     val state=rememberAccess(context)
     var review by remember{mutableStateOf(false)}
+    var globalMode by remember{mutableStateOf(false)}
+    var globalAvailable by remember{mutableStateOf(false)}
+    var globalConfirm by remember{mutableStateOf(false)}
     var confirm by remember{mutableStateOf(false)}
     var scanning by remember{mutableStateOf(false)}
     var busy by remember{mutableStateOf(false)}
@@ -115,13 +118,17 @@ internal fun ClearAllAppCaches(enabled:Boolean,onChanged:()->Unit){
                     scanning=true
                     job=scope.launch{
                         try{
-                            val supported=withCacheService(context){it.supportsCacheOnly()}
-                            if(!supported){message=context.getString(R.string.cache_only_unsupported);return@launch}
+                            val individualPermission=if(android.os.Build.VERSION.SDK_INT>=28)"android.permission.INTERNAL_DELETE_CACHE_FILES" else "android.permission.DELETE_CACHE_FILES"
+                            val canSelect=Shizuku.checkRemotePermission(individualPermission)==android.content.pm.PackageManager.PERMISSION_GRANTED
+                            globalAvailable=Shizuku.checkRemotePermission("android.permission.CLEAR_APP_CACHE")==android.content.pm.PackageManager.PERMISSION_GRANTED
+                            val supported=canSelect && withCacheService(context){it.supportsCacheOnly()}
+                            globalMode=!supported
+                            if(!supported&&!globalAvailable){message=context.getString(R.string.cache_only_unsupported);return@launch}
                             val (rows,unavailable)=readAppUsage(context)
                             candidates=cacheCandidates(rows)
                             skipped=unavailable+rows.count{it.cacheBytes>0&&!validCachePackage(it.packageName)}
                             selected=candidates.map{it.packageName}.toSet()
-                            if(candidates.isEmpty())message=context.getString(R.string.cache_none,skipped)
+                            if(candidates.isEmpty()&&!globalMode)message=context.getString(R.string.cache_none,skipped)
                             else review=true
                         }catch(e:CancellationException){throw e}
                         catch(_:Exception){message=context.getString(R.string.cache_scan_failed)}
@@ -135,28 +142,27 @@ internal fun ClearAllAppCaches(enabled:Boolean,onChanged:()->Unit){
         if(state!=Access.READY)Text(stringResource(R.string.cache_requires_shizuku),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         if(scanning){LinearProgressIndicator(Modifier.fillMaxWidth());Text(stringResource(R.string.cache_scanning))}
         if(busy){
-            LinearProgressIndicator(progress={if(total>0)done.toFloat()/total else 0f},modifier=Modifier.fillMaxWidth())
-            Text(stringResource(R.string.cache_progress,done,total),style=MaterialTheme.typography.labelSmall)
+            if(total==0){LinearProgressIndicator(Modifier.fillMaxWidth());Text(stringResource(R.string.cache_global_running))}
+            else{LinearProgressIndicator(progress={done.toFloat()/total},modifier=Modifier.fillMaxWidth());Text(stringResource(R.string.cache_progress,done,total),style=MaterialTheme.typography.labelSmall)}
         }
-        if(scanning||busy)TextButton(onClick={job?.cancel()}){Text(stringResource(android.R.string.cancel))}
+        if(scanning||(busy&&total>0))TextButton(onClick={job?.cancel()}){Text(stringResource(android.R.string.cancel))}
         message?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
     }
-    if(review&&!confirm)AlertDialog(onDismissRequest={review=false},title={Text(stringResource(R.string.cache_review))},
+    if(review&&!confirm&&!globalConfirm)AlertDialog(onDismissRequest={review=false},title={Text(stringResource(R.string.cache_review))},
         text={
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-                Text(stringResource(R.string.cache_selected,chosen.size,fmt(chosen.sumOf{it.cacheBytes})),style=MaterialTheme.typography.titleMedium)
-                Text(stringResource(R.string.cache_estimate),style=MaterialTheme.typography.bodySmall)
-                if(skipped>0)Text(stringResource(R.string.cache_skipped,skipped),style=MaterialTheme.typography.bodySmall)
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
+                Text(stringResource(if(globalMode)R.string.cache_global_estimate_total else R.string.cache_selected,chosen.size,fmt(chosen.sumOf{it.cacheBytes})),style=MaterialTheme.typography.titleMedium)
+                Text(stringResource(if(globalMode)R.string.cache_global_explanation else R.string.cache_estimate),style=MaterialTheme.typography.bodySmall)
+                if(skipped>0)Text(stringResource(if(globalMode)R.string.cache_global_unmeasured else R.string.cache_skipped,skipped),style=MaterialTheme.typography.bodySmall)
+                if(!globalMode)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
                     TextButton(onClick={selected=candidates.map{it.packageName}.toSet()}){Text(stringResource(R.string.cache_select_all))}
                     TextButton(onClick={selected=emptySet()}){Text(stringResource(R.string.cache_select_none))}
                 }
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max=300.dp)){
                     items(candidates,key={it.packageName}){row->
                         val checked=row.packageName in selected
-                        Row(Modifier.fillMaxWidth().toggleable(value=checked,role=Role.Checkbox,onValueChange={value->selected=if(value)selected+row.packageName else selected-row.packageName}).padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){
-                            Checkbox(checked=checked,onCheckedChange=null)
-                            Spacer(Modifier.width(8.dp))
+                        Row(Modifier.fillMaxWidth().then(if(globalMode)Modifier else Modifier.toggleable(value=checked,role=Role.Checkbox,onValueChange={value->selected=if(value)selected+row.packageName else selected-row.packageName})).padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically){
+                            if(!globalMode){Checkbox(checked=checked,onCheckedChange=null);Spacer(Modifier.width(8.dp))}
                             Column(Modifier.weight(1f)){
                                 Text(row.label,maxLines=1,overflow=TextOverflow.Ellipsis)
                                 Text(row.packageName,style=MaterialTheme.typography.labelSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
@@ -169,7 +175,26 @@ internal fun ClearAllAppCaches(enabled:Boolean,onChanged:()->Unit){
                 }
             }
         },dismissButton={TextButton(onClick={review=false}){Text(stringResource(android.R.string.cancel))}},
-        confirmButton={TextButton(enabled=chosen.isNotEmpty(),onClick={confirm=true}){Text(stringResource(R.string.cache_continue))}})
+        confirmButton={TextButton(enabled=globalMode||chosen.isNotEmpty(),onClick={if(globalMode)globalConfirm=true else confirm=true}){Text(stringResource(R.string.cache_continue))}})
+    if(globalConfirm)AlertDialog(onDismissRequest={globalConfirm=false},title={Text(stringResource(R.string.cache_global_title))},
+        text={Text(stringResource(R.string.cache_global_confirm,fmt(candidates.sumOf{it.cacheBytes})))},
+        dismissButton={TextButton(onClick={globalConfirm=false}){Text(stringResource(R.string.cache_back))}},
+        confirmButton={TextButton(onClick={
+            globalConfirm=false;review=false;busy=true;done=0;total=0;message=null
+            job=scope.launch{
+                try{
+                    check(shizukuGranted())
+                    val before=withContext(Dispatchers.IO){StatFs(Environment.getDataDirectory().path).availableBytes}
+                    // Android's global cache trim expects a free-space target, not bytes to delete.
+                    val result=withCacheService(context){it.trim(1024L*1024*1024*1024)}
+                    val after=withContext(Dispatchers.IO){StatFs(Environment.getDataDirectory().path).availableBytes}
+                    val delta=fmt((after-before).coerceAtLeast(0))
+                    message=context.getString(if(result==0)R.string.cache_global_result else R.string.cache_global_incomplete,delta)
+                }catch(e:CancellationException){throw e}
+                catch(_:Exception){message=context.getString(R.string.cache_scan_failed)}
+                finally{busy=false;onChanged()}
+            }
+        }){Text(stringResource(R.string.cache_global_title))}})
     if(confirm)AlertDialog(onDismissRequest={confirm=false},title={Text(stringResource(R.string.cache_confirm_title))},
         text={Text(stringResource(R.string.cache_confirm_selected,chosen.size,fmt(chosen.sumOf{it.cacheBytes})))},
         dismissButton={TextButton(onClick={confirm=false}){Text(stringResource(R.string.cache_back))}},
@@ -192,6 +217,7 @@ internal fun ClearAllAppCaches(enabled:Boolean,onChanged:()->Unit){
                     }
                     val after=withContext(Dispatchers.IO){StatFs(Environment.getDataDirectory().path).availableBytes}
                     message=context.getString(R.string.cache_all_result,successful,total-successful,fmt((after-before).coerceAtLeast(0)))
+                    if(successful==0&&globalAvailable){globalMode=true;selected=candidates.map{it.packageName}.toSet();review=true}
                 }catch(e:CancellationException){message=context.getString(R.string.cache_all_interrupted,done,total);throw e}
                 catch(_:Exception){message=context.getString(R.string.cache_all_interrupted,done,total)}
                 finally{busy=false;onChanged()}

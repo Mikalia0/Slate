@@ -25,7 +25,7 @@ class CacheUserService:ICacheService.Stub(){
             val process=ProcessBuilder("/system/bin/pm","help").redirectErrorStream(true).start()
             try {
                 val help=process.inputStream.bufferedReader().use{it.readText()}
-                process.waitFor(10,TimeUnit.SECONDS) && process.exitValue()==0 &&
+                process.waitFor(10,TimeUnit.SECONDS) &&
                     help.lineSequence().any{it.trimStart().startsWith("clear ") && it.contains("--cache-only")}
             } finally { if(process.isAlive)process.destroyForcibly() }
         }.getOrDefault(false)

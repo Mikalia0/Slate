@@ -7,7 +7,7 @@ Status: implemented features still need device validation. CI verifies compilati
 ## P0 — Cleanup safety and reliability
 
 - [ ] Validate cache-only cleaning with Shizuku ADB and root on Android 13–16, including Motorola, Samsung and Xiaomi.
-- [ ] Investigate a safe package-manager backend for older Android builds; never fall back to clearing app data.
+- [ ] Validate permission-aware global cache trimming through Shizuku on OEM builds without selective cache access; never fall back to clearing app data.
 - [ ] Per-app cache cleanup in app details; optional filters for user/system apps in the review.
 - [ ] Add cache cleanup history with selected packages, estimated vs measured space and failures.
 - [ ] Add a shared cleanup review/result flow for duplicate files, temporary files, empty folders and remnants.

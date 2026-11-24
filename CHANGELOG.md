@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Shizuku cache compatibility
+
+- Detect actual remote cache permissions instead of requiring per-package cache clearing.
+- Support Android's global cache trim with a reviewed estimate and explicit confirmation when selective cleanup is unavailable.
+- Keep selective cleanup where supported; never clear application data.
+
 ## 0.5.0-dev — FPS monitor and in-app update notes
 
 - Replace hardware charts and overlay with a minimal FPS counter and foreground package.

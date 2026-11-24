@@ -12,7 +12,7 @@
     <string name="cache_requires_shizuku">Requer Shizuku (ADB ou root).</string>
     <string name="cache_progress">%1$d de %2$d apps</string>
     <string name="cache_all_confirmation">Limpar o cache de todos os apps instalados, incluindo os do sistema, neste perfil do Android? Dados, contas e configurações não serão limpos. Os apps podem recriar seus caches.</string>
-    <string name="cache_only_unsupported">Esta versão do Android não oferece limpeza individual apenas de cache. Nenhum arquivo foi apagado.</string>
+    <string name="cache_only_unsupported">O Shizuku não possui uma permissão compatível para limpar cache neste aparelho. Nenhum arquivo foi apagado.</string>
     <string name="cache_all_result">%1$d apps processados com sucesso · %2$d falharam. Espaço livre aumentou em %3$s.</string>
     <string name="cache_all_interrupted">Limpeza interrompida após %1$d de %2$d apps. Verifique o Shizuku e tente novamente.</string>
     <string name="cache_analyze">Analisar cache dos apps</string>
@@ -31,4 +31,12 @@
     <string name="cache_none">Nenhum cache mensurável encontrado. Apps não medidos: %1$d.</string>
     <string name="cache_scan_failed">Não foi possível analisar os caches. Verifique o acesso de uso e o Shizuku.</string>
     <string name="update_whats_new">Novidades da atualização</string>
+    <string name="cache_global_estimate_total">%1$d apps medidos · %2$s estimados</string>
+    <string name="cache_global_explanation">O Shizuku pode solicitar a limpeza global de caches internos, mas não selecionar apps individualmente neste aparelho. O Android decide o que remover, inclusive caches fora da lista.</string>
+    <string name="cache_global_unmeasured">%1$d apps não puderam ser medidos e também podem ser afetados.</string>
+    <string name="cache_global_title">Limpar todos os caches</string>
+    <string name="cache_global_confirm">Solicitar ao Android a limpeza de caches no armazenamento interno, incluindo apps do sistema e possivelmente outros perfis? Cache medido: %1$s. O espaço liberado pode variar. Dados e contas não serão apagados.</string>
+    <string name="cache_global_running">Android está limpando caches…</string>
+    <string name="cache_global_result">Limpeza global concluída. Aumento observado do espaço livre: %1$s.</string>
+    <string name="cache_global_incomplete">O Android não confirmou a conclusão. Aumento observado do espaço livre: %1$s.</string>
 </resources>

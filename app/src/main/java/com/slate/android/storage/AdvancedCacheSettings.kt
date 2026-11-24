@@ -13,7 +13,7 @@ internal fun shizukuAvailable():Boolean=runCatching{Shizuku.pingBinder() && Shiz
 internal fun shizukuGranted():Boolean=shizukuAvailable() && runCatching{Shizuku.checkSelfPermission()==PackageManager.PERMISSION_GRANTED}.getOrDefault(false)
 internal suspend fun <T> withCacheService(context:Context,action:suspend (ICacheService)->T):T {
     val args=Shizuku.UserServiceArgs(ComponentName(context,CacheUserService::class.java))
-        .daemon(false).processNameSuffix("cache_service").version(3)
+        .daemon(false).processNameSuffix("cache_service").version(4)
     val connected=CompletableDeferred<ICacheService>()
     val connection=object:ServiceConnection {
         override fun onServiceConnected(name:ComponentName,binder:IBinder){
