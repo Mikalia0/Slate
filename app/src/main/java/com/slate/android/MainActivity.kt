@@ -143,6 +143,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var showHistory by rememberSaveable{mutableStateOf(false)}
     var cleanup by rememberSaveable{mutableStateOf(false)}
     var apps by rememberSaveable { mutableStateOf(false) }
+    var returnToApps by rememberSaveable{mutableStateOf(false)}
+    var personalOnly by rememberSaveable{mutableStateOf(false)}
     var devicePage by rememberSaveable { mutableIntStateOf(0) }
     val deviceStatus=rememberDeviceStatus()
     val homeScroll=rememberLazyGridState()
@@ -172,7 +174,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         else if (search) { search = false; query = "" }
         else if (largeFiles) { largeFiles = false; query = "" }
         else if (directory != root && directory.parentFile != null) openFolder(directory.parentFile!!)
-        else { model.cancel(); analyzer = false }
+        else if(personalOnly){personalOnly=false}
+        else { model.cancel(); analyzer = false; if(returnToApps){returnToApps=false;apps=true;selectedPath=primary.absolutePath} }
     }
     BackHandler(analyzer || device || apps || cleanup || showHistory) { if(showHistory)showHistory=false else if(cleanup)cleanup=false else if(apps) apps=false else if (device) device = false else back() }
     val config=LocalConfiguration.current
@@ -189,7 +192,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         } else if(cleanup) {
             Box(Modifier.fillMaxSize()){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()},review={folder->cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();largeFiles=false;query="";search=false;model.open(folder)})}
         } else if(apps) {
-            Box(Modifier.fillMaxSize()){AppsStorageScreen(onBack={apps=false})}
+            Box(Modifier.fillMaxSize()){AppsStorageScreen(onBack={apps=false},reviewFolder={folder->returnToApps=true;apps=false;analyzer=true;personalOnly=false;selectedPath=folder.absolutePath;openFolder(folder)})}
         } else if (device) {
             Box(Modifier.fillMaxSize()) { DeviceScreen(onBack = { device = false },status=deviceStatus,initialPage=devicePage) }
         } else Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
@@ -203,9 +206,9 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
             }
             if (!analyzer) {
                 HomeScreen(primary,volumes,analyze={file ->
-                    selectedPath=file.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query=""; search=false; if(granted)model.open(file)
+                    personalOnly=false;selectedPath=file.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query=""; search=false; if(granted)model.open(file)
                 },device={devicePage=0;device=true},history=history,review={folder->
-                    selectedPath=primary.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query="";search=false
+                    personalOnly=false;selectedPath=primary.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query="";search=false
                     if(granted) model.open(folder)
                 },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={apps=true},openCleanup={cleanup=true},openHistory={showHistory=true},dashboard=dashboard,scrollState=homeScroll)
             } else if (!granted) {
@@ -247,8 +250,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     value=if(expandedCategories && directory==primary && snapshot!=null)model.personalCategories()else null
                 }
                 if (snapshot != null) {
-                    val source = if(largeFiles) snapshot.largestFiles else snapshot.entries
-                    val entries = remember(snapshot, sortMode, largeFiles, query) {
+                    val source = (if(largeFiles) snapshot.largestFiles else snapshot.entries).filterNot{personalOnly && directory==primary && it.file.toPath().startsWith(File(primary,"Android").toPath())}
+                    val entries = remember(snapshot, sortMode, largeFiles, query,personalOnly) {
                         val filtered=source.filter{it.file.name.contains(query,true) || (largeFiles && it.file.relativeTo(snapshot.directory).path.contains(query,true))}
                         when(sortMode) {
                             1 -> filtered.sortedBy{it.file.name.lowercase()}
@@ -286,17 +289,17 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                             Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                             Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                                 Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                                    Text(fmt(snapshot.bytes),style=MaterialTheme.typography.headlineMedium,color=MaterialTheme.colorScheme.primary)
+                                    Text(fmt(if(personalOnly && directory==primary)source.sumOf{it.bytes}else snapshot.bytes),style=MaterialTheme.typography.titleLarge,color=MaterialTheme.colorScheme.primary)
                                     Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.files_folders_count,java.text.NumberFormat.getIntegerInstance().format(snapshot.files),snapshot.entries.count{it.directory}),style=MaterialTheme.typography.bodySmall)
-                                    if(snapshot.skipped>0) Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.inaccessible_count,snapshot.skipped),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                    if(snapshot.skipped>0 && !personalOnly) Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.inaccessible_count,snapshot.skipped),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
-                            if(directory==primary && selection.isEmpty() && !largeFiles) {
+                            if(directory==primary && selection.isEmpty() && !largeFiles && !personalOnly) {
                                 val android=snapshot.entries.firstOrNull{it.file.name=="Android" && it.directory}
                                 val personal=snapshot.entries.filter{it.file.name!="Android"}.sumOf{it.bytes}
                                 Card(Modifier.fillMaxWidth().padding(top=8.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                                     Column {
-                                        ListItem(headlineContent={Text(tr("User files"))},trailingContent={Text(fmt(personal),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_storage_folder),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                                        ListItem(modifier=Modifier.clickable{personalOnly=true;selection=emptySet()},headlineContent={Text(tr("User files"))},trailingContent={Text(fmt(personal),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_storage_folder),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
                                         TextButton(onClick={expandedCategories=!expandedCategories},modifier=Modifier.padding(horizontal=8.dp)){Text(tr(if(expandedCategories)"Hide categories" else "File categories"))}
                                         if(expandedCategories){
                                             val breakdown=categories
@@ -309,7 +312,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                         }
                                         if(android!=null) ListItem(modifier=Modifier.clickable{openFolder(android.file)},headlineContent={Text(tr("Android shared files"))},trailingContent={Text(fmt(android.bytes),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_device_system),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
                                         ListItem(modifier=Modifier.clickable{apps=true},headlineContent={Text(tr("App storage"))},trailingContent={Icon(Icons.Default.KeyboardArrowRight,"Open")},leadingContent={Icon(painterResource(R.drawable.ic_device_overview),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-                                        Text(tr("App totals are separate; unmeasured space may include system and private files."),Modifier.padding(horizontal=16.dp,vertical=8.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                        
                                     }
                                 }
                             }
@@ -318,7 +321,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 FilterChip(selected=largeFiles,onClick={largeFiles=true;selection=emptySet();query=""},enabled=!deleting,label={Text(tr("Largest files"))})
                             }
                             Row(verticalAlignment=Alignment.CenterVertically) {
-                                Text(tr(if(largeFiles)"Files" else "Contents"),modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
+                                Text(tr(if(personalOnly && directory==primary)"User files" else if(largeFiles)"Files" else "Contents"),modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
                                 IconButton(onClick={gridView=!gridView}){Icon(painterResource(if(gridView)R.drawable.ic_device_storage else R.drawable.ic_device_overview),"Change layout",Modifier.size(22.dp))}
                                 IconButton(onClick={search=!search;if(!search)query=""},enabled=!deleting){Icon(Icons.Default.Search,"Search")}
                                 Box {
@@ -350,7 +353,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                         Text(fmt(entry.bytes),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
-                            } else Column {
+                            } else Card(Modifier.fillMaxWidth().padding(vertical=2.dp),colors=CardDefaults.cardColors(containerColor=if(checked)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)) {
                             ListItem(
                                 modifier=Modifier.fillMaxWidth().combinedClickable(enabled=!deleting,onClick={if(selection.isNotEmpty())toggle(entry) else selectEntry(entry)},onLongClick={toggle(entry)}),
                                 headlineContent={Text(entry.file.name,maxLines=1,overflow=TextOverflow.Ellipsis)},
@@ -364,9 +367,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                     else Icon(painterResource(fileIcon(entry)),null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(24.dp))
                                 },
                                 trailingContent={Column(horizontalAlignment=Alignment.End){Text(fmt(entry.bytes),color=MaterialTheme.colorScheme.primary);if(entry.skipped>0) Text(tr("Incomplete"),style=MaterialTheme.typography.labelSmall)}},
-                                colors=ListItemDefaults.colors(containerColor=if(checked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background)
+                                colors=ListItemDefaults.colors(containerColor=if(checked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)
                             )
-                            HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
                             }
                         }
                     }

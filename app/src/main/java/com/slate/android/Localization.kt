@@ -368,6 +368,18 @@ internal fun tr(value:String):String {
         "Delete empty folder?" -> R.string.protected_4
         "Folder changed or access denied" -> R.string.protected_5
         "Authorize Shizuku in Settings." -> R.string.protected_6
+        "Apps" -> R.string.dashboard_v2_0
+        "All" -> R.string.dashboard_v2_1
+        "User" -> R.string.dashboard_v2_2
+        "App" -> R.string.dashboard_v2_3
+        "Data" -> R.string.dashboard_v2_4
+        "Cache" -> R.string.dashboard_v2_5
+        "App folders" -> R.string.dashboard_v2_6
+        "Private data" -> R.string.dashboard_v2_7
+        "No direct access" -> R.string.dashboard_v2_8
+        "Reported app cache" -> R.string.dashboard_v2_9
+        "Review app cache" -> R.string.dashboard_v2_10
+        "Cache ↓" -> R.string.dashboard_v2_11
         else -> 0
     }
     return if(id==0)value else stringResource(id)

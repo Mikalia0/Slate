@@ -25,6 +25,17 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import android.app.Application
+import android.os.SystemClock
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import java.io.File
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -69,42 +80,67 @@ private suspend fun readAppUsage(context:Context):Pair<List<AppUsage>,Int> = wit
     entries.sortedByDescending{it.total} to skipped
 }
 
-@Composable
-internal fun AppsStorageScreen(onBack:()->Unit) {
-    val context=LocalContext.current
-    val lifecycle=LocalLifecycleOwner.current.lifecycle
-    val fmt:(Long)->String={Formatter.formatFileSize(context,it)}
-    var allowed by remember{mutableStateOf(usageAllowed(context))}
-    var loaded by remember{mutableStateOf(false)}
-    var rows by remember{mutableStateOf<List<AppUsage>>(emptyList())}
-    var skipped by remember{mutableIntStateOf(0)}
-    var busy by remember{mutableStateOf(false)}
-    var error by remember{mutableStateOf<String?>(null)}
-    var refresh by remember{mutableIntStateOf(0)}
-    var system by remember{mutableStateOf(false)}
-    var cacheSort by remember{mutableStateOf(false)}
-    var query by remember{mutableStateOf("")}
-    var searching by remember{mutableStateOf(false)}
-    var selected by remember{mutableStateOf<AppUsage?>(null)}
-    LaunchedEffect(lifecycle,refresh) {
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            allowed=usageAllowed(context)
-            if(allowed) {
-                busy=true;error=null
-                try {
-                    val result=readAppUsage(context)
-                    rows=result.first;skipped=result.second;loaded=true
-                } catch(e:kotlinx.coroutines.CancellationException){throw e}
-                catch(e:Exception){error=e.message ?: "Could not read app storage"}
-                finally{busy=false}
-            } else {rows=emptyList();loaded=false}
+internal data class AppsSnapshot(val rows:List<AppUsage> = emptyList(),val skipped:Int=0,val allowed:Boolean=false,val loaded:Boolean=false,val busy:Boolean=false,val error:String?=null)
+internal class AppsUsageModel(app:Application):AndroidViewModel(app){
+    var snapshot by mutableStateOf(AppsSnapshot())
+        private set
+    private var job:Job?=null
+    private var lastRead=0L
+    fun refresh(force:Boolean=false){
+        val context=getApplication<Application>()
+        if(!usageAllowed(context)){job?.cancel();snapshot=AppsSnapshot();lastRead=0;return}
+        snapshot=snapshot.copy(allowed=true)
+        if(job?.isActive==true)return
+        if(!force && snapshot.loaded && SystemClock.elapsedRealtime()-lastRead<120_000)return
+        job=viewModelScope.launch{
+            snapshot=snapshot.copy(busy=true,error=null)
+            try{
+                val result=readAppUsage(context)
+                snapshot=AppsSnapshot(result.first,result.second,true,true)
+                lastRead=SystemClock.elapsedRealtime()
+            }catch(e:kotlinx.coroutines.CancellationException){throw e}
+            catch(e:Exception){snapshot=snapshot.copy(error=e.message ?: "Could not read app storage")}
+            finally{snapshot=snapshot.copy(busy=false)}
         }
+    }
+    fun invalidate(){lastRead=0}
+}
+@Composable
+internal fun rememberAppUsage():AppsUsageModel{
+    val model:AppsUsageModel=viewModel()
+    val lifecycle=LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(model,lifecycle){lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED){model.refresh()}}
+    return model
+}
+@Composable
+internal fun AppsStorageScreen(onBack:()->Unit,reviewFolder:(File)->Unit,initialCacheSort:Boolean=false) {
+    val context=LocalContext.current
+    val usage=rememberAppUsage()
+    val data=usage.snapshot
+    val fmt:(Long)->String={Formatter.formatFileSize(context,it)}
+    val allowed=data.allowed
+    val rows=data.rows
+    val skipped=data.skipped
+    val loaded=data.loaded
+    val busy=data.busy
+    var error by remember{mutableStateOf<String?>(null)}
+    var filter by rememberSaveable{mutableIntStateOf(0)}
+    var cacheSort by rememberSaveable{mutableStateOf(initialCacheSort)}
+    var query by rememberSaveable{mutableStateOf("")}
+    var searching by rememberSaveable{mutableStateOf(false)}
+    var selectedPackage by rememberSaveable{mutableStateOf<String?>(null)}
+    val selected=rows.firstOrNull{it.packageName==selectedPackage}
+    val listState=androidx.compose.foundation.lazy.rememberLazyListState()
+    BackHandler(selectedPackage!=null){selectedPackage=null}
+    if(selected!=null){
+        AppUsageDetails(selected,fmt,onBack={selectedPackage=null},reviewFolder=reviewFolder,onExternalAction={usage.invalidate()})
+        return
     }
     Column(Modifier.fillMaxSize().padding(horizontal=14.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")}
-            Text(tr("App storage"),modifier=Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall)
-            IconButton(onClick={refresh++},enabled=allowed&&!busy){Icon(Icons.Default.Refresh,"Refresh")}
+            Text(tr("App storage"),modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
+            IconButton(onClick={usage.refresh(true)},enabled=allowed&&!busy){Icon(Icons.Default.Refresh,"Refresh")}
         }
         if(!allowed) {
             Card(Modifier.fillMaxWidth().padding(top=12.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
@@ -118,24 +154,25 @@ internal fun AppsStorageScreen(onBack:()->Unit) {
             }
         } else {
             if(busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            error?.let{Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
-            val filtered=remember(rows,system,query,cacheSort){
-                rows.filter{it.system==system&&(it.label.contains(query,true)||it.packageName.contains(query,true))}.let{if(cacheSort)it.sortedByDescending{row->row.cacheBytes}else it}
+            (error ?: data.error)?.let{Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
+            val filtered=remember(rows,filter,query,cacheSort){
+                rows.filter{(filter==0 || (filter==1 && !it.system) || (filter==2 && it.system))&&(it.label.contains(query,true)||it.packageName.contains(query,true))}.let{if(cacheSort)it.sortedByDescending{row->row.cacheBytes}else it}
             }
-            LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(vertical=10.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+            LazyColumn(Modifier.weight(1f),state=listState,contentPadding=PaddingValues(vertical=10.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
                 item {
                     Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
                         Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
-                            Text(if(loaded)fmt(rows.sumOf{it.total}) else "—",style=MaterialTheme.typography.headlineMedium)
+                            Text(if(loaded)fmt(rows.sumOf{it.total}) else "—",style=MaterialTheme.typography.headlineSmall)
                             Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.apps_reported,rows.size),style=MaterialTheme.typography.bodySmall)
                             Text(tr("Cache · ")+fmt(rows.sumOf{it.cacheBytes}),style=MaterialTheme.typography.titleSmall,color=MaterialTheme.colorScheme.primary)
-                            Text(tr("Shared files may overlap with file analysis."),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            
                             if(skipped>0)Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.apps_unavailable,skipped),style=MaterialTheme.typography.labelSmall)
                         }
                     }
                     Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
-                        FilterChip(selected=!system,onClick={system=false},label={Text(tr("User apps"))})
-                        FilterChip(selected=system,onClick={system=true},label={Text(tr("System apps"))})
+                        FilterChip(selected=filter==0,onClick={filter=0},label={Text(tr("All"))})
+                        FilterChip(selected=filter==1,onClick={filter=1},label={Text(tr("User"))})
+                        FilterChip(selected=filter==2,onClick={filter=2},label={Text(tr("System"))})
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick={searching=!searching;if(!searching)query=""}){Icon(Icons.Default.Search,"Search")}
                     }
@@ -146,32 +183,76 @@ internal fun AppsStorageScreen(onBack:()->Unit) {
                     }
                 }
                 items(filtered,key={it.packageName}){row->
-                    Card(onClick={selected=row},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
-                        ListItem(headlineContent={Text(row.label,maxLines=1,overflow=TextOverflow.Ellipsis)},supportingContent={Text(tr("Cache · ")+fmt(row.cacheBytes),style=MaterialTheme.typography.bodySmall)},
+                    Card(onClick={selectedPackage=row.packageName},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+                        ListItem(headlineContent={Text(row.label,maxLines=1,overflow=TextOverflow.Ellipsis)},supportingContent={Text(row.packageName,style=MaterialTheme.typography.bodySmall,maxLines=1,overflow=TextOverflow.Ellipsis)},
                             leadingContent={AppIcon(row.packageName)},trailingContent={Text(fmt(row.total),color=MaterialTheme.colorScheme.primary)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
                     }
                 }
             }
         }
     }
-    selected?.let{row->
-        AlertDialog(onDismissRequest={selected=null},title={Text(row.label)},text={
-            Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-                Text(row.packageName,style=MaterialTheme.typography.bodySmall)
-                if(row.version.isNotBlank())Text(tr("Version ")+row.version,style=MaterialTheme.typography.bodySmall)
-                if(row.installedAt>0)Text(tr("Installed ")+java.text.DateFormat.getDateInstance().format(java.util.Date(row.installedAt)),style=MaterialTheme.typography.bodySmall)
-                listOf("App" to row.appBytes,"Data (incl. cache)" to row.dataBytes,"Cache" to row.cacheBytes).forEach{(label,value)->
-                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(label);Text(fmt(value))}
-                }
-                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                    TextButton(onClick={selected=null;context.packageManager.getLaunchIntentForPackage(row.packageName)?.let{runCatching{context.startActivity(it)}}},enabled=context.packageManager.getLaunchIntentForPackage(row.packageName)!=null){Text(tr("Open"))}
-                    if(!row.system && row.packageName!=context.packageName)TextButton(onClick={selected=null;runCatching{context.startActivity(Intent(Intent.ACTION_DELETE,Uri.parse("package:"+row.packageName)))}}){Text(tr("Uninstall"),color=MaterialTheme.colorScheme.error)}
+}
+
+@Composable
+private fun AppUsageDetails(row:AppUsage,fmt:(Long)->String,onBack:()->Unit,reviewFolder:(File)->Unit,onExternalAction:()->Unit){
+    val context=LocalContext.current
+    val launchIntent=remember(row.packageName){context.packageManager.getLaunchIntentForPackage(row.packageName)}
+    val info=remember(row.packageName){runCatching{context.packageManager.getApplicationInfo(row.packageName,0)}.getOrNull()}
+    val privatePath=info?.dataDir
+    val external=remember(row.packageName){listOf("data","obb","media").map{File(android.os.Environment.getExternalStorageDirectory(),"Android/$it/${row.packageName}")}}
+    val readable by produceState<Set<File>>(emptySet(),row.packageName){
+        value=withContext(Dispatchers.IO){external.filter{file->runCatching{file.isDirectory && file.list()!=null}.getOrDefault(false)}.toSet()}
+    }
+    Column(Modifier.fillMaxSize().padding(horizontal=14.dp)){
+        Row(verticalAlignment=Alignment.CenterVertically){
+            IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,tr("Back"))}
+            Text(row.label,Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
+        }
+        LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=12.dp)){
+            item{
+                Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+                    Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
+                            AppIcon(row.packageName)
+                            Column(Modifier.weight(1f)){
+                                Text(row.label,style=MaterialTheme.typography.titleMedium)
+                                Text(row.packageName,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                if(row.version.isNotBlank())Text(tr("Version ")+row.version,style=MaterialTheme.typography.bodySmall)
+                            }
+                            Text(fmt(row.total),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.primary)
+                        }
+                        HorizontalDivider()
+                        val dataWithoutCache=(row.dataBytes-row.cacheBytes).coerceAtLeast(0)
+                        listOf("App" to row.appBytes,"Data" to dataWithoutCache,"Cache" to row.cacheBytes).forEach{(label,value)->
+                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(tr(label));Text(fmt(value))}
+                        }
+                        if(row.installedAt>0)Text(tr("Installed ")+java.text.DateFormat.getDateInstance().format(java.util.Date(row.installedAt)),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
-        },confirmButton={TextButton(onClick={
-            selected=null
-            runCatching{context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+row.packageName)))}
-        }){Text(tr("App settings"))}},dismissButton={TextButton(onClick={selected=null}){Text(tr("Close"))}})
+            item{
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                    OutlinedButton(onClick={launchIntent?.let{runCatching{context.startActivity(it)}}},enabled=launchIntent!=null,modifier=Modifier.weight(1f)){Text(tr("Open"))}
+                    if(!row.system && row.packageName!=context.packageName)OutlinedButton(onClick={onExternalAction();runCatching{context.startActivity(Intent(Intent.ACTION_DELETE,Uri.parse("package:"+row.packageName))) }},modifier=Modifier.weight(1f)){Text(tr("Uninstall"),color=MaterialTheme.colorScheme.error)}
+                }
+                Button(onClick={onExternalAction();runCatching{context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+row.packageName))) }},modifier=Modifier.fillMaxWidth()){Text(tr("App settings"))}
+            }
+            item{Text(tr("App folders"),style=MaterialTheme.typography.titleMedium)}
+            item{
+                Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+                    Column{
+                        privatePath?.let{path->
+                            ListItem(headlineContent={Text(tr("Private data"))},supportingContent={Text(path+"\n"+tr("No direct access"),style=MaterialTheme.typography.bodySmall)},leadingContent={DeviceGlyph(R.drawable.ic_storage_folder)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                        }
+                        external.forEach{folder->
+                            val access=folder in readable
+                            HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+                            ListItem(modifier=if(access)Modifier.clickable{reviewFolder(folder)}else Modifier,headlineContent={Text(folder.parentFile?.name?.uppercase().orEmpty())},supportingContent={Text(folder.path+if(access)"" else "\n"+tr("No direct access"),style=MaterialTheme.typography.bodySmall,maxLines=3)},leadingContent={DeviceGlyph(R.drawable.ic_storage_folder)},trailingContent={if(access)TextButton(onClick={reviewFolder(folder)}){Text(tr("Open"))}},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
