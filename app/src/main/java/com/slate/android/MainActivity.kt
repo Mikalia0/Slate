@@ -137,7 +137,6 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var sortMenu by remember { mutableStateOf(false) }
     var gridView by rememberSaveable { mutableStateOf(false) }
     val scrollStates=remember{mutableMapOf<String,Pair<Int,Int>>()}
-    var showMap by rememberSaveable { mutableStateOf(false) }
     var search by rememberSaveable { mutableStateOf(false) }
     var selection by remember { mutableStateOf(setOf<String>()) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -264,6 +263,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     LaunchedEffect(listState) { snapshotFlow{listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset}.collect{scrollStates[scrollKey]=it} }
                     LazyVerticalGrid(columns=GridCells.Fixed(if(gridView)2 else 1),state=listState,modifier=Modifier.weight(1f),contentPadding=PaddingValues(bottom=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         item(span={GridItemSpan(maxLineSpan)}) {
+                            Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                             Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                                 Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                                     Text(fmt(snapshot.bytes),style=MaterialTheme.typography.headlineMedium,color=MaterialTheme.colorScheme.primary)
@@ -287,10 +287,6 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 FilterChip(selected=!largeFiles,onClick={largeFiles=false;selection=emptySet();query=""},enabled=!deleting,label={Text("Folders")})
                                 FilterChip(selected=largeFiles,onClick={largeFiles=true;selection=emptySet();query=""},enabled=!deleting,label={Text("Largest files")})
                             }
-                            if(!largeFiles && snapshot.bytes>0) {
-                                TextButton(onClick={showMap=!showMap}){Text(if(showMap)"Hide map" else "Map")}
-                                if(showMap) TreemapView(snapshot.entries,fmt){ if(!deleting) { if(selection.isNotEmpty()) toggle(it) else selectEntry(it) } }
-                            }
                             Row(verticalAlignment=Alignment.CenterVertically) {
                                 Text(if(largeFiles)"Files" else "Contents",modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
                                 IconButton(onClick={gridView=!gridView}){Icon(painterResource(if(gridView)R.drawable.ic_device_storage else R.drawable.ic_device_overview),"Change layout",Modifier.size(22.dp))}
@@ -307,6 +303,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                             if(search) OutlinedTextField(value=query,onValueChange={query=it},placeholder={Text("Search files")},singleLine=true,modifier=Modifier.fillMaxWidth().padding(bottom=8.dp))
                             if(largeFiles && state.largestLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
                             else if(entries.isEmpty()) Text(if(snapshot.rootUnreadable)"Folder not accessible" else "No matching items")
+                            }
                         }
                         items(entries,key={it.file.path}){entry->
                             val checked=entry.file.path in selection
