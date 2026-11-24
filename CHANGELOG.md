@@ -2,6 +2,11 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — App language
+
+- Add a persistent per-app language selector with system default, English, Brazilian Portuguese, Spanish and French.
+- Integrate Android per-app languages and backward-compatible locale handling.
+
 ## 0.5.0-dev — Complete themes
 
 - Replace accent swatches with four complete Material 3 themes (Slate, Ocean, Aurora and Graphite) and Android wallpaper colors.

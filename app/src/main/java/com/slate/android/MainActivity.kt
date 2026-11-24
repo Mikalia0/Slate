@@ -10,7 +10,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import android.text.format.Formatter
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -63,7 +63,7 @@ import com.slate.android.device.rememberDeviceStatus
 import java.io.File
 
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private var granted by mutableStateOf(false)
     private var volumes by mutableStateOf<List<Volume>>(emptyList())
     private val legacyPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted = hasStorageAccess() }
@@ -114,6 +114,8 @@ class MainActivity : ComponentActivity() {
                         Scaffold(contentWindowInsets=WindowInsets.safeDrawing) { padding ->
                             Column(Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                                 Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick={settings=false}){Icon(Icons.Default.ArrowBack,"Back")};Text(tr("Settings"),style=MaterialTheme.typography.headlineSmall)}
+                                LanguageSettings()
+                                HorizontalDivider()
                                 Text(tr("Appearance"),style=MaterialTheme.typography.titleMedium)
                                 ThemeOptions(mode,palette,onMode,onPalette)
                                 HorizontalDivider()

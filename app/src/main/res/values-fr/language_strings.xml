@@ -1,0 +1,5 @@
+<resources>
+    <string name="language_title">Langue</string>
+    <string name="language_system">Langue du système</string>
+    <string name="language_change">Modifier</string>
+</resources>
