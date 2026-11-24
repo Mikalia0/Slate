@@ -25,7 +25,7 @@ import com.slate.android.storage.Volume
 import java.io.File
 
 @Composable
-internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit, openCleanup: ()->Unit) {
+internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit, openCleanup: ()->Unit,openHistory:()->Unit) {
     val context = LocalContext.current
     val capacity = primary.totalSpace
     val free = primary.usableSpace
@@ -125,7 +125,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
         item {
             Row(verticalAlignment=Alignment.CenterVertically) {
                 Text("Storage insights",style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
-                if(history.scannedAt>0) Text(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT,java.text.DateFormat.SHORT).format(java.util.Date(history.scannedAt)),style=MaterialTheme.typography.labelSmall)
+                TextButton(onClick=openHistory){Text("History")}
             }
         }
         if(history.scannedAt==0L) item {

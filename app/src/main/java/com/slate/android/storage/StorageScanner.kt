@@ -48,10 +48,11 @@ class StorageScanner {
     } catch (_: java.io.IOException) { null } catch (_: SecurityException) { null }
 
     suspend fun scan(directory: File, onProgress: (ScanProgress) -> Unit = {}): Snapshot =
-        scanIndexed(directory,onProgress).root
+        scanIndexed(directory,onProgress=onProgress).root
 
-    internal suspend fun scanIndexed(directory: File, onProgress: (ScanProgress)->Unit = {}): IndexedScan {
+    internal suspend fun scanIndexed(directory: File, excluded:Set<File> = emptySet(), onProgress: (ScanProgress)->Unit = {}): IndexedScan {
         val context=currentCoroutineContext()
+        if(isExcluded(directory,excluded)) return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
         if(attributes(directory)?.isDirectory!=true) return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
         val rootChildren=children(directory) ?: return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
         var visited=0L
@@ -99,6 +100,7 @@ class StorageScanner {
                 continue
             }
             val file=frame.children.next()
+            if(isExcluded(file,excluded)) { frame.add(Entry(file,false,0,0,1)); continue }
             val attr=attributes(file)
             visited++;lastPath=file.path
             when {

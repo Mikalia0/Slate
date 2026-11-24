@@ -22,7 +22,7 @@ import java.io.File
 import kotlinx.coroutines.*
 
 @Composable
-internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,onBack:()->Unit,onChanged:()->Unit) {
+internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:Set<String>,onBack:()->Unit,onChanged:()->Unit) {
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     var kind by remember{mutableStateOf(CleanupKind.DUPLICATES)}
@@ -39,7 +39,7 @@ internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,onBack:()-
         val mode=kind
         job=scope.launch {
             try{
-                result=withContext(Dispatchers.IO){findCleanup(root,mode,emptySet()){n->visited=n}}
+                result=withContext(Dispatchers.IO){findCleanup(root,mode,excluded){n->visited=n}}
             }catch(e:CancellationException){throw e}catch(e:Exception){message=e.message ?: "Scan failed"}
             finally{busy=false}
         }

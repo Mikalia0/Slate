@@ -2,6 +2,9 @@
 package com.slate.android.storage
 
 import androidx.lifecycle.AndroidViewModel
+import com.slate.android.StorageHistory
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import android.app.Application
 import android.os.Environment
 import androidx.lifecycle.viewModelScope
@@ -22,6 +25,12 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     private val store=IndexStore(File(app.filesDir,"storage-index.gz"),primary)
     private var savedIndex:IndexedScan?=null
     private var diskChecked=false
+    internal val exclusions=ExclusionStore(app)
+    internal val history=StorageHistory(app)
+    private val persistence=Mutex()
+    private var saveJob:Job?=null
+    private var backgroundJob:Job?=null
+    private var checkedSession=false
     private val scanner = StorageScanner()
     private val mutable = MutableStateFlow(ScanState())
     val state = mutable.asStateFlow()
@@ -35,8 +44,9 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         if(!refresh && mutable.value.directory==directory && mutable.value.running) return
         job?.cancel()
         largestJob?.cancel()
+        backgroundJob?.cancel()
         val id = ++generation
-        if (refresh) { cache.clear(); indexes.clear(); savedIndex=null; diskChecked=true; store.clear() }
+        if (refresh) { clearIndexes() }
         cache[directory]?.let { mutable.value = ScanState(directory,it,scanId=id); return }
         val saved=savedIndex
         val indexed=indexes.values.toList().asReversed().firstOrNull{directory==it.root.directory || it.folders.containsKey(directory)} ?: saved?.takeIf{directory==it.root.directory || it.folders.containsKey(directory)}
@@ -64,7 +74,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
                     if(loaded!=null && (directory==primary || loaded.folders.containsKey(directory))) {mutable.value=ScanState(directory=directory);open(directory);return@launch}
                 }
                 val result = withContext(Dispatchers.IO) {
-                    scanner.scanIndexed(directory) { progress ->
+                    scanner.scanIndexed(directory,exclusions.absolute()) { progress ->
                         mutable.update { previous ->
                             if (previous.scanId == id && previous.running) previous.copy(visited = progress.visited, currentPath = progress.path, measuredBytes = progress.bytes, elapsedMs = progress.elapsedMs) else previous
                         }
@@ -80,7 +90,9 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
                     mutable.value = ScanState(directory, result.root, scanId = id, fresh=true)
                     if(directory==primary && !result.root.rootUnreadable) {
                         savedIndex=null
-                        withContext(Dispatchers.IO){try{store.save(result)}catch(e:CancellationException){throw e}catch(_:Exception){}}
+                        history.record(result.root,id)
+                        persist(result)
+
                     }
                 }
             } catch (e: CancellationException) { throw e }
@@ -90,11 +102,42 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         }
     }
 
+    private fun persist(result:IndexedScan){
+        saveJob?.cancel()
+        saveJob=viewModelScope.launch(Dispatchers.IO){
+            persistence.withLock { try{store.save(result)}catch(e:CancellationException){throw e}catch(_:Exception){} }
+        }
+    }
+    private fun clearIndexes(){
+        saveJob?.cancel();backgroundJob?.cancel()
+        cache.clear();indexes.clear();savedIndex=null;diskChecked=true
+        // A queued clear follows any in-flight write, so stale data is not restored.
+        saveJob=viewModelScope.launch(Dispatchers.IO){persistence.withLock{store.clear()}}
+    }
+    fun checkSession() {
+        if(checkedSession || history.scannedAt==0L)return
+        checkedSession=true
+        val excluded=exclusions.absolute()
+        val baseline=generation
+        backgroundJob=viewModelScope.launch{
+            try{
+                val result=withContext(Dispatchers.IO){scanner.scanIndexed(primary,excluded)}
+                if(generation==baseline && !result.root.rootUnreadable){
+                    history.record(result.root,++generation)
+                    indexes[primary]=result
+                    cache[primary]=result.root
+                    savedIndex=null;diskChecked=true
+                    persist(result)
+                }
+            }catch(e:CancellationException){throw e}catch(_:Exception){}
+        }
+    }
+
     fun invalidate() {
         ++generation
         job?.cancel()
         largestJob?.cancel()
-        cache.clear();indexes.clear();savedIndex=null;diskChecked=true;store.clear()
+        clearIndexes()
         mutable.value=ScanState()
     }
 

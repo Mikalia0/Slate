@@ -9,9 +9,9 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 - [ ] Open/share files (primary shared storage implemented; verify other volumes)
 - [ ] Clickable breadcrumbs (implemented; verify)
 - [ ] Modification date sorting (implemented; verify)
-- [ ] Custom exclusions
-- [ ] Full scan history (partial)
-- [ ] Detailed session comparison (partial)
+- [ ] Custom exclusions (implemented; verify)
+- [ ] Full scan history (30 scans and folder details; verify)
+- [ ] Detailed session comparison (implemented; verify)
 - [ ] Persistent index (implemented; verify)
 - [ ] Incremental updates
 - [ ] Accurate user/app/system separation (partial; Android limits)
@@ -25,7 +25,7 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 - [ ] Empty folders (implemented; verify)
 - [ ] Scheduled scans/cleanup
 - [ ] Shizuku/root
-- [ ] Exclusion management
+- [ ] Exclusion management (implemented; verify)
 
 ## Device information (7)
 - [ ] More manufacturer logos
@@ -38,7 +38,7 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 
 ## Home and UI (8)
 - [ ] Smarter recommendations (partial)
-- [ ] Automatic folder-growth detection
+- [ ] Automatic folder-growth detection (automatic full scan; verify, incremental pending)
 - [ ] Custom dashboard cards
 - [ ] Storage category shortcuts (partial)
 - [ ] Scroll restoration (analyzer implemented; verify other screens)

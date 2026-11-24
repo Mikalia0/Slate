@@ -56,7 +56,6 @@ import java.io.File
 
 
 class MainActivity : ComponentActivity() {
-    private val history by lazy { StorageHistory(this) }
     private var granted by mutableStateOf(false)
     private var volumes by mutableStateOf<List<Volume>>(emptyList())
     private val legacyPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted = hasStorageAccess() }
@@ -82,6 +81,8 @@ class MainActivity : ComponentActivity() {
             var mode by remember { mutableStateOf(runCatching { SlateTheme.valueOf(prefs.getString("theme","SYSTEM") ?: "SYSTEM") }.getOrDefault(SlateTheme.SYSTEM)) }
             var dynamic by remember { mutableStateOf(prefs.getBoolean("dynamic",false)) }
             var setup by remember { mutableStateOf(prefs.getBoolean("setup",false)) }
+            val storageModel:StorageModel = viewModel()
+            val history=storageModel.history
             var settings by rememberSaveable { mutableStateOf(false) }
             var manualUpdateRequest by remember { mutableIntStateOf(0) }
             val onMode: (SlateTheme)->Unit = { mode=it; prefs.edit().putString("theme",it.name).apply() }
@@ -99,12 +100,14 @@ class MainActivity : ComponentActivity() {
                                 HorizontalDivider()
                                 ListItem(headlineContent={Text("Storage access")},supportingContent={Text(if(granted)"Granted" else "Not granted")},trailingContent={TextButton(onClick=::requestStorage){Text("Manage")}})
                                 HorizontalDivider()
+                                ExclusionEditor(storageModel.exclusions,onChanged={storageModel.invalidate()})
+                                HorizontalDivider()
                                 UpdateSettings(onCheck={manualUpdateRequest++})
                                 Text("GPL-3.0-only")
                             }
                         }
                     }
-                    else -> Slate(granted, volumes, ::requestStorage, onSettings={settings=true}, history=history)
+                    else -> Slate(granted, volumes, ::requestStorage, onSettings={settings=true}, history=history,model=storageModel)
                 }
                 if(setup) UpdatePrompt(manualUpdateRequest)
             }
@@ -121,9 +124,10 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     val root = remember(selectedPath) { File(selectedPath) }
     val selectedVolume = volumes.firstOrNull { it.root.absolutePath == selectedPath }
     val state by model.state.collectAsState()
-    LaunchedEffect(state.scanId,state.fresh) { if(state.fresh) state.snapshot?.let{history.record(it,state.scanId)} }
+    LaunchedEffect(granted) { if(granted)model.checkSession() }
     var analyzer by rememberSaveable { mutableStateOf(false) }
     var device by rememberSaveable { mutableStateOf(false) }
+    var showHistory by rememberSaveable{mutableStateOf(false)}
     var cleanup by rememberSaveable{mutableStateOf(false)}
     var apps by rememberSaveable { mutableStateOf(false) }
     var devicePage by rememberSaveable { mutableIntStateOf(0) }
@@ -155,12 +159,12 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         else if (directory != root && directory.parentFile != null) openFolder(directory.parentFile!!)
         else { model.cancel(); analyzer = false }
     }
-    BackHandler(analyzer || device || apps || cleanup) { if(cleanup)cleanup=false else if(apps) apps=false else if (device) device = false else back() }
+    BackHandler(analyzer || device || apps || cleanup || showHistory) { if(showHistory)showHistory=false else if(cleanup)cleanup=false else if(apps) apps=false else if (device) device = false else back() }
     fun goHome(){device=false;apps=false;cleanup=false;analyzer=false;selection=emptySet();search=false;query=""}
     fun goStorage(){device=false;apps=false;cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();search=false;query="";largeFiles=false;if(granted)model.open(primary)}
     Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar={
-            if(!apps && !cleanup && !deleting && selection.isEmpty() && (!analyzer || directory==root)) {
+            if(!apps && !cleanup && !showHistory && !deleting && selection.isEmpty() && (!analyzer || directory==root)) {
                 NavigationBar {
                     NavigationBarItem(selected=!device&&!analyzer,onClick={goHome()},icon={Icon(Icons.Default.Home,null)},label={Text("Home")})
                     NavigationBarItem(selected=analyzer&&!device,onClick={goStorage()},icon={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},label={Text("Storage")})
@@ -168,8 +172,10 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 }
             }
         }) { padding ->
-        if(cleanup) {
-            Box(Modifier.fillMaxSize().padding(padding)){CleanupScreen(primary,granted,request,onBack={cleanup=false},onChanged={model.invalidate()})}
+        if(showHistory) {
+            Box(Modifier.fillMaxSize().padding(padding)){HistoryScreen(history,onBack={showHistory=false})}
+        } else if(cleanup) {
+            Box(Modifier.fillMaxSize().padding(padding)){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()})}
         } else if(apps) {
             Box(Modifier.fillMaxSize().padding(padding)){AppsStorageScreen(onBack={apps=false})}
         } else if (device) {
@@ -189,7 +195,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 },device={devicePage=0;device=true},history=history,review={folder->
                     selectedPath=primary.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query="";search=false
                     if(granted) model.open(folder)
-                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={apps=true},openCleanup={cleanup=true})
+                },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={apps=true},openCleanup={cleanup=true},openHistory={showHistory=true})
             } else if (!granted) {
                 LaunchedEffect(granted) { model.cancel() }
                 Text("Storage access", style = MaterialTheme.typography.titleLarge)
