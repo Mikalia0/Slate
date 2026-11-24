@@ -263,7 +263,7 @@ internal class DeviceReader(private val context: Context) {
                 info("Link speed",wifi?.linkSpeed?.takeIf{it>0}?.let{"$it Mbps"})))
             if(Build.VERSION.SDK_INT>=29) rows.addAll(listOf(info("Transmit link speed",wifi?.txLinkSpeedMbps?.takeIf{it>0}?.let{"$it Mbps"}),
                 info("Receive link speed",wifi?.rxLinkSpeedMbps?.takeIf{it>0}?.let{"$it Mbps"})))
-            if(Build.VERSION.SDK_INT>=30) rows.add(info("Wi-Fi standard",when(wifi?.wifiStandard){1->"Legacy";4->"Wi-Fi 4";5->"Wi-Fi 5";6->"Wi-Fi 6 / 6E";7->"Wi-Fi 7";else->null}))
+            if(Build.VERSION.SDK_INT>=30) rows.add(info("Wi-Fi standard",when(wifi?.wifiStandard){1->"Legacy";4->"Wi-Fi 4";5->"Wi-Fi 5";6->"Wi-Fi 6 / 6E";7->"WiGig (802.11ad)";8->"Wi-Fi 7";else->null}))
         }
         if(cap?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)==true) {
             val telephony=context.getSystemService(android.telephony.TelephonyManager::class.java)
