@@ -39,7 +39,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 
-private const val RELEASES = "https://api.github.com/repos/stevenmx2/Slate-1/releases?per_page=30"
+private const val RELEASES = "https://api.github.com/repos/stevenmx2/Slate/releases?per_page=30"
 private const val MAX_APK_BYTES = 200L * 1024 * 1024
 private data class Update(val code: Long, val attempt: Long, val tag: String, val url: String, val size: Long, val digest: String?, val notes: String)
 
@@ -112,7 +112,7 @@ private suspend fun findUpdate(installed: Long): Update? = withContext(Dispatche
             if(asset.optString("name") != "Slate.apk" || asset.optString("state") != "uploaded") continue
             val size = asset.optLong("size")
             val url = asset.optString("browser_download_url")
-            if(url != "https://github.com/stevenmx2/Slate-1/releases/download/$tag/Slate.apk" || size !in 1..MAX_APK_BYTES) continue
+            if(url != "https://github.com/stevenmx2/Slate/releases/download/$tag/Slate.apk" || size !in 1..MAX_APK_BYTES) continue
             val digest = asset.optString("digest").takeIf { it.matches(Regex("sha256:[0-9a-fA-F]{64}")) }?.substringAfter(":")
             releases += Update(code,attempt,tag,url,size,digest,release.optString("body").take(12000))
         }

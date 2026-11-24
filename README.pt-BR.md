@@ -5,7 +5,7 @@
 
   <p><strong>Gerenciamento de armazenamento, limpeza e diagnóstico do dispositivo para Android.</strong></p>
 
-  <p><a href="https://github.com/stevenmx2/Slate-1/releases"><strong>Baixar APK</strong></a> · Android 8.0+ · GPL-3.0-only · <a href="README.md">English</a></p>
+  <p><a href="https://github.com/stevenmx2/Slate/releases"><strong>Baixar APK</strong></a> · Android 8.0+ · GPL-3.0-only · <a href="README.md">English</a></p>
 </div>
 
 O Slate reúne análise de armazenamento, gerenciamento de aplicativos e informações do dispositivo em uma interface Material 3. Descubra o que ocupa espaço, revise arquivos desnecessários e consulte informações de hardware.
@@ -19,9 +19,13 @@ O Slate reúne análise de armazenamento, gerenciamento de aplicativos e informa
 - **Acesso avançado:** análise e limpeza seletiva do cache via Shizuku (ADB ou root) e revisão de resíduos protegidos, quando o acesso estiver disponível.
 - **Interface:** temas claro, escuro e AMOLED, cores dinâmicas e português brasileiro.
 
+## Ferramentas adicionais
+
+Gerenciador de arquivos local, galeria offline de fotos e vídeos e monitor de hardware com overlay opcional. FPS de jogos ainda está planejado.
+
 ## Instalação
 
-Baixe o arquivo **[Slate.apk nas Releases do GitHub](https://github.com/stevenmx2/Slate-1/releases)**, abra-o e autorize a instalação, caso o Android solicite.
+Baixe o arquivo **[Slate.apk nas Releases do GitHub](https://github.com/stevenmx2/Slate/releases)**, abra-o e autorize a instalação, caso o Android solicite.
 
 Requer Android 8.0 ou superior. Root e Shizuku são opcionais. O Slate está em desenvolvimento ativo; os APKs publicados são builds de desenvolvimento assinadas.
 
@@ -37,7 +41,7 @@ A limpeza exige revisão antes da exclusão; análises agendadas não apagam aut
 
 Código escrito em Kotlin com Jetpack Compose e Material 3. Consulte o [README em inglês](README.md#development) para compilar e o [changelog](CHANGELOG.md) e o [roteiro de desenvolvimento](ROADMAP.md) para acompanhar a validação dos recursos.
 
-Relate problemas em [Issues](https://github.com/stevenmx2/Slate-1/issues).
+Relate problemas em [Issues](https://github.com/stevenmx2/Slate/issues).
 
 ## Licença e créditos
 

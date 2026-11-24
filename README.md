@@ -6,10 +6,10 @@
   <p><strong>Storage management, cleanup and device diagnostics for Android.</strong></p>
 
   <p>
-    <a href="https://github.com/stevenmx2/Slate-1/releases"><img alt="Download APK" src="https://img.shields.io/badge/Download-APK-A7E8CF?style=flat-square&amp;logo=android&amp;logoColor=15191D"></a>
+    <a href="https://github.com/stevenmx2/Slate/releases"><img alt="Download APK" src="https://img.shields.io/badge/Download-APK-A7E8CF?style=flat-square&amp;logo=android&amp;logoColor=15191D"></a>
     <a href="LICENSE"><img alt="GPL-3.0-only" src="https://img.shields.io/badge/License-GPL--3.0--only-586069?style=flat-square"></a>
     <img alt="Android 8.0+" src="https://img.shields.io/badge/Android-8.0%2B-586069?style=flat-square">
-    <a href="https://github.com/stevenmx2/Slate-1/actions/workflows/android.yml"><img alt="Build status" src="https://github.com/stevenmx2/Slate-1/actions/workflows/android.yml/badge.svg?branch=main"></a>
+    <a href="https://github.com/stevenmx2/Slate/actions/workflows/android.yml"><img alt="Build status" src="https://github.com/stevenmx2/Slate/actions/workflows/android.yml/badge.svg?branch=main"></a>
   </p>
 
   <p><a href="#features">Features</a> · <a href="#installation">Installation</a> · <a href="#privacy-and-permissions">Privacy</a> · <a href="README.pt-BR.md">Português (Brasil)</a></p>
@@ -37,9 +37,13 @@ Slate brings storage analysis, app management and device information together in
 
 The home dashboard highlights storage usage, device status, app cache and relevant recommendations. Slate supports light, dark and AMOLED appearances, dynamic colors and English/Brazilian Portuguese.
 
+## Additional tools
+
+Slate also includes a local file manager, offline photo/video gallery, and live hardware charts with an optional floating monitor. Game FPS is planned, not yet supported.
+
 ## Installation
 
-**[Get Slate.apk from GitHub Releases](https://github.com/stevenmx2/Slate-1/releases)**
+**[Get Slate.apk from GitHub Releases](https://github.com/stevenmx2/Slate/releases)**
 
 1. Open the releases page and select the newest development build.
 2. Download `Slate.apk` from its assets and open it on your Android device.
@@ -84,7 +88,7 @@ GitHub Actions runs release unit tests, verifies the signed APK and publishes de
 
 </details>
 
-Report reproducible bugs or suggest improvements through [GitHub Issues](https://github.com/stevenmx2/Slate-1/issues). See [release changes](CHANGELOG.md) and the [development tracker](ROADMAP.md) for implementation and validation status.
+Report reproducible bugs or suggest improvements through [GitHub Issues](https://github.com/stevenmx2/Slate/issues). See [release changes](CHANGELOG.md) and the [development tracker](ROADMAP.md) for implementation and validation status.
 
 ## License and acknowledgements
 
