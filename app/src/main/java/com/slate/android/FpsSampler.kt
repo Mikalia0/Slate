@@ -64,7 +64,7 @@ internal fun frameRateFromDelta(before:Long,after:Long,elapsedNs:Long):Double? {
 
 internal fun cpuTimes(line:String):Pair<Long,Long>?{
     val parts=line.trim().split(Regex("\\s+"))
-    if(parts.firstOrNull()!="cpu"||parts.size<5)return null
+    if(parts.firstOrNull()?.matches(Regex("cpu[0-9]*"))!=true||parts.size<5)return null
     val values=parts.drop(1).take(8).map{it.toLongOrNull()?:return null}
     if(values.any{it<0})return null
     return values.sum() to (values[3]+(values.getOrNull(4)?:0L))
@@ -81,6 +81,8 @@ internal fun frameIntervals(frames:Collection<Long>):List<Double> =
 
 class FpsUserService:IFpsService.Stub(){
     private var previousCpu:Pair<Long,Long>?=null
+    private var previousCores=emptyMap<Int,Pair<Long,Long>>()
+    private val clusters=mutableMapOf<Int,String>()
     private var frameHistory=emptyList<Double>()
     private var wantsFrames=false
     private var pkg:String?=null
@@ -164,12 +166,28 @@ class FpsUserService:IFpsService.Stub(){
         // Do not disable or clear counters already owned by another consumer.
         if(dump("SurfaceFlinger","--timestats","-enable")!=null)startedStats=true
     }
-    @Synchronized override fun sample(includeCpu:Boolean,includeFrames:Boolean):Array<String>{
+    @Synchronized override fun sample(includeCpu:Boolean,includeFrames:Boolean,includeCores:Boolean):Array<String>{
         wantsFrames=includeFrames;frameHistory=emptyList()
-        val current=if(includeCpu)runCatching{java.io.File("/proc/stat").bufferedReader().use{cpuTimes(it.readLine().orEmpty())}}.getOrNull()else null
+        val cpuLines=if(includeCpu||includeCores)runCatching{java.io.File("/proc/stat").useLines{lines->lines.takeWhile{it.startsWith("cpu")}.toList()}}.getOrDefault(emptyList())else emptyList()
+        val current=cpuLines.firstOrNull()?.let(::cpuTimes)
         val cpu=cpuPercent(previousCpu,current);previousCpu=current
+        val cores=if(includeCores){
+            val values=cpuLines.drop(1).mapNotNull{line->
+                val id=line.substringBefore(' ').removePrefix("cpu").toIntOrNull()?:return@mapNotNull null
+                cpuTimes(line)?.let{id to it}
+            }.toMap()
+            val result=values.toSortedMap().map{(id,times)->
+                val dir="/sys/devices/system/cpu/cpu$id/cpufreq"
+                val freq=runCatching{java.io.File("$dir/scaling_cur_freq").readText().trim().toLongOrNull()?.div(1000)?.toInt()}.getOrNull()
+                val cluster=clusters.getOrPut(id){
+                    runCatching{java.io.File("$dir/related_cpus").readText().trim().split(Regex("\\s+")).mapNotNull{it.toIntOrNull()}.sorted().joinToString(",").ifEmpty{id.toString()}}.getOrDefault(id.toString())
+                }
+                listOf(id.toString(),cpuPercent(previousCores[id],times)?.toString().orEmpty(),freq?.toString().orEmpty(),cluster).joinToString(":")
+            }.joinToString(";")
+            previousCores=values;result
+        }else{previousCores=emptyMap();""}
         val fps=sampleFps()
-        return fps+arrayOf(cpu?.toString().orEmpty(),frameHistory.joinToString(","))
+        return fps+arrayOf(cpu?.toString().orEmpty(),frameHistory.joinToString(","),cores)
     }
     private fun sampleFps():Array<String>{
         val now=SystemClock.elapsedRealtime()
@@ -218,13 +236,13 @@ class FpsUserService:IFpsService.Stub(){
     }
     @Synchronized override fun finish(){
         // TimeStats is shared system state. Leave it intact instead of disabling another monitor.
-        startedStats=false;timeStats=false;reset();pkg=null;focusAt=0;lastFocusSuccess=0;lastStatsEnable=0;previousCpu=null;frameHistory=emptyList()
+        startedStats=false;timeStats=false;reset();pkg=null;focusAt=0;lastFocusSuccess=0;lastStatsEnable=0;previousCpu=null;previousCores=emptyMap();clusters.clear();frameHistory=emptyList()
     }
     override fun destroy(){finish();kotlin.system.exitProcess(0)}
 }
 internal suspend fun withFpsService(context:Context,block:suspend(IFpsService)->Unit){
     check(shizukuGranted())
-    val args=Shizuku.UserServiceArgs(ComponentName(context,FpsUserService::class.java)).daemon(false).processNameSuffix("fps_service").version(3)
+    val args=Shizuku.UserServiceArgs(ComponentName(context,FpsUserService::class.java)).daemon(false).processNameSuffix("fps_service").version(4)
     val ready=CompletableDeferred<IFpsService>()
     var remote:IFpsService?=null
     val connection=object:ServiceConnection{

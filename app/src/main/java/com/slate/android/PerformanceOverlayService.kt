@@ -40,13 +40,13 @@ class PerformanceOverlayService:Service(){
         val prefs=getSharedPreferences("monitor",MODE_PRIVATE)
         val metrics=HudMetrics(applicationContext)
         val text=HudOverlayView(this).apply{
-            update(prefs.getInt("metrics",HUD_DEFAULT).let{if(it==0)HUD_MINIMAL else it},HudSnapshot(),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f))
-            var sx=0f;var sy=0f;var ox=0;var oy=0
+            update(prefs.getInt("metrics",HUD_DEFAULT).let{if(it==0)HUD_MINIMAL else it},HudSnapshot(),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f),hudStyle(prefs.getString("style",null)))
+            var sx=0f;var sy=0f;var ox=0;var oy=0;var dragged=false
             setOnTouchListener{_,event->
                 when(event.actionMasked){
-                    MotionEvent.ACTION_DOWN->{sx=event.rawX;sy=event.rawY;ox=params.x;oy=params.y;true}
-                    MotionEvent.ACTION_MOVE->{params.x=ox+(event.rawX-sx).toInt();params.y=oy+(event.rawY-sy).toInt();runCatching{wm.updateViewLayout(this,params)};true}
-                    MotionEvent.ACTION_UP->{performClick();true}
+                    MotionEvent.ACTION_DOWN->{sx=event.rawX;sy=event.rawY;ox=params.x;oy=params.y;dragged=false;true}
+                    MotionEvent.ACTION_MOVE->{if(kotlin.math.abs(event.rawX-sx)>6*density||kotlin.math.abs(event.rawY-sy)>6*density)dragged=true;if(dragged){params.x=ox+(event.rawX-sx).toInt();params.y=oy+(event.rawY-sy).toInt();runCatching{wm.updateViewLayout(this,params)}};true}
+                    MotionEvent.ACTION_UP->{if(!dragged){toggleClassic();performClick()};true}
                     else->false
                 }
             }
@@ -60,7 +60,7 @@ class PerformanceOverlayService:Service(){
                     if(!shizukuGranted()){
                         fps=null;PerformanceOverlayService.packageName=null
                         val mask=prefs.getInt("metrics",HUD_DEFAULT).and(HUD_ALL).let{if(it==0)HUD_MINIMAL else it}
-                        text.update(mask,HudSnapshot(),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f))
+                        text.update(mask,HudSnapshot(),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f),hudStyle(prefs.getString("style",null)))
                         delay(1000);continue
                     }
                     try{
@@ -69,7 +69,8 @@ class PerformanceOverlayService:Service(){
                         if(!shizukuGranted()||!Settings.canDrawOverlays(this@PerformanceOverlayService))break
                         val mask=prefs.getInt("metrics",HUD_DEFAULT).and(HUD_ALL).let{if(it==0)HUD_MINIMAL else it}
                         if(!service.asBinder().isBinderAlive)throw android.os.DeadObjectException()
-                        val sample=service.sample(mask.shows(HudMetric.CPU),mask.shows(HudMetric.FRAMES))
+                        val style=hudStyle(prefs.getString("style",null))
+                        val sample=service.sample(mask.shows(HudMetric.CPU),mask.shows(HudMetric.FRAMES),style==HudStyle.CLASSIC&&mask.shows(HudMetric.CPU))
                         retryMs=500L
                         val app=sample?.getOrNull(0)?.takeIf{it.isNotBlank()}
                         val rate=sample?.getOrNull(1)?.toDoubleOrNull()?.takeIf{it.isFinite()&&it in 0.0..1000.0}?.roundToInt()?.toString()
@@ -77,7 +78,7 @@ class PerformanceOverlayService:Service(){
                         val rows=runCatching{metrics.read(mask,sample?.getOrNull(2))}.getOrDefault(emptyList())
                         withContext(Dispatchers.Main){
                             PerformanceOverlayService.packageName=app;fps=rate
-                            text.update(mask,HudSnapshot(rate,app,intervals,rows),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f))
+                            text.update(mask,HudSnapshot(rate,app,intervals,rows,decodeHudCores(sample.getOrNull(4))),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f),hudStyle(prefs.getString("style",null)))
                         }
                         delay(350)
                     }
@@ -86,7 +87,7 @@ class PerformanceOverlayService:Service(){
                     catch(_:Exception){
                         fps=null;PerformanceOverlayService.packageName=null
                         val mask=prefs.getInt("metrics",HUD_DEFAULT).and(HUD_ALL).let{if(it==0)HUD_MINIMAL else it}
-                        text.update(mask,HudSnapshot(),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f))
+                        text.update(mask,HudSnapshot(),prefs.getFloat("scale",1f).coerceIn(.7f,1.4f),prefs.getFloat("opacity",.88f).coerceIn(.35f,1f),hudStyle(prefs.getString("style",null)))
                         delay(retryMs);retryMs=(retryMs*2).coerceAtMost(8000L)
                     }
                 }

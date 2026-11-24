@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Classic performance monitor
+
+- Add an independently implemented classic circular-gauge monitor inspired by Scene, with CPU/GPU/battery rings, CPU cluster frequencies and per-core utilization.
+- Keep the existing panel, custom metrics, scale and opacity; tap the classic overlay to collapse or expand it.
+- Read per-core CPU statistics via Shizuku only when the classic CPU monitor is enabled.
+
 ## 0.5.0-dev — FPS monitor recovery
 
 - Re-discover changed game surfaces and periodically retry presentation timestamps after falling back to cumulative counters.

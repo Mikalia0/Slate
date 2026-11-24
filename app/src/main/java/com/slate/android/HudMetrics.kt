@@ -22,7 +22,16 @@ internal const val HUD_COMPACT=1 or 4 or 8 or 16
 internal const val HUD_ALL=127
 internal fun Int.shows(metric:HudMetric)=this and metric.bit!=0
 internal data class HudRow(val label:String,val value:String,val detail:String="",val extra:String="",val fraction:Float?=null)
-internal data class HudSnapshot(val fps:String?=null,val pkg:String?=null,val intervals:List<Double> = emptyList(),val rows:List<HudRow> = emptyList())
+internal enum class HudStyle(val label:Int){PANEL(R.string.hud_style_panel),CLASSIC(R.string.hud_style_classic)}
+internal fun hudStyle(value:String?)=runCatching{HudStyle.valueOf(value.orEmpty())}.getOrDefault(HudStyle.PANEL)
+internal data class HudCore(val id:Int,val load:Int?,val mhz:Int?,val cluster:String)
+internal fun decodeHudCores(raw:String?):List<HudCore> = raw.orEmpty().split(';').mapNotNull{entry->
+    val fields=entry.split(':',limit=4)
+    if(fields.size!=4)return@mapNotNull null
+    val id=fields[0].toIntOrNull()?.takeIf{it in 0..255}?:return@mapNotNull null
+    HudCore(id,fields[1].toIntOrNull()?.takeIf{it in 0..100},fields[2].toIntOrNull()?.takeIf{it>0},fields[3].takeIf{it.matches(Regex("[0-9,-]+"))}?:id.toString())
+}.distinctBy{it.id}.sortedBy{it.id}
+internal data class HudSnapshot(val fps:String?=null,val pkg:String?=null,val intervals:List<Double> = emptyList(),val rows:List<HudRow> = emptyList(),val cores:List<HudCore> = emptyList())
 internal class HudMetrics(private val context:Context){
     private fun read(path:String)=runCatching{File(path).bufferedReader().use{it.readLine()?.trim()}}.getOrNull()
     private fun number(path:String)=read(path)?.toLongOrNull()
@@ -56,7 +65,7 @@ internal class HudMetrics(private val context:Context){
             val level=int(BatteryManager.EXTRA_LEVEL);val scale=int(BatteryManager.EXTRA_SCALE)
             val percent=if(level!=null&&scale!=null&&scale>0&&level in 0..scale)level*100/scale else null
             val current=context.getSystemService(BatteryManager::class.java)?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-            val watts=batteryWatts(current,int(BatteryManager.EXTRA_VOLTAGE))
+            val watts=batteryWatts(current,int(BatteryManager.EXTRA_VOLTAGE))?.let{if((current?:0)<0)-it else it}
             add(HudRow("BAT",percent?.let{"$it%"}?:"—",watts?.let{fmt(it)+" W"}.orEmpty(),int(BatteryManager.EXTRA_TEMPERATURE)?.let{"${it/10}°C"}.orEmpty()))
         }
     }

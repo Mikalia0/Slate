@@ -1,0 +1,6 @@
+<resources>
+    <string name="hud_style">Style</string>
+    <string name="hud_style_panel">Panel</string>
+    <string name="hud_style_classic">Classic</string>
+    <string name="hud_classic_hint">Tap the floating monitor to collapse or expand it.</string>
+</resources>

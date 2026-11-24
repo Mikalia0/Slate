@@ -30,6 +30,7 @@ internal fun MonitorsScreen(){
     var fps by remember{mutableStateOf(PerformanceOverlayService.fps)}
     var failed by remember{mutableStateOf(false)}
     val prefs=remember{context.getSharedPreferences("monitor",0)}
+    var style by remember{mutableStateOf(hudStyle(prefs.getString("style",null)))}
     var mask by remember{mutableIntStateOf(prefs.getInt("metrics",HUD_DEFAULT).and(HUD_ALL).let{if(it==0)HUD_MINIMAL else it})}
     var scale by remember{mutableFloatStateOf(prefs.getFloat("scale",1f).coerceIn(.7f,1.4f))}
     var opacity by remember{mutableFloatStateOf(prefs.getFloat("opacity",.88f).coerceIn(.35f,1f))}
@@ -41,20 +42,25 @@ internal fun MonitorsScreen(){
             delay(500)
         }
     }
-    val preview=remember(mask,fps,packageName){
+    val preview=remember(mask,fps,packageName,style,running){
         HudSnapshot(if(running)fps else "115",packageName?:"com.example.game",if(mask.shows(HudMetric.FRAMES))listOf(8.4,8.7,9.0,8.3,8.9,8.4,10.2,8.5,9.1,8.3,8.8,8.7)else emptyList(),buildList{
             if(mask.shows(HudMetric.GPU))add(HudRow("GPU","96%","", "56°C"))
             if(mask.shows(HudMetric.CPU))add(HudRow("CPU","84%","1.80 GHz"))
             if(mask.shows(HudMetric.RAM))add(HudRow("RAM","85%",extra="2.9/3.4 GiB",fraction=.85f))
             if(mask.shows(HudMetric.BATTERY))add(HudRow("BAT","19%","3.1 W","37°C"))
-        })
+        },if(style==HudStyle.CLASSIC&&mask.shows(HudMetric.CPU))(0..7).map{HudCore(it,listOf(14,9,11,12,17,20,1,2)[it],if(it<4)1300 else if(it<7)1800 else 2400,if(it<4)"0,1,2,3" else if(it<7)"4,5,6" else "7")}else emptyList())
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
         Text(stringResource(R.string.tool_monitors),style=MaterialTheme.typography.headlineSmall)
+        Text(stringResource(R.string.hud_style),style=MaterialTheme.typography.titleSmall,color=MaterialTheme.colorScheme.primary)
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+            HudStyle.entries.forEach{option->FilterChip(selected=style==option,onClick={style=option;prefs.edit().putString("style",option.name).apply()},label={Text(stringResource(option.label))},modifier=Modifier.weight(1f))}
+        }
         Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
             Column(Modifier.padding(14.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)){
                 Text(stringResource(R.string.hud_preview),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                AndroidView(factory={HudOverlayView(it)},update={it.update(mask,preview,scale,opacity)})
+                AndroidView(factory={HudOverlayView(it)},update={it.update(mask,preview,scale,opacity,style)})
+                if(style==HudStyle.CLASSIC)Text(stringResource(R.string.hud_classic_hint),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 if(running)Text(packageName?:stringResource(R.string.monitor_no_app),style=MaterialTheme.typography.bodySmall)
             }
         }
