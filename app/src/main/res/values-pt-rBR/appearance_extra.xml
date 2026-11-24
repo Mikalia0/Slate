@@ -1,14 +1,17 @@
 <resources>
-    <string name="accent_title">Cor de destaque</string>
-    <string name="accent_mint">Menta</string>
-    <string name="accent_violet">Violeta</string>
-    <string name="accent_blue">Azul</string>
-    <string name="accent_cyan">Ciano</string>
-    <string name="accent_rose">Rosa</string>
-    <string name="accent_amber">Âmbar</string>
-    <string name="accent_green">Verde</string>
-    <string name="accent_graphite">Grafite</string>
     <string name="setup_files">Arquivos e galeria</string>
     <string name="setup_files_desc">Explore, organize e visualize suas mídias localmente.</string>
     <string name="monitor_neon_desc">Borda roxa e fundo translúcido. Pare o overlay para mudar o estilo.</string>
+    <string name="palette_mode">Modo de exibição</string>
+    <string name="palette_title">Tema</string>
+    <string name="palette_slate">Slate</string>
+    <string name="palette_slate_desc">Menta suave</string>
+    <string name="palette_ocean">Ocean</string>
+    <string name="palette_ocean_desc">Azul profundo</string>
+    <string name="palette_aurora">Aurora</string>
+    <string name="palette_aurora_desc">Tons violetas</string>
+    <string name="palette_graphite">Graphite</string>
+    <string name="palette_graphite_desc">Cinza neutro</string>
+    <string name="palette_wallpaper">Papel de parede</string>
+    <string name="palette_wallpaper_desc">Seguir as cores do Android</string>
 </resources>

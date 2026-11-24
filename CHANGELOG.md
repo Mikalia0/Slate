@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Complete themes
+
+- Replace accent swatches with four complete Material 3 themes (Slate, Ocean, Aurora and Graphite) and Android wallpaper colors.
+- Use coherent primary, secondary, tertiary, neutral and surface roles across all screens, with faithful miniature previews and separate display mode controls.
+- Migrate existing accent preferences and preserve light, dark, system and AMOLED modes.
+
 ## 0.5.0-dev — Optional advanced access setup
 
 - Offer Root, Shizuku or None in onboarding and Settings, with explicit authorization and no automatic permission prompts.

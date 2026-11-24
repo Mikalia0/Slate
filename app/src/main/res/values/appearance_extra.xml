@@ -1,14 +1,17 @@
 <resources>
-    <string name="accent_title">Accent color</string>
-    <string name="accent_mint">Mint</string>
-    <string name="accent_violet">Violet</string>
-    <string name="accent_blue">Blue</string>
-    <string name="accent_cyan">Cyan</string>
-    <string name="accent_rose">Rose</string>
-    <string name="accent_amber">Amber</string>
-    <string name="accent_green">Green</string>
-    <string name="accent_graphite">Graphite</string>
     <string name="setup_files">Files and gallery</string>
     <string name="setup_files_desc">Browse, organize and view your media locally.</string>
     <string name="monitor_neon_desc">Purple edge and translucent background. Stop the overlay to change its style.</string>
+    <string name="palette_mode">Display mode</string>
+    <string name="palette_title">Theme</string>
+    <string name="palette_slate">Slate</string>
+    <string name="palette_slate_desc">Soft mint</string>
+    <string name="palette_ocean">Ocean</string>
+    <string name="palette_ocean_desc">Deep blue</string>
+    <string name="palette_aurora">Aurora</string>
+    <string name="palette_aurora_desc">Violet tones</string>
+    <string name="palette_graphite">Graphite</string>
+    <string name="palette_graphite_desc">Neutral gray</string>
+    <string name="palette_wallpaper">Wallpaper</string>
+    <string name="palette_wallpaper_desc">Follow Android colors</string>
 </resources>

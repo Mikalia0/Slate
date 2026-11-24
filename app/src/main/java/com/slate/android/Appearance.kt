@@ -33,95 +33,143 @@ import androidx.compose.ui.unit.dp
 
 internal enum class SlateTheme(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark"), AMOLED("AMOLED") }
 
-internal enum class SlateAccent(val label:Int,val light:Color,val dark:Color){
-    MINT(R.string.accent_mint,Color(0xFF246B54),Color(0xFFA7E8CF)),
-    VIOLET(R.string.accent_violet,Color(0xFF7051A2),Color(0xFFD1BCFF)),
-    BLUE(R.string.accent_blue,Color(0xFF315DAA),Color(0xFFB0C9FF)),
-    CYAN(R.string.accent_cyan,Color(0xFF006879),Color(0xFF80D5E6)),
-    ROSE(R.string.accent_rose,Color(0xFF9C4166),Color(0xFFFFB0CD)),
-    AMBER(R.string.accent_amber,Color(0xFF805600),Color(0xFFFFC76A)),
-    GREEN(R.string.accent_green,Color(0xFF41682F),Color(0xFFACD796)),
-    GRAPHITE(R.string.accent_graphite,Color(0xFF515F72),Color(0xFFBBC8DC))
+// Each theme owns its complete Material 3 palette, not just the primary accent.
+internal enum class SlatePalette(val label:Int,val description:Int){
+    SLATE(R.string.palette_slate,R.string.palette_slate_desc),
+    OCEAN(R.string.palette_ocean,R.string.palette_ocean_desc),
+    AURORA(R.string.palette_aurora,R.string.palette_aurora_desc),
+    GRAPHITE(R.string.palette_graphite,R.string.palette_graphite_desc),
+    WALLPAPER(R.string.palette_wallpaper,R.string.palette_wallpaper_desc)
 }
-private fun ColorScheme.withAccent(accent:SlateAccent,dark:Boolean):ColorScheme{
-    if(accent==SlateAccent.MINT)return this
-    val tone=if(dark)accent.dark else accent.light
-    val neutral=if(dark)Color(0xFF131416)else Color(0xFFFAFAFC)
-    val foreground=if(dark)Color(0xFFE5E3E9)else Color(0xFF1B1B20)
-    val container=lerp(neutral,tone,if(dark).22f else .15f)
-    val secondaryTone=lerp(tone,if(dark)Color(0xFFD0D0D8)else Color(0xFF555562),.52f)
-    return copy(primary=tone,onPrimary=if(dark)Color(0xFF18141E)else Color.White,
-        primaryContainer=container,onPrimaryContainer=if(dark)tone else accent.light,
-        secondary=secondaryTone,onSecondary=if(dark)Color(0xFF1C1B20)else Color.White,
-        secondaryContainer=lerp(neutral,tone,.14f),onSecondaryContainer=foreground,
-        tertiary=tone,onTertiary=if(dark)Color(0xFF18141E)else Color.White,
-        tertiaryContainer=container,onTertiaryContainer=foreground,
-        background=neutral,surface=neutral,onBackground=foreground,onSurface=foreground,
-        surfaceVariant=lerp(neutral,tone,.12f),
-        onSurfaceVariant=if(dark)Color(0xFFC8C5CF)else Color(0xFF4A4953),
-        surfaceContainer=lerp(neutral,tone,if(dark).075f else .055f),
-        surfaceContainerLow=lerp(neutral,tone,.035f),surfaceContainerLowest=neutral,
-        surfaceContainerHigh=lerp(neutral,tone,.11f),surfaceContainerHighest=lerp(neutral,tone,.16f),
-        surfaceTint=tone,outlineVariant=lerp(neutral,tone,if(dark).25f else .29f))
+internal fun migratePalette(saved:String?,legacyAccent:String?,legacyDynamic:Boolean):SlatePalette{
+    saved?.let{runCatching{SlatePalette.valueOf(it)}.getOrNull()?.let{return it}}
+    if(legacyDynamic&&Build.VERSION.SDK_INT>=31)return SlatePalette.WALLPAPER
+    return when(legacyAccent){"BLUE","CYAN"->SlatePalette.OCEAN;"VIOLET","ROSE"->SlatePalette.AURORA;"GRAPHITE","AMBER"->SlatePalette.GRAPHITE;else->SlatePalette.SLATE}
 }
-
+private data class ThemeTones(val primary:Long,val onPrimary:Long,val primaryContainer:Long,val onPrimaryContainer:Long,val secondary:Long,val onSecondary:Long,val secondaryContainer:Long,val onSecondaryContainer:Long,val tertiary:Long,val onTertiary:Long,val tertiaryContainer:Long,val onTertiaryContainer:Long,val background:Long,val text:Long,val variant:Long,val outline:Long,val dim:Long,val low:Long,val container:Long,val high:Long,val highest:Long,val bright:Long,val lowest:Long)
+private fun tones(palette:SlatePalette,dark:Boolean):ThemeTones=when(palette){
+    SlatePalette.OCEAN->if(dark)ThemeTones(0xFFAFCBFF,0xFF082F61,0xFF254B7E,0xFFD5E3FF,0xFFB6C8E4,0xFF20334B,0xFF304762,0xFFD7E5FF,0xFF86D7E7,0xFF00363E,0xFF164B55,0xFFA7EDFA,0xFF101722,0xFFE1E8F5,0xFFBFCBDD,0xFF8B9BB2,0xFF101722,0xFF161F2C,0xFF1C2838,0xFF253347,0xFF304055,0xFF354357,0xFF0B111C)
+        else ThemeTones(0xFF285DA8,0xFFFFFFFF,0xFFD5E3FF,0xFF102D57,0xFF4B607D,0xFFFFFFFF,0xFFD7E5FA,0xFF192E49,0xFF006878,0xFFFFFFFF,0xFFA7EDFA,0xFF00343D,0xFFF5F8FF,0xFF172334,0xFF435369,0xFF738298,0xFFD6E0EF,0xFFEDF2FA,0xFFE5EBF5,0xFFDAE4F1,0xFFD0DCEC,0xFFF5F8FF,0xFFFFFFFF)
+    SlatePalette.AURORA->if(dark)ThemeTones(0xFFD5BCFF,0xFF3B2268,0xFF523782,0xFFF0DEFF,0xFFCFBDE5,0xFF392C4B,0xFF4C3C62,0xFFEEDFFF,0xFFF4B4CC,0xFF55283D,0xFF713E53,0xFFFFD8E7,0xFF18131F,0xFFEAE2F2,0xFFCDC1D9,0xFF998AA9,0xFF18131F,0xFF211A2A,0xFF292135,0xFF342940,0xFF40344E,0xFF41364D,0xFF120E19)
+        else ThemeTones(0xFF704BA2,0xFFFFFFFF,0xFFEADDFF,0xFF2D1255,0xFF675477,0xFFFFFFFF,0xFFEADDF5,0xFF2D1D3C,0xFF95496B,0xFFFFFFFF,0xFFFFD8E7,0xFF421529,0xFFFCF7FF,0xFF251C30,0xFF56495F,0xFF84758E,0xFFE7DEEE,0xFFF6EFFB,0xFFF0E7F6,0xFFE9DEF0,0xFFE0D3EB,0xFFFCF7FF,0xFFFFFFFF)
+    SlatePalette.GRAPHITE->if(dark)ThemeTones(0xFFD5DBE4,0xFF292E36,0xFF424A56,0xFFF1F4F8,0xFFBEC5CF,0xFF30363E,0xFF3D454F,0xFFE0E5EC,0xFFBAC9D9,0xFF263645,0xFF3A4B5C,0xFFDCEBFA,0xFF131416,0xFFE4E5E8,0xFFC4C7CD,0xFF93979F,0xFF131416,0xFF1A1C1F,0xFF212327,0xFF2B2E33,0xFF363940,0xFF383A3E,0xFF0D0E10)
+        else ThemeTones(0xFF454F5C,0xFFFFFFFF,0xFFDEE4EC,0xFF202831,0xFF555D68,0xFFFFFFFF,0xFFE1E5EB,0xFF252B32,0xFF4B6378,0xFFFFFFFF,0xFFDCEBFA,0xFF1D3448,0xFFF8F9FB,0xFF202328,0xFF464B53,0xFF777C85,0xFFDBDDE2,0xFFF0F1F4,0xFFE9EBEF,0xFFE1E4E9,0xFFD9DCE2,0xFFF8F9FB,0xFFFFFFFF)
+    else->if(dark)ThemeTones(0xFFA7E8CF,0xFF10372B,0xFF264D40,0xFFC1F6E0,0xFFB5CEC2,0xFF23382F,0xFF354C41,0xFFD0EBDD,0xFFA7CDD8,0xFF153640,0xFF294D59,0xFFC4E9F3,0xFF111514,0xFFE1E4E1,0xFFBFC9C3,0xFF89968E,0xFF111514,0xFF191F1D,0xFF202624,0xFF292F2D,0xFF343C38,0xFF373E3A,0xFF0C100E)
+        else ThemeTones(0xFF246B54,0xFFFFFFFF,0xFFBDEED7,0xFF083B2A,0xFF4B6358,0xFFFFFFFF,0xFFD0EBDD,0xFF192E25,0xFF3D6472,0xFFFFFFFF,0xFFC4E9F3,0xFF11343F,0xFFF8FAF7,0xFF18211D,0xFF46554E,0xFF738279,0xFFD7E1DA,0xFFF0F5F0,0xFFE9EFEA,0xFFE0E8E2,0xFFD7E1D9,0xFFF8FAF7,0xFFFFFFFF)
+}
+private fun staticScheme(palette:SlatePalette,dark:Boolean):ColorScheme{
+    val t=tones(palette,dark)
+    val reverse=tones(palette,!dark)
+    val base=if(dark)darkColorScheme()else lightColorScheme()
+    return base.copy(
+        primary=Color(t.primary),onPrimary=Color(t.onPrimary),primaryContainer=Color(t.primaryContainer),onPrimaryContainer=Color(t.onPrimaryContainer),inversePrimary=Color(reverse.primary),
+        secondary=Color(t.secondary),onSecondary=Color(t.onSecondary),secondaryContainer=Color(t.secondaryContainer),onSecondaryContainer=Color(t.onSecondaryContainer),
+        tertiary=Color(t.tertiary),onTertiary=Color(t.onTertiary),tertiaryContainer=Color(t.tertiaryContainer),onTertiaryContainer=Color(t.onTertiaryContainer),
+        background=Color(t.background),onBackground=Color(t.text),surface=Color(t.background),onSurface=Color(t.text),
+        surfaceVariant=Color(t.highest),onSurfaceVariant=Color(t.variant),surfaceTint=Color(t.primary),
+        inverseSurface=Color(reverse.background),inverseOnSurface=Color(reverse.text),outline=Color(t.outline),outlineVariant=lerp(Color(t.background),Color(t.outline),.42f),
+        surfaceDim=Color(t.dim),surfaceBright=Color(t.bright),surfaceContainerLowest=Color(t.lowest),
+        surfaceContainerLow=Color(t.low),surfaceContainer=Color(t.container),surfaceContainerHigh=Color(t.high),surfaceContainerHighest=Color(t.highest)
+    )
+}
+private fun ColorScheme.amoled():ColorScheme=copy(
+    background=Color.Black,surface=Color.Black,surfaceDim=Color.Black,surfaceContainerLowest=Color.Black,
+    surfaceContainerLow=lerp(Color.Black,surfaceContainerLow,.45f),
+    surfaceContainer=lerp(Color.Black,surfaceContainer,.62f),
+    surfaceContainerHigh=lerp(Color.Black,surfaceContainerHigh,.72f),
+    surfaceContainerHighest=lerp(Color.Black,surfaceContainerHighest,.78f)
+)
 @Composable
-internal fun SlateAppearance(mode: SlateTheme, dynamic: Boolean, accent:SlateAccent, activity: ComponentActivity, content: @Composable () -> Unit) {
-    val dark = when (mode) { SlateTheme.SYSTEM -> isSystemInDarkTheme(); SlateTheme.LIGHT -> false; else -> true }
-    val context = LocalContext.current
-    val base = if (dynamic && Build.VERSION.SDK_INT >= 31) {
-        if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-    } else if (dark) darkColorScheme(primary = Color(0xFFA7E8CF), onPrimary = Color(0xFF10372B), primaryContainer = Color(0xFF264D40), onPrimaryContainer = Color(0xFFC1F6E0), background = Color(0xFF111514), surface = Color(0xFF111514), surfaceContainer = Color(0xFF202624), surfaceContainerHigh = Color(0xFF292F2D), onSurface = Color(0xFFE1E4E1), onSurfaceVariant = Color(0xFFBFC9C3), outlineVariant = Color(0xFF404A45))
-    else lightColorScheme(primary = Color(0xFF246B54), onPrimary = Color.White, primaryContainer = Color(0xFFBDEED7), onPrimaryContainer = Color(0xFF083B2A), background = Color(0xFFF8FAF7), surface = Color(0xFFF8FAF7), surfaceContainer = Color(0xFFE9EFEA), surfaceContainerHigh = Color(0xFFE0E8E2), onSurface = Color(0xFF18211D), onSurfaceVariant = Color(0xFF46554E), outlineVariant = Color(0xFFC1CDC5))
-    val palette=if(dynamic&&Build.VERSION.SDK_INT>=31)base else base.withAccent(accent,dark)
-    val colors = if (mode == SlateTheme.AMOLED) palette.copy(background = Color.Black, surface = Color.Black, surfaceContainerLowest=Color.Black,surfaceContainerLow=Color(0xFF101012),surfaceContainer = Color(0xFF141416), surfaceContainerHigh = Color(0xFF202024)) else palette
-    SideEffect {
-        val style = if (dark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT) else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
-        activity.enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+private fun paletteScheme(palette:SlatePalette,dark:Boolean,amoled:Boolean=false):ColorScheme{
+    val context=LocalContext.current
+    val scheme=if(palette==SlatePalette.WALLPAPER&&Build.VERSION.SDK_INT>=31){
+        if(dark)dynamicDarkColorScheme(context)else dynamicLightColorScheme(context)
+    }else staticScheme(palette,dark)
+    return if(amoled)scheme.amoled()else scheme
+}
+@Composable
+internal fun SlateAppearance(mode:SlateTheme,palette:SlatePalette,activity:ComponentActivity,content:@Composable ()->Unit){
+    val dark=when(mode){SlateTheme.SYSTEM->isSystemInDarkTheme();SlateTheme.LIGHT->false;else->true}
+    val colors=paletteScheme(palette,dark,mode==SlateTheme.AMOLED)
+    SideEffect{
+        val style=if(dark)SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)else SystemBarStyle.light(android.graphics.Color.TRANSPARENT,android.graphics.Color.TRANSPARENT)
+        activity.enableEdgeToEdge(statusBarStyle=style,navigationBarStyle=style)
     }
-    MaterialTheme(colorScheme = colors, content = content)
+    MaterialTheme(colorScheme=colors){Surface(color=colors.background,modifier=Modifier.fillMaxSize()){content()}}
 }
 
 @Composable
-internal fun ThemeOptions(mode: SlateTheme, dynamic: Boolean, accent:SlateAccent, onMode: (SlateTheme) -> Unit, onDynamic: (Boolean) -> Unit, onAccent:(SlateAccent)->Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SlateTheme.entries.chunked(2).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                row.forEach { option ->
-                    val selected = mode == option
-                    OutlinedCard(onClick = { onMode(option) }, modifier = Modifier.weight(1f),
-                        colors = CardDefaults.outlinedCardColors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer),
-                        border = androidx.compose.foundation.BorderStroke(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            val preview = when(option) { SlateTheme.LIGHT -> Color(0xFFF2F5F3); SlateTheme.AMOLED -> Color.Black; SlateTheme.DARK -> Color(0xFF202624); else -> Color(0xFF687771) }
-                            Column(Modifier.fillMaxWidth().height(54.dp).background(preview, RoundedCornerShape(8.dp)).padding(8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                Box(Modifier.fillMaxWidth(.6f).height(5.dp).background((if(option==SlateTheme.LIGHT)accent.light else accent.dark), RoundedCornerShape(3.dp)))
-                                Box(Modifier.fillMaxWidth().height(12.dp).background(Color(0xFF829C91).copy(alpha=.55f), RoundedCornerShape(4.dp)))
+private fun ThemePreview(scheme:ColorScheme){
+    // Miniature application surface uses exactly the same roles as the actual UI.
+    Column(Modifier.fillMaxWidth().height(100.dp).background(scheme.background,RoundedCornerShape(9.dp)).padding(8.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)){
+            Box(Modifier.size(12.dp).background(scheme.primary,CircleShape))
+            Box(Modifier.weight(1f).height(6.dp).background(scheme.onSurface.copy(alpha=.75f),RoundedCornerShape(3.dp)))
+            Box(Modifier.size(9.dp).background(scheme.onSurfaceVariant.copy(alpha=.7f),CircleShape))
+        }
+        Column(Modifier.fillMaxWidth().weight(1f).background(scheme.surfaceContainer,RoundedCornerShape(6.dp)).padding(7.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
+            Box(Modifier.fillMaxWidth(.54f).height(5.dp).background(scheme.onSurfaceVariant,RoundedCornerShape(3.dp)))
+            Box(Modifier.fillMaxWidth().height(6.dp).background(scheme.surfaceContainerHighest,RoundedCornerShape(3.dp))){
+                Box(Modifier.fillMaxWidth(.63f).fillMaxHeight().background(scheme.primary,RoundedCornerShape(3.dp)))
+            }
+            Box(Modifier.fillMaxWidth(.85f).height(8.dp).background(scheme.secondaryContainer,RoundedCornerShape(4.dp)))
+        }
+        Row(horizontalArrangement=Arrangement.spacedBy(5.dp)){
+            Box(Modifier.weight(1f).height(7.dp).background(scheme.primary,RoundedCornerShape(4.dp)))
+            Box(Modifier.weight(1f).height(7.dp).background(scheme.tertiary,RoundedCornerShape(4.dp)))
+            Box(Modifier.weight(1f).height(7.dp).background(scheme.surfaceContainerHigh,RoundedCornerShape(4.dp)))
+        }
+    }
+}
+@Composable
+internal fun ThemeOptions(mode:SlateTheme,palette:SlatePalette,onMode:(SlateTheme)->Unit,onPalette:(SlatePalette)->Unit){
+    val dark=when(mode){SlateTheme.SYSTEM->isSystemInDarkTheme();SlateTheme.LIGHT->false;else->true}
+    Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(10.dp)){
+        Text(stringResource(R.string.palette_mode),style=MaterialTheme.typography.titleSmall)
+        SlateTheme.entries.chunked(2).forEach{row->
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                row.forEach{option->
+                    FilterChip(selected=mode==option,onClick={onMode(option)},label={Text(tr(option.label))},modifier=Modifier.weight(1f),leadingIcon=if(mode==option){{Icon(Icons.Default.Check,null,Modifier.size(16.dp))}}else null)
+                }
+            }
+        }
+        Text(stringResource(R.string.palette_title),style=MaterialTheme.typography.titleSmall)
+        SlatePalette.entries.filter{it!=SlatePalette.WALLPAPER}.chunked(2).forEach{row->
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
+                row.forEach{option->
+                    val selected=palette==option
+                    val scheme=paletteScheme(option,dark,mode==SlateTheme.AMOLED)
+                    OutlinedCard(onClick={onPalette(option)},modifier=Modifier.weight(1f),
+                        colors=CardDefaults.outlinedCardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer),
+                        border=BorderStroke(if(selected)2.dp else 1.dp,if(selected)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)){
+                        Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
+                            ThemePreview(scheme)
+                            Row(verticalAlignment=Alignment.CenterVertically){
+                                Text(stringResource(option.label),Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
+                                if(selected)Icon(Icons.Default.Check,null,Modifier.size(18.dp),tint=MaterialTheme.colorScheme.primary)
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(tr(option.label), modifier = Modifier.weight(1f))
-                                if (selected) Icon(Icons.Default.Check, "Selected", tint = MaterialTheme.colorScheme.primary)
-                            }
+                            Text(stringResource(option.description),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
         }
-        Text(stringResource(R.string.accent_title),style=MaterialTheme.typography.titleSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        SlateAccent.entries.chunked(4).forEach{choices->
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){
-                choices.forEach{option->
-                    val selected=accent==option&&!dynamic
-                    Column(Modifier.weight(1f).selectable(selected=selected,role=Role.RadioButton,onClick={onDynamic(false);onAccent(option)}).padding(vertical=5.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)){
-                        Surface(Modifier.size(42.dp),shape=CircleShape,color=option.dark,border=if(selected)BorderStroke(2.dp,MaterialTheme.colorScheme.onSurface)else null){
-                            Box(contentAlignment=Alignment.Center){if(selected)Icon(Icons.Default.Check,null,tint=Color(0xFF1B1722),modifier=Modifier.size(20.dp))}
-                        }
-                        Text(stringResource(option.label),style=MaterialTheme.typography.labelSmall,maxLines=1)
+        if(Build.VERSION.SDK_INT>=31){
+            val selected=palette==SlatePalette.WALLPAPER
+            val scheme=paletteScheme(SlatePalette.WALLPAPER,dark,mode==SlateTheme.AMOLED)
+            OutlinedCard(onClick={onPalette(SlatePalette.WALLPAPER)},modifier=Modifier.fillMaxWidth(),border=BorderStroke(if(selected)2.dp else 1.dp,if(selected)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)){
+                Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
+                    Row(horizontalArrangement=Arrangement.spacedBy(3.dp)){
+                        listOf(scheme.primary,scheme.secondary,scheme.tertiary).forEach{color->Box(Modifier.size(17.dp).background(color,CircleShape))}
                     }
+                    Column(Modifier.weight(1f)){
+                        Text(stringResource(R.string.palette_wallpaper),style=MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.palette_wallpaper_desc),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if(selected)Icon(Icons.Default.Check,null,tint=MaterialTheme.colorScheme.primary)
                 }
             }
         }
-        if (Build.VERSION.SDK_INT >= 31) ListItem(headlineContent = { Text(tr("Dynamic colors")) }, supportingContent = { Text(tr("Use your wallpaper colors")) }, trailingContent = { Switch(checked = dynamic, onCheckedChange = onDynamic) })
     }
 }
 
@@ -138,7 +186,7 @@ private fun SetupFeature(icon:Int,title:String,subtitle:String){
     }
 }
 @Composable
-internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,dynamic:Boolean,accent:SlateAccent,onMode:(SlateTheme)->Unit,onDynamic:(Boolean)->Unit,onAccent:(SlateAccent)->Unit,privilege:PrivilegeMode,onPrivilege:(PrivilegeMode)->Unit,rootAuthorized:Boolean,onRootChanged:(Boolean)->Unit,finish:()->Unit){
+internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,palette:SlatePalette,onMode:(SlateTheme)->Unit,onPalette:(SlatePalette)->Unit,privilege:PrivilegeMode,onPrivilege:(PrivilegeMode)->Unit,rootAuthorized:Boolean,onRootChanged:(Boolean)->Unit,finish:()->Unit){
     var page by androidx.compose.runtime.saveable.rememberSaveable{mutableIntStateOf(0)}
     BackHandler(page>0){page--}
     Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing){padding->
@@ -180,7 +228,7 @@ internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,dynamic
                         else->{
                             Text(tr("Make it yours"),style=MaterialTheme.typography.headlineLarge)
                             Text(tr("Choose your appearance. You can change it in Settings."),style=MaterialTheme.typography.bodyLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                            ThemeOptions(mode,dynamic,accent,onMode,onDynamic,onAccent)
+                            ThemeOptions(mode,palette,onMode,onPalette)
                         }
                     }
                 }
