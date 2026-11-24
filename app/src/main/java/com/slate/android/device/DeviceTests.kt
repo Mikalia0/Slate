@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package com.slate.android.device
 
+import com.slate.android.tr
+
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -57,9 +59,9 @@ internal fun LiveSensors(){
     }
     Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
         Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-            Row(verticalAlignment=Alignment.CenterVertically){Text("Live sensors",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);Switch(active,{active=it})}
+            Row(verticalAlignment=Alignment.CenterVertically){Text(tr("Live sensors"),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);Switch(active,{active=it})}
             if(active){
-                if(available.isEmpty())Text("No supported sensors")
+                if(available.isEmpty())Text(tr("No supported sensors"))
                 available.forEach{sensor->
                     Text(sensor.stringType.substringAfterLast('.').replace('_',' '),style=MaterialTheme.typography.labelMedium)
                     val unit=when(sensor.type){Sensor.TYPE_ACCELEROMETER->"m/s²";Sensor.TYPE_GYROSCOPE->"rad/s";Sensor.TYPE_MAGNETIC_FIELD->"µT";Sensor.TYPE_LIGHT->"lx";Sensor.TYPE_PROXIMITY->"cm";Sensor.TYPE_PRESSURE->"hPa";else->""}
@@ -81,7 +83,7 @@ internal fun DeviceTests(onBack:()->Unit){
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick={if(mode!=0)mode=0 else onBack()}){Icon(Icons.Default.ArrowBack,"Back")}
             Text(listOf("Device tests","Display test","Touch test","Sensor test")[mode],Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
-            if(mode==2)TextButton(onClick={points.clear()}){Text("Clear")}
+            if(mode==2)TextButton(onClick={points.clear()}){Text(tr("Clear"))}
         }
         when(mode){
             0->Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
@@ -92,11 +94,11 @@ internal fun DeviceTests(onBack:()->Unit){
                 }
             }
             1->Box(Modifier.fillMaxSize().background(colors[color]).pointerInput(Unit){detectTapGestures{color=(color+1)%colors.size}}){
-                Text("Tap to change color",Modifier.align(Alignment.BottomCenter).padding(12.dp),color=if(color==4)Color.White else Color.Black)
+                Text(tr("Tap to change color"),Modifier.align(Alignment.BottomCenter).padding(12.dp),color=if(color==4)Color.White else Color.Black)
             }
             2->{
                 val ink=MaterialTheme.colorScheme.primary
-                Text("Drag across the screen",Modifier.padding(12.dp),style=MaterialTheme.typography.bodySmall)
+                Text(tr("Drag across the screen"),Modifier.padding(12.dp),style=MaterialTheme.typography.bodySmall)
                 Canvas(Modifier.fillMaxSize().pointerInput(Unit){
                     detectDragGestures(onDragStart={if(points.size>=4000)points.clear();points.add(it)}){change,_->
                         change.consume()

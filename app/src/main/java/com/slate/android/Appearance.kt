@@ -59,7 +59,7 @@ internal fun ThemeOptions(mode: SlateTheme, dynamic: Boolean, onMode: (SlateThem
                                 Box(Modifier.fillMaxWidth().height(12.dp).background(Color(0xFF829C91).copy(alpha=.55f), RoundedCornerShape(4.dp)))
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(option.label, modifier = Modifier.weight(1f))
+                                Text(tr(option.label), modifier = Modifier.weight(1f))
                                 if (selected) Icon(Icons.Default.Check, "Selected", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
@@ -67,7 +67,7 @@ internal fun ThemeOptions(mode: SlateTheme, dynamic: Boolean, onMode: (SlateThem
                 }
             }
         }
-        if (Build.VERSION.SDK_INT >= 31) ListItem(headlineContent = { Text("Dynamic colors") }, supportingContent = { Text("Use your wallpaper colors") }, trailingContent = { Switch(checked = dynamic, onCheckedChange = onDynamic) })
+        if (Build.VERSION.SDK_INT >= 31) ListItem(headlineContent = { Text(tr("Dynamic colors")) }, supportingContent = { Text(tr("Use your wallpaper colors")) }, trailingContent = { Switch(checked = dynamic, onCheckedChange = onDynamic) })
     }
 }
 
@@ -82,29 +82,29 @@ internal fun Onboarding(granted: Boolean, request: () -> Unit, mode: SlateTheme,
                     0 -> {
                         Spacer(Modifier.height(24.dp))
                         Image(painterResource(R.drawable.ic_slate), null, Modifier.size(76.dp))
-                        Text("Welcome to Slate", style = MaterialTheme.typography.headlineLarge)
-                        Text("Understand your storage and device in one place.", style = MaterialTheme.typography.bodyLarge)
-                        ListItem(headlineContent={Text("Storage analyzer")}, supportingContent={Text("Find large files and explore folders.")}, leadingContent={Icon(Icons.Default.Search,null)})
-                        ListItem(headlineContent={Text("Device information")}, supportingContent={Text("Hardware, battery, display and Android.")}, leadingContent={Icon(Icons.Default.Info,null)})
-                        Text("Your files and measurements stay on your device.", color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(tr("Welcome to Slate"), style = MaterialTheme.typography.headlineLarge)
+                        Text(tr("Understand your storage and device in one place."), style = MaterialTheme.typography.bodyLarge)
+                        ListItem(headlineContent={Text(tr("Storage analyzer"))}, supportingContent={Text(tr("Find large files and explore folders."))}, leadingContent={Icon(Icons.Default.Search,null)})
+                        ListItem(headlineContent={Text(tr("Device information"))}, supportingContent={Text(tr("Hardware, battery, display and Android."))}, leadingContent={Icon(Icons.Default.Info,null)})
+                        Text(tr("Your files and measurements stay on your device."), color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     1 -> {
-                        Text("Permissions", style=MaterialTheme.typography.headlineLarge)
-                        Text("Only grant the access needed for the tools you use.")
+                        Text(tr("Permissions"), style=MaterialTheme.typography.headlineLarge)
+                        Text(tr("Only grant the access needed for the tools you use."))
                         Card(Modifier.fillMaxWidth()) {
-                            ListItem(headlineContent={Text("Storage access")}, supportingContent={Text(if(granted) "Granted" else "Required to scan shared files and folders.")}, leadingContent={Icon(Icons.Default.Search,null)}, trailingContent={ if(granted) Icon(Icons.Default.Check,"Granted") else TextButton(onClick=request){Text("Allow")} })
+                            ListItem(headlineContent={Text(tr("Storage access"))}, supportingContent={Text(tr(if(granted) "Granted" else "Required to scan shared files and folders."))}, leadingContent={Icon(Icons.Default.Search,null)}, trailingContent={ if(granted) Icon(Icons.Default.Check,"Granted") else TextButton(onClick=request){Text(tr("Allow"))} })
                         }
-                        ListItem(headlineContent={Text("Device information")}, supportingContent={Text("No additional permission required.")}, leadingContent={Icon(Icons.Default.Info,null)})
-                        Text("You can continue without storage access and enable it later.", style=MaterialTheme.typography.bodySmall)
+                        ListItem(headlineContent={Text(tr("Device information"))}, supportingContent={Text(tr("No additional permission required."))}, leadingContent={Icon(Icons.Default.Info,null)})
+                        Text(tr("You can continue without storage access and enable it later."), style=MaterialTheme.typography.bodySmall)
                     }
                     else -> {
-                        Text("Make it yours",style=MaterialTheme.typography.headlineLarge)
-                        Text("Choose your appearance. You can change it in Settings.")
+                        Text(tr("Make it yours"),style=MaterialTheme.typography.headlineLarge)
+                        Text(tr("Choose your appearance. You can change it in Settings."))
                         ThemeOptions(mode,dynamic,onMode,onDynamic)
                     }
                 }
             }
-            Button(onClick={if(page==2)finish() else page++}, modifier=Modifier.fillMaxWidth()){Text(if(page==2) "Finish setup" else "Continue")}
+            Button(onClick={if(page==2)finish() else page++}, modifier=Modifier.fillMaxWidth()){Text(tr(if(page==2) "Finish setup" else "Continue"))}
             Row(Modifier.fillMaxWidth().padding(12.dp),horizontalArrangement=Arrangement.Center) {
                 repeat(3){ i -> Box(Modifier.padding(4.dp).size(if(i==page) 9.dp else 6.dp).background(if(i==page) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))) }
             }

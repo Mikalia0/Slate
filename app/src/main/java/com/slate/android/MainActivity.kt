@@ -96,11 +96,11 @@ class MainActivity : ComponentActivity() {
                         BackHandler { settings=false }
                         Scaffold(contentWindowInsets=WindowInsets.safeDrawing) { padding ->
                             Column(Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                                Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick={settings=false}){Icon(Icons.Default.ArrowBack,"Back")};Text("Settings",style=MaterialTheme.typography.headlineSmall)}
-                                Text("Appearance",style=MaterialTheme.typography.titleMedium)
+                                Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick={settings=false}){Icon(Icons.Default.ArrowBack,"Back")};Text(tr("Settings"),style=MaterialTheme.typography.headlineSmall)}
+                                Text(tr("Appearance"),style=MaterialTheme.typography.titleMedium)
                                 ThemeOptions(mode,dynamic,onMode,onDynamic)
                                 HorizontalDivider()
-                                ListItem(headlineContent={Text("Storage access")},supportingContent={Text(if(granted)"Granted" else "Not granted")},trailingContent={TextButton(onClick=::requestStorage){Text("Manage")}})
+                                ListItem(headlineContent={Text(tr("Storage access"))},supportingContent={Text(tr(if(granted)"Granted" else "Not granted"))},trailingContent={TextButton(onClick=::requestStorage){Text(tr("Manage"))}})
                                 HorizontalDivider()
                                 DashboardSettings(dashboard)
                                 HorizontalDivider()
@@ -177,18 +177,18 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         bottomBar={
             if(!landscape && showNavigation) {
                 NavigationBar {
-                    NavigationBarItem(selected=!device&&!analyzer,onClick={goHome()},icon={Icon(Icons.Default.Home,null)},label={Text("Home")})
-                    NavigationBarItem(selected=analyzer&&!device,onClick={goStorage()},icon={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},label={Text("Storage")})
-                    NavigationBarItem(selected=device,onClick={if(!device){analyzer=false;devicePage=0;device=true}},icon={Icon(painterResource(R.drawable.ic_device_cpu),null,Modifier.size(24.dp))},label={Text("Device")})
+                    NavigationBarItem(selected=!device&&!analyzer,onClick={goHome()},icon={Icon(Icons.Default.Home,null)},label={Text(tr("Home"))})
+                    NavigationBarItem(selected=analyzer&&!device,onClick={goStorage()},icon={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},label={Text(tr("Storage"))})
+                    NavigationBarItem(selected=device,onClick={if(!device){analyzer=false;devicePage=0;device=true}},icon={Icon(painterResource(R.drawable.ic_device_cpu),null,Modifier.size(24.dp))},label={Text(tr("Device"))})
                 }
             }
         }) { padding ->
         Row(Modifier.fillMaxSize().padding(padding)){
             if(landscape && showNavigation) {
                 NavigationRail(windowInsets=WindowInsets(0,0,0,0)){
-                    NavigationRailItem(selected=!device&&!analyzer,onClick={goHome()},icon={Icon(Icons.Default.Home,null)},label={Text("Home")})
-                    NavigationRailItem(selected=analyzer&&!device,onClick={goStorage()},icon={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},label={Text("Storage")})
-                    NavigationRailItem(selected=device,onClick={if(!device){analyzer=false;devicePage=0;device=true}},icon={Icon(painterResource(R.drawable.ic_device_cpu),null,Modifier.size(24.dp))},label={Text("Device")})
+                    NavigationRailItem(selected=!device&&!analyzer,onClick={goHome()},icon={Icon(Icons.Default.Home,null)},label={Text(tr("Home"))})
+                    NavigationRailItem(selected=analyzer&&!device,onClick={goStorage()},icon={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},label={Text(tr("Storage"))})
+                    NavigationRailItem(selected=device,onClick={if(!device){analyzer=false;devicePage=0;device=true}},icon={Icon(painterResource(R.drawable.ic_device_cpu),null,Modifier.size(24.dp))},label={Text(tr("Device"))})
                 }
             }
             Box(Modifier.weight(1f).fillMaxHeight()){
@@ -218,9 +218,9 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 },status=deviceStatus,openDevicePage={page->devicePage=page;device=true},openApps={apps=true},openCleanup={cleanup=true},openHistory={showHistory=true},dashboard=dashboard,scrollState=homeScroll)
             } else if (!granted) {
                 LaunchedEffect(granted) { model.cancel() }
-                Text("Storage access", style = MaterialTheme.typography.titleLarge)
-                Text("Allow access to shared storage to measure folders. Slate does not delete anything during a scan.")
-                Button(onClick = request) { Text("Grant access") }
+                Text(tr("Storage access"), style = MaterialTheme.typography.titleLarge)
+                Text(tr("Allow access to shared storage to measure folders. Slate does not delete anything during a scan."))
+                Button(onClick = request) { Text(tr("Grant access")) }
             } else {
                 LaunchedEffect(granted, analyzer, selectedPath) {
                     if (state.directory == null || !state.directory!!.toPath().startsWith(root.toPath())) model.open(root)
@@ -238,17 +238,17 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     }
                 }
                 if(state.partialRefresh && !state.saved) Row(verticalAlignment=Alignment.CenterVertically){
-                    Text("Partially refreshed index",Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    TextButton(onClick={selection=emptySet();model.open(root,refresh=true)}){Text("Refresh all")}
+                    Text(tr("Partially refreshed index"),Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick={selection=emptySet();model.open(root,refresh=true)}){Text(tr("Refresh all"))}
                 }
                 if(state.saved) Row(verticalAlignment=Alignment.CenterVertically) {
-                    Text("Saved results",Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    TextButton(onClick={selection=emptySet();model.open(root,refresh=true)}){Text("Refresh")}
+                    Text(tr("Saved results"),Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick={selection=emptySet();model.open(root,refresh=true)}){Text(tr("Refresh"))}
                 }
                 if (state.running) ScanLoading(state, model::cancel)
                 if (state.error != null && !state.running) {
                     Text(state.error.orEmpty(),style=MaterialTheme.typography.bodyMedium)
-                    Button(onClick={model.open(directory,refresh=true)}){Text("Scan again")}
+                    Button(onClick={model.open(directory,refresh=true)}){Text(tr("Scan again"))}
                 }
                 val snapshot = state.snapshot?.takeIf { it.directory == directory }
                 if (snapshot != null) {
@@ -276,11 +276,11 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                     }
                                     IconButton(onClick={confirmDelete=true},enabled=!deleting && !state.saved && !state.partialRefresh && selected.isNotEmpty()){Icon(Icons.Default.Delete,"Delete selected")}
                                 }
-                                TextButton(onClick={selection=entries.map{it.file.path}.toSet()},enabled=!deleting){Text("Select visible")}
+                                TextButton(onClick={selection=entries.map{it.file.path}.toSet()},enabled=!deleting){Text(tr("Select visible"))}
                             }
                         }
                     }
-                    if(deleting) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Deleting selected items…") }
+                    if(deleting) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(tr("Deleting selected items…")) }
                     val scrollKey=directory.path+":"+largeFiles+":"+gridView
                     val restored=scrollStates[scrollKey] ?: (0 to 0)
                     key(scrollKey) {
@@ -301,33 +301,33 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 val personal=snapshot.entries.filter{it.file.name!="Android"}.sumOf{it.bytes}
                                 Card(Modifier.fillMaxWidth().padding(top=8.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                                     Column {
-                                        ListItem(headlineContent={Text("User files")},trailingContent={Text(fmt(personal),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_storage_folder),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-                                        if(android!=null) ListItem(modifier=Modifier.clickable{openFolder(android.file)},headlineContent={Text("Android shared files")},trailingContent={Text(fmt(android.bytes),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_device_system),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-                                        ListItem(modifier=Modifier.clickable{apps=true},headlineContent={Text("App storage")},trailingContent={Icon(Icons.Default.KeyboardArrowRight,"Open")},leadingContent={Icon(painterResource(R.drawable.ic_device_overview),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-                                        Text("Protected files are not fully measurable.",Modifier.padding(horizontal=16.dp,vertical=8.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                        ListItem(headlineContent={Text(tr("User files"))},trailingContent={Text(fmt(personal),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_storage_folder),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                                        if(android!=null) ListItem(modifier=Modifier.clickable{openFolder(android.file)},headlineContent={Text(tr("Android shared files"))},trailingContent={Text(fmt(android.bytes),color=MaterialTheme.colorScheme.primary)},leadingContent={Icon(painterResource(R.drawable.ic_device_system),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                                        ListItem(modifier=Modifier.clickable{apps=true},headlineContent={Text(tr("App storage"))},trailingContent={Icon(Icons.Default.KeyboardArrowRight,"Open")},leadingContent={Icon(painterResource(R.drawable.ic_device_overview),null,Modifier.size(24.dp))},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+                                        Text(tr("Protected files are not fully measurable."),Modifier.padding(horizontal=16.dp,vertical=8.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
                             Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
-                                FilterChip(selected=!largeFiles,onClick={largeFiles=false;selection=emptySet();query=""},enabled=!deleting,label={Text("Folders")})
-                                FilterChip(selected=largeFiles,onClick={largeFiles=true;selection=emptySet();query=""},enabled=!deleting,label={Text("Largest files")})
+                                FilterChip(selected=!largeFiles,onClick={largeFiles=false;selection=emptySet();query=""},enabled=!deleting,label={Text(tr("Folders"))})
+                                FilterChip(selected=largeFiles,onClick={largeFiles=true;selection=emptySet();query=""},enabled=!deleting,label={Text(tr("Largest files"))})
                             }
                             Row(verticalAlignment=Alignment.CenterVertically) {
-                                Text(if(largeFiles)"Files" else "Contents",modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
+                                Text(tr(if(largeFiles)"Files" else "Contents"),modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
                                 IconButton(onClick={gridView=!gridView}){Icon(painterResource(if(gridView)R.drawable.ic_device_storage else R.drawable.ic_device_overview),"Change layout",Modifier.size(22.dp))}
                                 IconButton(onClick={search=!search;if(!search)query=""},enabled=!deleting){Icon(Icons.Default.Search,"Search")}
                                 Box {
-                                    TextButton(onClick={sortMenu=true},enabled=!deleting){Text(listOf("Size ↓","Name","Size ↑","Type","Date ↓")[sortMode])}
+                                    TextButton(onClick={sortMenu=true},enabled=!deleting){Text(tr(listOf("Size ↓","Name","Size ↑","Type","Date ↓")[sortMode]))}
                                     DropdownMenu(expanded=sortMenu,onDismissRequest={sortMenu=false}) {
                                         listOf("Largest first","Name","Smallest first","File type","Newest first").forEachIndexed{index,label->
-                                            DropdownMenuItem(text={Text(label)},onClick={sortMode=index;sortMenu=false})
+                                            DropdownMenuItem(text={Text(tr(label))},onClick={sortMode=index;sortMenu=false})
                                         }
                                     }
                                 }
                             }
-                            if(search) OutlinedTextField(value=query,onValueChange={query=it},placeholder={Text("Search files")},singleLine=true,modifier=Modifier.fillMaxWidth().padding(bottom=8.dp))
+                            if(search) OutlinedTextField(value=query,onValueChange={query=it},placeholder={Text(tr("Search files"))},singleLine=true,modifier=Modifier.fillMaxWidth().padding(bottom=8.dp))
                             if(largeFiles && state.largestLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
-                            else if(entries.isEmpty()) Text(if(snapshot.rootUnreadable)"Folder not accessible" else "No matching items")
+                            else if(entries.isEmpty()) Text(tr(if(snapshot.rootUnreadable)"Folder not accessible" else "No matching items"))
                             }
                         }
                         items(entries,key={it.file.path}){entry->
@@ -358,7 +358,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                     if(selection.isNotEmpty()) Checkbox(checked=checked,onCheckedChange={toggle(entry)},enabled=!deleting)
                                     else Icon(painterResource(fileIcon(entry)),null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(24.dp))
                                 },
-                                trailingContent={Column(horizontalAlignment=Alignment.End){Text(fmt(entry.bytes),color=MaterialTheme.colorScheme.primary);if(entry.skipped>0) Text("Incomplete",style=MaterialTheme.typography.labelSmall)}},
+                                trailingContent={Column(horizontalAlignment=Alignment.End){Text(fmt(entry.bytes),color=MaterialTheme.colorScheme.primary);if(entry.skipped>0) Text(tr("Incomplete"),style=MaterialTheme.typography.labelSmall)}},
                                 colors=ListItemDefaults.colors(containerColor=if(checked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background)
                             )
                             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
@@ -368,12 +368,12 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     }
                     if(confirmDelete && !state.saved && !state.partialRefresh) AlertDialog(onDismissRequest={confirmDelete=false},title={Text("Permanently delete ${selected.size} items?")},
                         text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-                            Text("Measured size: "+fmt(selected.sumOf{it.bytes}))
-                            Text("This cannot be undone. Inaccessible or incomplete items are skipped.")
+                            Text(tr("Measured size: ")+fmt(selected.sumOf{it.bytes}))
+                            Text(tr("This cannot be undone. Inaccessible or incomplete items are skipped."))
                             selected.take(4).forEach{Text(it.file.relativeTo(root).path,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)}
                             if(selected.size>4)Text("And ${selected.size-4} more")
                         }},
-                        dismissButton={TextButton(onClick={confirmDelete=false}){Text("Cancel")}},
+                        dismissButton={TextButton(onClick={confirmDelete=false}){Text(tr("Cancel"))}},
                         confirmButton={TextButton(onClick={
                             confirmDelete=false;deleting=true
                             val targets=selected.toList()
@@ -385,9 +385,9 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                     model.open(directory,refresh=true)
                                 } finally {deleting=false}
                             }
-                        }){Text("Delete permanently",color=MaterialTheme.colorScheme.error)}})
+                        }){Text(tr("Delete permanently"),color=MaterialTheme.colorScheme.error)}})
                 }
-                deletionMessage?.let { message -> AlertDialog(onDismissRequest={deletionMessage=null},title={Text("Deletion result")},text={Text(message)},confirmButton={TextButton(onClick={deletionMessage=null}){Text("Done")}}) }
+                deletionMessage?.let { message -> AlertDialog(onDismissRequest={deletionMessage=null},title={Text(tr("Deletion result"))},text={Text(message)},confirmButton={TextButton(onClick={deletionMessage=null}){Text(tr("Done"))}}) }
 
             }
         }
@@ -397,10 +397,10 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     detail?.let { entry ->
         AlertDialog(onDismissRequest = { detail = null }, title = { Text(entry.file.name) },
             text = { Text(entry.file.path + "\n\n" + fmt(entry.bytes) + if (entry.skipped > 0) "\nSize unavailable or incomplete" else "") },
-            confirmButton = { TextButton(onClick = { detail=null; if(!openSharedFile(context,root,entry.file,false)) deletionMessage="Unable to open file" }) { Text("Open") } },
-            dismissButton = { TextButton(onClick={detail=null;if(!openSharedFile(context,root,entry.file,true))deletionMessage="Unable to share file"}){Text("Share")} })
+            confirmButton = { TextButton(onClick = { detail=null; if(!openSharedFile(context,root,entry.file,false)) deletionMessage="Unable to open file" }) { Text(tr("Open")) } },
+            dismissButton = { TextButton(onClick={detail=null;if(!openSharedFile(context,root,entry.file,true))deletionMessage="Unable to share file"}){Text(tr("Share"))} })
     }
     if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text("Slate") },
         text = { Text("0.5.0-dev • GPL-3.0-only\nProvided without warranty. SD Maid SE is a feature reference; no upstream code is included yet. See the project LICENSE for redistribution terms.") },
-        confirmButton = { TextButton(onClick = { about = false }) { Text("Close") } })
+        confirmButton = { TextButton(onClick = { about = false }) { Text(tr("Close")) } })
 }

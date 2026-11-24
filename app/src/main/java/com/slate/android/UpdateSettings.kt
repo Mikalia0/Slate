@@ -192,16 +192,16 @@ private fun openInstaller(context: Context, apk: File) {
 internal fun UpdateSettings(onCheck: () -> Unit) {
     val context = LocalContext.current
     val installed = remember { context.packageManager.getPackageInfo(context.packageName,0) }
-    Text("Updates",style=MaterialTheme.typography.titleMedium)
+    Text(tr("Updates"),style=MaterialTheme.typography.titleMedium)
     Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Text("Slate ${installed.versionName.orEmpty()}",style=MaterialTheme.typography.titleMedium)
             Text("Build ${packageVersion(installed)} · GitHub releases",style=MaterialTheme.typography.bodySmall)
-            Text("Checks for updates when Slate opens.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tr("Checks for updates when Slate opens."),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             OutlinedButton(onClick=onCheck,modifier=Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Refresh,null,Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Check for updates")
+                Text(tr("Check for updates"))
             }
         }
     }
@@ -277,30 +277,30 @@ internal fun UpdatePrompt(manualRequest: Int) {
 
     if(visible) AlertDialog(
         onDismissRequest={if(!downloading && !checking) visible=false},
-        title={Text(if(candidate!=null) "Update available" else "Slate updates")},
+        title={Text(tr(if(candidate!=null) "Update available" else "Slate updates"))},
         text={
             Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
                 candidate?.let {
-                    Text("A newer version of Slate is available.")
+                    Text(tr("A newer version of Slate is available."))
                     Text("Build ${it.code} · ${Formatter.formatFileSize(context,it.size)}",style=MaterialTheme.typography.bodyMedium)
                 }
                 if(checking) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Text("Checking for updates…")
+                    Text(tr("Checking for updates…"))
                 }
                 if(downloading) {
                     val total=candidate?.size ?: 1L
                     LinearProgressIndicator(progress={(received.toDouble()/total).toFloat().coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())
                     Text(Formatter.formatFileSize(context,received)+" / "+Formatter.formatFileSize(context,total))
                 }
-                message?.let { Text(it,style=MaterialTheme.typography.bodySmall) }
+                message?.let { Text(tr(it),style=MaterialTheme.typography.bodySmall) }
             }
         },
         confirmButton={
             if(!checking && !downloading) {
                 val file=apk
                 val update=candidate
-                if(file!=null) TextButton(onClick={install(file)}){Text("Install")}
+                if(file!=null) TextButton(onClick={install(file)}){Text(tr("Install"))}
                 else if(update!=null) TextButton(onClick={
                     received=0L; downloading=true; message=null
                     job=scope.launch {
@@ -313,7 +313,7 @@ internal fun UpdatePrompt(manualRequest: Int) {
                         catch(e:Exception){message=e.message ?: "Download failed"}
                         finally{downloading=false}
                     }
-                }){Text("Download & install")}
+                }){Text(tr("Download & install"))}
                 else TextButton(onClick={visible=false}){Text("OK")}
             }
         },
@@ -321,7 +321,7 @@ internal fun UpdatePrompt(manualRequest: Int) {
             TextButton(onClick={
                 if(downloading || checking){job?.cancel();message="Cancelled"}
                 else visible=false
-            }){Text(if(downloading || checking)"Cancel" else if(candidate!=null)"Later" else "Close")}
+            }){Text(tr(if(downloading || checking)"Cancel" else if(candidate!=null)"Later" else "Close"))}
         }
     )
 }

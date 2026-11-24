@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package com.slate.android.device
 
+import com.slate.android.tr
+
 import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -156,7 +158,7 @@ private fun SummaryTile(label:String,value:String,subtitle:String,modifier:Modif
         Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                 DeviceGlyph(when(label){"Processor"->R.drawable.ic_device_cpu;"Graphics"->R.drawable.ic_device_gpu;"Display"->R.drawable.ic_device_display;else->R.drawable.ic_device_thermal},modifier=Modifier.size(18.dp))
-                Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(tr(label),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(value,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Medium)
             Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -171,7 +173,7 @@ private fun UsageLine(meter:Meter,onClick:()->Unit) {
             DeviceGlyph(when(meter.title){"Battery"->R.drawable.ic_device_battery;"Storage"->R.drawable.ic_device_storage;else->R.drawable.ic_device_cpu},modifier=Modifier.size(20.dp))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(meter.title,style=MaterialTheme.typography.titleSmall)
+                Text(tr(meter.title),style=MaterialTheme.typography.titleSmall)
                 Text(meter.value+" · "+meter.subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
             TextButton(onClick=onClick,contentPadding=PaddingValues(0.dp)){Text(meter.fraction?.let{"${(it*100).toInt()}%"}?:"Details")}
@@ -184,7 +186,7 @@ private fun UsageLine(meter:Meter,onClick:()->Unit) {
 private fun Panel(title:String,action:String,onClick:()->Unit,content:@Composable ColumnScope.()->Unit) {
     Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment=Alignment.CenterVertically){Text(title,modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick=onClick,contentPadding=PaddingValues(0.dp)){Text(action+" ›")}}
+            Row(verticalAlignment=Alignment.CenterVertically){Text(tr(title),modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);TextButton(onClick=onClick,contentPadding=PaddingValues(0.dp)){Text(tr(action)+" ›")}}
             content()
         }
     }
@@ -192,7 +194,7 @@ private fun Panel(title:String,action:String,onClick:()->Unit,content:@Composabl
 @Composable
 private fun DataLine(label:String,value:String) {
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
-        Text(label,modifier=Modifier.weight(.45f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(tr(label),modifier=Modifier.weight(.45f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value,modifier=Modifier.weight(.55f),style=MaterialTheme.typography.bodySmall)
     }
 }

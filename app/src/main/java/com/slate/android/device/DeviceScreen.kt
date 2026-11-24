@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package com.slate.android.device
 
+import com.slate.android.tr
+
 import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.core.tween
@@ -94,12 +96,12 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
     Column(Modifier.fillMaxSize().padding(horizontal=14.dp)) {
         Row(Modifier.fillMaxWidth().padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically) {
             IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")}
-            Text("Device information",Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall)
-            TextButton(onClick={testMode=true}){Text("Tests")}
+            Text(tr("Device information"),Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall)
+            TextButton(onClick={testMode=true}){Text(tr("Tests"))}
         }
         ScrollableTabRow(selectedTabIndex=pager.currentPage,edgePadding=0.dp,containerColor=MaterialTheme.colorScheme.background) {
             tabNames.forEachIndexed { i,name ->
-                Tab(selected=pager.currentPage==i,onClick={select(i)},text={Text(name,style=MaterialTheme.typography.labelMedium)},
+                Tab(selected=pager.currentPage==i,onClick={select(i)},text={Text(tr(name),style=MaterialTheme.typography.labelMedium)},
                     icon={Icon(painterResource(tabIcons[i]),null,Modifier.size(22.dp))},
                     selectedContentColor=MaterialTheme.colorScheme.primary,unselectedContentColor=MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -176,7 +178,7 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
                         7 -> fixed?.cameras.orEmpty()
                         else -> emptyList()
                     }
-                    if(sections.isEmpty()) item {Text(if(status.error || fixed!=null)"No information available" else "Loading…",style=MaterialTheme.typography.bodyMedium)}
+                    if(sections.isEmpty()) item {Text(tr(if(status.error || fixed!=null)"No information available" else "Loading…"),style=MaterialTheme.typography.bodyMedium)}
                     itemsIndexed(sections,key={index,section->"$index:${section.title}"}){_,section->InfoCard(section,sectionIcon(section,page),initiallyExpanded=page!=6 && page!=7)}
                 }
             }
@@ -202,7 +204,7 @@ private fun FeaturePanel(icon:Int,value:String,label:String,content:@Composable 
                     Box(contentAlignment=Alignment.Center){DeviceGlyph(icon,modifier=Modifier.size(24.dp))}
                 }
                 Column(Modifier.weight(1f)){
-                    Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(tr(label),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(value,style=MaterialTheme.typography.titleLarge,maxLines=2,overflow=TextOverflow.Ellipsis)
                 }
             }
@@ -233,9 +235,9 @@ private fun BatteryPanel(live:LiveInfo?) {
                     }
                 }
                 Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                    Text(battery.reading("Status"),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
+                    Text(tr(battery.reading("Status")),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
                     Text(power?.value?.takeUnless{it==UNKNOWN} ?: "—",style=MaterialTheme.typography.headlineMedium)
-                    Text(power?.label ?: "Battery power",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(tr(power?.label ?: "Battery power"),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
@@ -253,7 +255,7 @@ private fun BatteryPanel(live:LiveInfo?) {
                 Metric(if(full!="—")"Full capacity" else "Estimated capacity",if(full!="—")full else approximate,Modifier.weight(1f))
                 if(health!="—")Metric("Capacity health",health,Modifier.weight(1f))else Spacer(Modifier.weight(1f))
             }
-            Text("Net power at battery",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tr("Net power at battery"),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -267,7 +269,7 @@ private fun InfoCard(section:Section,icon:Int,initiallyExpanded:Boolean) {
             Row(Modifier.fillMaxWidth().clickable{expanded=!expanded}.heightIn(min=44.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 DeviceGlyph(icon)
                 Column(Modifier.weight(1f)) {
-                    Text(section.title,style=MaterialTheme.typography.titleMedium)
+                    Text(tr(section.title),style=MaterialTheme.typography.titleMedium)
                     if(!expanded && preview.isNotBlank()) Text(preview,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
                 }
                 Icon(if(expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,if(expanded)"Collapse" else "Expand")
@@ -277,13 +279,13 @@ private fun InfoCard(section:Section,icon:Int,initiallyExpanded:Boolean) {
                 if(info.value.length>100 || info.value.contains('\n')) {
                     var full by rememberSaveable(info.label){mutableStateOf(false)}
                     Column(Modifier.fillMaxWidth().clickable{full=!full}.padding(vertical=8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){
-                        Text(info.label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(tr(info.label),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(info.value,style=MaterialTheme.typography.bodyMedium,maxLines=if(full)Int.MAX_VALUE else 3,overflow=TextOverflow.Ellipsis)
-                        Text(if(full)"Show less" else "Show all",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+                        Text(tr(if(full)"Show less" else "Show all"),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
                     }
                 } else Row(Modifier.fillMaxWidth().padding(vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=Alignment.CenterVertically) {
                     Text(info.label,Modifier.weight(.46f),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(info.value.takeUnless{it==UNKNOWN} ?: "—",Modifier.weight(.54f),style=MaterialTheme.typography.bodyMedium,fontWeight=FontWeight.Medium,textAlign=TextAlign.End)
+                    Text(tr(info.value.takeUnless{it==UNKNOWN} ?: "—"),Modifier.weight(.54f),style=MaterialTheme.typography.bodyMedium,fontWeight=FontWeight.Medium,textAlign=TextAlign.End)
                 }
             }
         }

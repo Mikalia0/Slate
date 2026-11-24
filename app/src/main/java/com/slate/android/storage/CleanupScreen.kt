@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package com.slate.android.storage
 
+import com.slate.android.tr
+
 import android.text.format.Formatter
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -52,28 +54,28 @@ internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:S
     Column(Modifier.fillMaxSize().padding(horizontal=14.dp)) {
         Row(verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick=onBack,enabled=!deleting){Icon(Icons.Default.ArrowBack,"Back")}
-            Text("Cleanup",Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall)
+            Text(tr("Cleanup"),Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall)
         }
         if(!granted){
-            Text("Storage access required")
-            Button(onClick=request){Text("Grant access")}
+            Text(tr("Storage access required"))
+            Button(onClick=request){Text(tr("Grant access"))}
         }else{
             Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(4.dp)){
-                CleanupKind.entries.forEach{mode->FilterChip(selected=!remnants && kind==mode,onClick={remnants=false;kind=mode;result=null;selected=emptySet();message=null},enabled=!busy&&!deleting,label={Text(when(mode){CleanupKind.DUPLICATES->"Duplicates";CleanupKind.TEMPORARY->"Temporary";else->"Empty"})})}
-                FilterChip(selected=remnants,onClick={remnants=true;result=null;selected=emptySet();message=null},enabled=!busy&&!deleting,label={Text("Remnants")})
+                CleanupKind.entries.forEach{mode->FilterChip(selected=!remnants && kind==mode,onClick={remnants=false;kind=mode;result=null;selected=emptySet();message=null},enabled=!busy&&!deleting,label={Text(tr(when(mode){CleanupKind.DUPLICATES->"Duplicates";CleanupKind.TEMPORARY->"Temporary";else->"Empty"}))})}
+                FilterChip(selected=remnants,onClick={remnants=true;result=null;selected=emptySet();message=null},enabled=!busy&&!deleting,label={Text(tr("Remnants"))})
             }
             if(busy || deleting){
                 LinearProgressIndicator(Modifier.fillMaxWidth())
-                Text(if(deleting)"Deleting…" else "$visited items scanned",style=MaterialTheme.typography.bodySmall)
-                if(!deleting)TextButton(onClick={job?.cancel()}){Text("Cancel")}
+                Text(tr(if(deleting)"Deleting…" else "$visited items scanned"),style=MaterialTheme.typography.bodySmall)
+                if(!deleting)TextButton(onClick={job?.cancel()}){Text(tr("Cancel"))}
             }else if(remnants){
-                Text("Possible app remnants",style=MaterialTheme.typography.titleMedium)
-                Text("Folders in Android/media with no installed package match. Review before removing.",style=MaterialTheme.typography.bodySmall)
-                Button(onClick={busy=true;message=null;job=scope.launch{try{remnantRows=findMediaRemnants(context,root,excluded)}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message ?: "Scan failed"}finally{busy=false}}}){Text("Find")}
+                Text(tr("Possible app remnants"),style=MaterialTheme.typography.titleMedium)
+                Text(tr("Folders in Android/media with no installed package match. Review before removing."),style=MaterialTheme.typography.bodySmall)
+                Button(onClick={busy=true;message=null;job=scope.launch{try{remnantRows=findMediaRemnants(context,root,excluded)}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message ?: "Scan failed"}finally{busy=false}}}){Text(tr("Find"))}
                 remnantRows?.let{rows->
-                    if(rows.isEmpty())Text("No candidates found")
+                    if(rows.isEmpty())Text(tr("No candidates found"))
                     LazyColumn(Modifier.weight(1f)){
-                        items(rows,key={it.path}){folder->ListItem(headlineContent={Text(folder.name)},supportingContent={Text(folder.relativeTo(root).path)},trailingContent={TextButton(onClick={review(folder)}){Text("Review")}});HorizontalDivider()}
+                        items(rows,key={it.path}){folder->ListItem(headlineContent={Text(folder.name)},supportingContent={Text(folder.relativeTo(root).path)},trailingContent={TextButton(onClick={review(folder)}){Text(tr("Review"))}});HorizontalDivider()}
                     }
                 }
             }else{
@@ -82,9 +84,9 @@ internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:S
                     Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
                         Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                             DeviceGlyph(R.drawable.ic_device_storage,modifier=Modifier.size(32.dp))
-                            Text(kind.title,style=MaterialTheme.typography.titleLarge)
-                            Text(when(kind){CleanupKind.DUPLICATES->"Compare file contents.";CleanupKind.TEMPORARY->"Temporary extensions, unchanged for 7 days.";else->"Folders without files."},style=MaterialTheme.typography.bodyMedium)
-                            Button(onClick={scan()},modifier=Modifier.fillMaxWidth()){Text("Find")}
+                            Text(tr(kind.title),style=MaterialTheme.typography.titleLarge)
+                            Text(tr(when(kind){CleanupKind.DUPLICATES->"Compare file contents.";CleanupKind.TEMPORARY->"Temporary extensions, unchanged for 7 days.";else->"Folders without files."}),style=MaterialTheme.typography.bodyMedium)
+                            Button(onClick={scan()},modifier=Modifier.fillMaxWidth()){Text(tr("Find"))}
                         }
                     }
                 }else{
@@ -92,11 +94,11 @@ internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:S
                     Row(verticalAlignment=Alignment.CenterVertically){
                         Column(Modifier.weight(1f)){
                             Text("${data.items.size} candidates",style=MaterialTheme.typography.titleMedium)
-                            if(data.limited)Text("Scan limit reached",style=MaterialTheme.typography.labelSmall)
+                            if(data.limited)Text(tr("Scan limit reached"),style=MaterialTheme.typography.labelSmall)
                         }
-                        TextButton(onClick={scan()}){Text("Refresh")}
+                        TextButton(onClick={scan()}){Text(tr("Refresh"))}
                     }
-                    if(kind==CleanupKind.DUPLICATES)Text("Keep at least one copy in each group.",style=MaterialTheme.typography.labelSmall)
+                    if(kind==CleanupKind.DUPLICATES)Text(tr("Keep at least one copy in each group."),style=MaterialTheme.typography.labelSmall)
                     LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(vertical=8.dp)){
                         items(data.items,key={it.file.path}){item->
                             val checked=item.file.path in selected
@@ -111,7 +113,7 @@ internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:S
                     Button(onClick={confirm=true},enabled=chosen.isNotEmpty(),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=MaterialTheme.colorScheme.errorContainer,contentColor=MaterialTheme.colorScheme.onErrorContainer)){
                         Icon(Icons.Default.Delete,null);Spacer(Modifier.width(8.dp));Text("Delete ${chosen.size} · "+Formatter.formatFileSize(context,chosen.sumOf{it.bytes}))
                     }
-                    if(confirm) AlertDialog(onDismissRequest={confirm=false},title={Text("Delete ${chosen.size} items?")},text={Text("This cannot be undone.")},dismissButton={TextButton(onClick={confirm=false}){Text("Cancel")}},confirmButton={TextButton(onClick={
+                    if(confirm) AlertDialog(onDismissRequest={confirm=false},title={Text("Delete ${chosen.size} items?")},text={Text(tr("This cannot be undone."))},dismissButton={TextButton(onClick={confirm=false}){Text(tr("Cancel"))}},confirmButton={TextButton(onClick={
                         confirm=false;deleting=true
                         scope.launch{
                             try{
@@ -120,7 +122,7 @@ internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:S
                                 result=null;selected=emptySet();onChanged()
                             }finally{deleting=false}
                         }
-                    }){Text("Delete",color=MaterialTheme.colorScheme.error)}})
+                    }){Text(tr("Delete"),color=MaterialTheme.colorScheme.error)}})
                 }
             }
             message?.let{Text(it,style=MaterialTheme.typography.bodyMedium)}

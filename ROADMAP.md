@@ -44,4 +44,4 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 - [ ] Scroll restoration (analyzer, Home and Device tabs; verify)
 - [ ] Landscape layouts (adaptive Home grid, landscape navigation rail and three-column file grid; verify)
 - [ ] Smooth transitions (short adjacent Device tab animations, immediate distant jumps; further polish pending)
-- [ ] Brazilian Portuguese localization
+- [ ] Brazilian Portuguese localization (main screens and device labels localized; dynamic messages and runtime review pending)

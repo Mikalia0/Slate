@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package com.slate.android.storage
 
+import com.slate.android.tr
+
 import android.app.job.JobInfo
 import android.app.job.JobParameters
 import android.app.job.JobScheduler
@@ -83,13 +85,13 @@ internal fun ScheduledCleanupSettings(){
     LaunchedEffect(lifecycle){lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED){
         days=prefs.getInt("days",0);at=prefs.getLong("at",0);count=prefs.getInt("count",0);bytes=prefs.getLong("bytes",0)
     }}
-    Text("Scheduled cleanup review",style=MaterialTheme.typography.titleMedium)
+    Text(tr("Scheduled cleanup review"),style=MaterialTheme.typography.titleMedium)
     Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
         listOf(0 to "Off",1 to "Daily",7 to "Weekly").forEach{(value,label)->
-            FilterChip(selected=days==value,onClick={error=!scheduleCleanup(context,value);if(!error)days=value},label={Text(label)})
+            FilterChip(selected=days==value,onClick={error=!scheduleCleanup(context,value);if(!error)days=value},label={Text(tr(label))})
         }
     }
-    Text("Scans temporary files and empty folders while charging. Review before deletion.",style=MaterialTheme.typography.bodySmall)
+    Text(tr("Scans temporary files and empty folders while charging. Review before deletion."),style=MaterialTheme.typography.bodySmall)
     if(at>0)Text(DateFormat.getDateTimeInstance().format(Date(at))+" · $count candidates · "+Formatter.formatFileSize(context,bytes),style=MaterialTheme.typography.bodySmall)
-    if(error)Text("Could not schedule scan",color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
+    if(error)Text(tr("Could not schedule scan"),color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
 }

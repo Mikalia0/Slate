@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package com.slate.android.storage
 
+import com.slate.android.tr
+
 import android.content.ComponentName
 import android.content.Context
 import android.content.ServiceConnection
@@ -53,8 +55,8 @@ internal fun AdvancedCacheSettings(onChanged:()->Unit){
     LaunchedEffect(Unit){
         while(true){available=shizukuAvailable();granted=shizukuGranted();delay(1500)}
     }
-    Text("Advanced cache cleanup",style=MaterialTheme.typography.titleMedium)
-    Text("Ask Android to free additional space from app caches. App data is not targeted. System-managed cache cleanup is device-wide and does not use folder exclusions.",style=MaterialTheme.typography.bodySmall)
+    Text(tr("Advanced cache cleanup"),style=MaterialTheme.typography.titleMedium)
+    Text(tr("Ask Android to free additional space from app caches. App data is not targeted. System-managed cache cleanup is device-wide and does not use folder exclusions."),style=MaterialTheme.typography.bodySmall)
     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
         listOf(1,2,5).forEach{n->FilterChip(selected=amount==n,onClick={amount=n},enabled=!busy,label={Text("$n GB")})}
     }
@@ -62,13 +64,13 @@ internal fun AdvancedCacheSettings(onChanged:()->Unit){
     OutlinedButton(onClick={
         if(granted)confirm="Shizuku"
         else runCatching{Shizuku.requestPermission(301)}.onFailure{message="Could not request Shizuku permission"}
-    },enabled=available&&!busy,modifier=Modifier.fillMaxWidth()){Text(if(granted)"Clean with Shizuku" else "Authorize Shizuku")}
-    OutlinedButton(onClick={confirm="Root"},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text("Clean with root")}
+    },enabled=available&&!busy,modifier=Modifier.fillMaxWidth()){Text(tr(if(granted)"Clean with Shizuku" else "Authorize Shizuku"))}
+    OutlinedButton(onClick={confirm="Root"},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(tr("Clean with root"))}
     if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
     message?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
     confirm?.let{backend->
-        AlertDialog(onDismissRequest={confirm=null},title={Text("Trim app caches?")},text={Text("Request up to $amount GB of additional free space using $backend. Cached downloads may need to be downloaded again. Android decides what can be freed.")},
-            dismissButton={TextButton(onClick={confirm=null}){Text("Cancel")}},
+        AlertDialog(onDismissRequest={confirm=null},title={Text(tr("Trim app caches?"))},text={Text("Request up to $amount GB of additional free space using $backend. Cached downloads may need to be downloaded again. Android decides what can be freed.")},
+            dismissButton={TextButton(onClick={confirm=null}){Text(tr("Cancel"))}},
             confirmButton={TextButton(onClick={
                 confirm=null;busy=true;message=null
                 scope.launch{
@@ -83,6 +85,6 @@ internal fun AdvancedCacheSettings(onChanged:()->Unit){
                     }catch(e:CancellationException){throw e}catch(e:Exception){message=e.message ?: "Cleanup unavailable"}
                     finally{busy=false}
                 }
-            }){Text("Clean")}})
+            }){Text(tr("Clean"))}})
     }
 }

@@ -19,8 +19,8 @@ internal class DashboardPreferences(context:Context) {
 }
 @Composable
 internal fun DashboardSettings(prefs:DashboardPreferences){
-    Text("Home dashboard",style=MaterialTheme.typography.titleMedium)
+    Text(tr("Home dashboard"),style=MaterialTheme.typography.titleMedium)
     listOf("device" to "Device status","tools" to "Quick tools","insights" to "Storage insights","folders" to "Quick folders","external" to "External storage").forEach{(key,label)->
-        ListItem(headlineContent={Text(label)},trailingContent={Switch(key in prefs.visible,{prefs.set(key,it)})})
+        ListItem(headlineContent={Text(tr(label))},trailingContent={Switch(key in prefs.visible,{prefs.set(key,it)})})
     }
 }

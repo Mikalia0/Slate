@@ -26,10 +26,10 @@ internal fun HistoryScreen(history:StorageHistory,onBack:()->Unit) {
     Column(Modifier.fillMaxSize().padding(horizontal=14.dp)){
         Row(verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")}
-            Text("Scan history",Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall)
-            TextButton(onClick={confirm=true},enabled=history.records.isNotEmpty()){Text("Clear")}
+            Text(tr("Scan history"),Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall)
+            TextButton(onClick={confirm=true},enabled=history.records.isNotEmpty()){Text(tr("Clear"))}
         }
-        if(history.records.isEmpty())Text("No completed scans yet.",style=MaterialTheme.typography.bodyMedium)
+        if(history.records.isEmpty())Text(tr("No completed scans yet."),style=MaterialTheme.typography.bodyMedium)
         LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=8.dp)){
             items(history.records,key={it.at}){record->
                 Card(onClick={selected=record},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
@@ -45,10 +45,10 @@ internal fun HistoryScreen(history:StorageHistory,onBack:()->Unit) {
             }
         }
     }
-    selected?.let{record->AlertDialog(onDismissRequest={selected=null},title={Text("Folder changes")},text={
+    selected?.let{record->AlertDialog(onDismissRequest={selected=null},title={Text(tr("Folder changes"))},text={
         Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
             val changes=record.folders.filter{it.increase!=null}.sortedByDescending{abs(it.increase ?: 0)}.take(8)
-            if(changes.isEmpty())Text("No comparable previous folders.")
+            if(changes.isEmpty())Text(tr("No comparable previous folders."))
             changes.forEach{item->
                 Row(verticalAlignment=Alignment.CenterVertically){
                     Text(item.name,Modifier.weight(1f))
@@ -57,6 +57,6 @@ internal fun HistoryScreen(history:StorageHistory,onBack:()->Unit) {
                 }
             }
         }
-    },confirmButton={TextButton(onClick={selected=null}){Text("Close")}})}
-    if(confirm)AlertDialog(onDismissRequest={confirm=false},title={Text("Clear scan history?")},text={Text("Files are not affected.")},dismissButton={TextButton(onClick={confirm=false}){Text("Cancel")}},confirmButton={TextButton(onClick={history.clear();confirm=false}){Text("Clear")}})
+    },confirmButton={TextButton(onClick={selected=null}){Text(tr("Close"))}})}
+    if(confirm)AlertDialog(onDismissRequest={confirm=false},title={Text(tr("Clear scan history?"))},text={Text(tr("Files are not affected."))},dismissButton={TextButton(onClick={confirm=false}){Text(tr("Cancel"))}},confirmButton={TextButton(onClick={history.clear();confirm=false}){Text(tr("Clear"))}})
 }

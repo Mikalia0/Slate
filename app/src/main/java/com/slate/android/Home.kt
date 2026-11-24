@@ -50,8 +50,8 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                 Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         DeviceGlyph(R.drawable.ic_device_storage,modifier=Modifier.size(20.dp))
-                        Text("Internal storage",modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
-                        Text(if(capacity>0)"${(fraction*100).toInt()}%" else "—",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.titleMedium)
+                        Text(tr("Internal storage"),modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
+                        Text(tr(if(capacity>0)"${(fraction*100).toInt()}%" else "—"),color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.titleMedium)
                     }
                     LinearProgressIndicator(progress={fraction},modifier=Modifier.fillMaxWidth().padding(vertical=5.dp))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -60,7 +60,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                         StorageValue("Total",if(capacity>0)fmt(capacity)else "—",Modifier.weight(1f))
                     }
                     Button(onClick={analyze(primary)},modifier=Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Search,null); Spacer(Modifier.width(8.dp)); Text(if(history.scannedAt>0)"View storage" else "Analyze storage")
+                        Icon(Icons.Default.Search,null); Spacer(Modifier.width(8.dp)); Text(tr(if(history.scannedAt>0)"View storage" else "Analyze storage"))
                     }
                 }
             }
@@ -91,7 +91,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                                     Text(temperature,style=MaterialTheme.typography.titleSmall,maxLines=1,softWrap=false)
                                 }
                             }
-                            Text("Temperature",style=MaterialTheme.typography.labelMedium,maxLines=1)
+                            Text(tr("Temperature"),style=MaterialTheme.typography.labelMedium,maxLines=1)
                         }
                     }
                 }
@@ -102,14 +102,14 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                 Card(onClick=openApps,modifier=Modifier.weight(1f),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                     Row(Modifier.padding(12.dp).heightIn(min=32.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         DeviceGlyph(R.drawable.ic_device_overview)
-                        Text("App storage",style=MaterialTheme.typography.titleSmall,modifier=Modifier.weight(1f))
+                        Text(tr("App storage"),style=MaterialTheme.typography.titleSmall,modifier=Modifier.weight(1f))
                         Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(18.dp))
                     }
                 }
                 Card(onClick=openCleanup,modifier=Modifier.weight(1f),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                     Row(Modifier.padding(12.dp).heightIn(min=32.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Delete,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(22.dp))
-                        Text("Cleanup",style=MaterialTheme.typography.titleSmall,modifier=Modifier.weight(1f))
+                        Text(tr("Cleanup"),style=MaterialTheme.typography.titleSmall,modifier=Modifier.weight(1f))
                         Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(18.dp))
                     }
                 }
@@ -120,7 +120,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
             val shortcuts=common.mapNotNull{name->history.insights.firstOrNull{it.name.equals(name,true)}}
             if(shortcuts.isNotEmpty()) item(span={GridItemSpan(maxLineSpan)}) {
                 Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                    Text("Quick folders",style=MaterialTheme.typography.titleMedium)
+                    Text(tr("Quick folders"),style=MaterialTheme.typography.titleMedium)
                     Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         shortcuts.forEach{folder->
                             Card(onClick={review(File(primary,folder.name))},modifier=Modifier.width(112.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
@@ -141,32 +141,32 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
             Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                 Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Since last session",style=MaterialTheme.typography.labelMedium)
+                        Text(tr("Since last session"),style=MaterialTheme.typography.labelMedium)
                         Text((if(change>0)"+" else "−")+fmt(kotlin.math.abs(change)),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.primary)
                     }
-                    Text(if(change>0)"Used space increased" else "Space recovered",style=MaterialTheme.typography.bodySmall)
+                    Text(tr(if(change>0)"Used space increased" else "Space recovered"),style=MaterialTheme.typography.bodySmall)
                 }
             }
         }
         item(span={GridItemSpan(maxLineSpan)}) {
             Row(verticalAlignment=Alignment.CenterVertically) {
-                Text("Storage insights",style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
-                TextButton(onClick=openHistory){Text("History")}
+                Text(tr("Storage insights"),style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
+                TextButton(onClick=openHistory){Text(tr("History"))}
             }
         }
         if(capacity>0 && free.toDouble()/capacity<0.10) item(span={GridItemSpan(maxLineSpan)}) {
             Card(onClick={analyze(primary)},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.errorContainer)) {
-                ListItem(headlineContent={Text("Low storage")},supportingContent={Text(fmt(free)+" available")},leadingContent={Icon(Icons.Default.Warning,null)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.errorContainer))
+                ListItem(headlineContent={Text(tr("Low storage"))},supportingContent={Text(fmt(free)+" available")},leadingContent={Icon(Icons.Default.Warning,null)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.errorContainer))
             }
         }
         if(history.scannedAt==0L) item(span={GridItemSpan(maxLineSpan)}) {
             Card(onClick={analyze(primary)},modifier=Modifier.fillMaxWidth()) {
-                ListItem(headlineContent={Text("Analyze storage for insights")},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)})
+                ListItem(headlineContent={Text(tr("Analyze storage for insights"))},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)})
             }
         } else {
             val growing=history.insights.filter{(it.increase ?: 0)>=50L*1024*1024}.sortedByDescending{it.increase}.take(2)
             val suggestions=(growing+history.insights.filter{it.bytes>=200L*1024*1024}).distinctBy{it.name}.take(3)
-            if(suggestions.isEmpty()) item { Text("No large folders found",style=MaterialTheme.typography.bodyMedium) }
+            if(suggestions.isEmpty()) item { Text(tr("No large folders found"),style=MaterialTheme.typography.bodyMedium) }
             items(suggestions,key={"insight:"+it.name}){insight->
                 Card(onClick={review(File(primary,insight.name))},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                     ListItem(headlineContent={Text(insight.name)},supportingContent={Text(fmt(insight.bytes)+(insight.increase?.takeIf{it>=50L*1024*1024}?.let{" · +"+fmt(it)+" since scan"} ?: " · Large folder"))},
@@ -176,7 +176,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
         }
         }
         val removable=volumes.filter{it.root!=primary && "external" in dashboard.visible}
-        if(removable.isNotEmpty()) item(span={GridItemSpan(maxLineSpan)}) { Text("External storage",style=MaterialTheme.typography.titleMedium) }
+        if(removable.isNotEmpty()) item(span={GridItemSpan(maxLineSpan)}) { Text(tr("External storage"),style=MaterialTheme.typography.titleMedium) }
         items(removable,key={it.root.path}){volume->
             val total=volume.root.totalSpace
             val available=volume.root.usableSpace
@@ -207,7 +207,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
 @Composable
 private fun StorageValue(label:String,value:String,modifier:Modifier) {
     Column(modifier,verticalArrangement=Arrangement.spacedBy(3.dp)) {
-        Text(label,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(tr(label),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value,style=MaterialTheme.typography.titleSmall,maxLines=1,softWrap=false,overflow=TextOverflow.Ellipsis)
     }
 }
@@ -219,9 +219,9 @@ private fun HomeGauge(label:String,fraction:Float,value:String,modifier:Modifier
             CircularProgressIndicator(progress={fraction},modifier=Modifier.fillMaxSize(),strokeWidth=5.dp,trackColor=MaterialTheme.colorScheme.surfaceContainerHigh)
             Text(value,style=MaterialTheme.typography.titleMedium,maxLines=1,softWrap=false)
         }
-        Text(label,style=MaterialTheme.typography.labelMedium)
+        Text(tr(label),style=MaterialTheme.typography.labelMedium)
         details.filterNot{it.startsWith("—")}.forEach{detail->
-            Text(detail,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=TextAlign.Center,maxLines=1,softWrap=false,overflow=TextOverflow.Ellipsis)
+            Text(tr(detail),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=TextAlign.Center,maxLines=1,softWrap=false,overflow=TextOverflow.Ellipsis)
         }
     }
 }
@@ -234,6 +234,6 @@ internal fun ScanLoading(state: com.slate.android.storage.ScanState, cancel: ()-
         Text(Formatter.formatFileSize(context,state.measuredBytes),style=MaterialTheme.typography.headlineMedium)
         Text(java.text.NumberFormat.getIntegerInstance().format(state.visited)+" items · "+state.elapsedMs/1000+" s",style=MaterialTheme.typography.bodyMedium)
         Text(state.currentPath.ifBlank{state.directory?.path.orEmpty()},maxLines=2,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedButton(onClick=cancel){Text("Cancel")}
+        OutlinedButton(onClick=cancel){Text(tr("Cancel"))}
     }
 }
