@@ -43,5 +43,5 @@ Scope: 36 requested features, grouped into four workstreams. A feature is comple
 - [ ] Storage category shortcuts (common measured folder shortcuts; verify)
 - [ ] Scroll restoration (analyzer, Home and Device tabs; verify)
 - [ ] Landscape layouts (adaptive Home grid, landscape navigation rail and three-column file grid; verify)
-- [ ] Smooth transitions (short adjacent Device tab animations, immediate distant jumps; further polish pending)
+- [ ] Smooth transitions (short screen fades, adjacent Device tab animations, settings state restoration; verify)
 - [ ] Brazilian Portuguese localization (main screens, device labels and dynamic messages; runtime review pending)

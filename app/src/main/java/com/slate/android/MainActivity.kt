@@ -41,6 +41,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
@@ -86,6 +90,7 @@ class MainActivity : ComponentActivity() {
             val history=storageModel.history
             val dashboard=remember{DashboardPreferences(this@MainActivity)}
             var settings by rememberSaveable { mutableStateOf(false) }
+            val screenState=rememberSaveableStateHolder()
             var manualUpdateRequest by remember { mutableIntStateOf(0) }
             val onMode: (SlateTheme)->Unit = { mode=it; prefs.edit().putString("theme",it.name).apply() }
             val onDynamic: (Boolean)->Unit = { dynamic=it; prefs.edit().putBoolean("dynamic",it).apply() }
@@ -115,7 +120,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    else -> Slate(granted, volumes, ::requestStorage, onSettings={settings=true}, history=history,model=storageModel,dashboard=dashboard)
+                    else -> screenState.SaveableStateProvider("slate") { Slate(granted, volumes, ::requestStorage, onSettings={settings=true}, history=history,model=storageModel,dashboard=dashboard) }
                 }
                 if(setup) UpdatePrompt(manualUpdateRequest)
             }
@@ -174,6 +179,10 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     fun goStorage(){device=false;apps=false;cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();search=false;query="";largeFiles=false;if(granted)model.open(primary)}
     val config=LocalConfiguration.current
     val landscape=config.screenWidthDp>config.screenHeightDp && config.screenWidthDp>=600
+    val screenKey=when{showHistory->"history";cleanup->"cleanup";apps->"apps";device->"device";analyzer->"storage";else->"home"}
+    val screenAlpha=remember{Animatable(1f)}
+    var previousScreen by remember{mutableStateOf(screenKey)}
+    LaunchedEffect(screenKey){if(previousScreen!=screenKey){previousScreen=screenKey;screenAlpha.snapTo(.82f);screenAlpha.animateTo(1f,tween(120))}}
     val showNavigation=!apps && !cleanup && !showHistory && !deleting && selection.isEmpty() && (!analyzer || directory==root)
     Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar={
@@ -193,7 +202,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     NavigationRailItem(selected=device,onClick={if(!device){analyzer=false;devicePage=0;device=true}},icon={Icon(painterResource(R.drawable.ic_device_cpu),null,Modifier.size(24.dp))},label={Text(tr("Device"))})
                 }
             }
-            Box(Modifier.weight(1f).fillMaxHeight()){
+            Box(Modifier.weight(1f).fillMaxHeight().graphicsLayer{alpha=screenAlpha.value}){
         if(showHistory) {
             Box(Modifier.fillMaxSize()){HistoryScreen(history,onBack={showHistory=false})}
         } else if(cleanup) {
@@ -207,7 +216,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 if (analyzer) IconButton(onClick = ::back) { Icon(Icons.Default.ArrowBack,"Back") }
                 else Image(painterResource(R.drawable.ic_slate), null, Modifier.size(36.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(if (analyzer) "Storage" else "Slate", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                Text(if (analyzer) tr("Storage") else "Slate", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
                 if (analyzer) IconButton(onClick = { selection = emptySet(); model.open(directory, refresh = true) }, enabled = granted && !state.running && !deleting) { Icon(Icons.Default.Refresh,"Refresh") }
                 else { IconButton(onClick=onSettings){Icon(Icons.Default.Settings,"Settings")}; IconButton(onClick={about=true}){Icon(Icons.Default.Info,"About")} }
             }

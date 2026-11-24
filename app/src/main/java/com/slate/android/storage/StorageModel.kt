@@ -50,7 +50,6 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         if(!refresh && mutable.value.directory==directory && mutable.value.running) return
         job?.cancel()
         largestJob?.cancel()
-        backgroundJob?.cancel()
         val id = ++generation
         val previous=if(refresh && directory==primary) indexes[primary] ?: savedIndex else null
         val parentIndex=if(refresh && directory!=primary) indexes.values.toList().asReversed().firstOrNull{it.folders.containsKey(directory)} else null
@@ -69,8 +68,10 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
                     mutable.value=ScanState(directory,complete,scanId=id,saved=indexed===saved,partialRefresh=indexed.root.directory in partialRoots)
                 }
             }
+            if(indexed===saved)checkSession()
             return
         }
+        backgroundJob?.cancel()
         mutable.value = ScanState(directory = directory, running = true, scanId = id)
         job = viewModelScope.launch {
             try {
@@ -100,6 +101,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
                     mutable.value = ScanState(directory, result.root, scanId = id, fresh=true)
                     if(directory==primary && !result.root.rootUnreadable) {
                         savedIndex=null
+                        checkedSession=true
                         history.record(result.root,id)
                         persist(result)
 
@@ -125,24 +127,26 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         saveJob=viewModelScope.launch(Dispatchers.IO){persistence.withLock{store.clear()}}
     }
     fun checkSession() {
-        if(checkedSession || history.scannedAt==0L || mutable.value.running)return
-        checkedSession=true
+        if(checkedSession || backgroundJob?.isActive==true || history.scannedAt==0L || mutable.value.running)return
         val excluded=exclusions.absolute()
-        val baseline=generation
+        val existing=savedIndex ?: indexes[primary]
         backgroundJob=viewModelScope.launch{
             try{
-                val prior=withContext(Dispatchers.IO){persistence.withLock{store.load()}}
-                if(generation!=baseline)return@launch
-                // Publish the restored index before reconciliation. It is explicitly
-                // marked saved, and destructive actions remain unavailable on it.
-                if(prior!=null){savedIndex=prior;diskChecked=true}
+                val prior=existing ?: withContext(Dispatchers.IO){persistence.withLock{store.load()}}
+                if(prior!=null && savedIndex==null && indexes[primary]==null){savedIndex=prior;diskChecked=true}
                 val result=withContext(Dispatchers.IO){scanner.scanIndexed(primary,excluded,previous=prior)}
-                if(generation==baseline && !result.root.rootUnreadable){
-                    history.record(result.root,++generation)
+                if(!result.root.rootUnreadable){
+                    // A navigation change does not invalidate a read-only reconciliation.
+                    // An explicit scan or exclusion change cancels this job instead.
+                    checkedSession=true
+                    history.record(result.root,System.nanoTime())
+                    indexes.clear();cache.clear();partialRoots.clear()
                     indexes[primary]=result
                     cache[primary]=result.root
                     savedIndex=null;diskChecked=true
                     persist(result)
+                    // Leave an already displayed saved snapshot read-only until navigation
+                    // or an explicit refresh, so a selection never silently changes scope.
                 }
             }catch(e:CancellationException){throw e}catch(_:Exception){}
         }
