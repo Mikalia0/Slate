@@ -348,6 +348,19 @@ internal fun tr(value:String):String {
         "File categories" -> R.string.category_file_categories
         "Category details require a complete index." -> R.string.category_category_details_require_a_complete_index
         "App totals are separate; unmeasured space may include system and private files." -> R.string.category_app_totals_are_separate_unmeasured_space_may_include_system_and_private_files
+        "Unable to open file" -> R.string.msg_0
+        "Unable to share file" -> R.string.msg_1
+        "Scan failed" -> R.string.msg_2
+        "Scan cancelled" -> R.string.msg_3
+        "Authorized" -> R.string.msg_4
+        "Permission required" -> R.string.msg_5
+        "Not running" -> R.string.msg_6
+        "Clean with Shizuku" -> R.string.msg_7
+        "Authorize Shizuku" -> R.string.msg_8
+        "Could not request Shizuku permission" -> R.string.msg_9
+        "Cleanup unavailable" -> R.string.msg_10
+        "Hide exclusions" -> R.string.msg_11
+        "Size unavailable or incomplete" -> R.string.msg_12
         else -> 0
     }
     return if(id==0)value else stringResource(id)

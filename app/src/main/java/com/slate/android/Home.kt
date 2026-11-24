@@ -81,7 +81,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
                     HorizontalDivider()
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.Top) {
                         HomeGauge("RAM",ram?.fraction ?: 0f,ram?.fraction?.let{"${(it*100).toInt()}%"} ?: "—",Modifier.weight(1f).clickable{openDevicePage(1)},
-                            details=listOf(memoryValue("Used RAM (estimate)")+" used",memoryValue("Total RAM")+" total",memoryValue("Available RAM")+" free"))
+                            details=listOf(androidx.compose.ui.res.stringResource(com.slate.android.R.string.ram_used,memoryValue("Used RAM (estimate)")),androidx.compose.ui.res.stringResource(com.slate.android.R.string.ram_total,memoryValue("Total RAM")),androidx.compose.ui.res.stringResource(com.slate.android.R.string.ram_free,memoryValue("Available RAM"))))
                         HomeGauge("Battery",battery?.fraction ?: 0f,battery?.value?.takeUnless{it=="Unavailable"} ?: "—",Modifier.weight(1f).clickable{openDevicePage(3)},
                             details=listOfNotNull(batteryState,chargingPower))
                         Column(Modifier.weight(1f).clickable{openDevicePage(3)},horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)) {
@@ -156,7 +156,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
         }
         if(capacity>0 && free.toDouble()/capacity<0.10) item(span={GridItemSpan(maxLineSpan)}) {
             Card(onClick={analyze(primary)},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.errorContainer)) {
-                ListItem(headlineContent={Text(tr("Low storage"))},supportingContent={Text(fmt(free)+" available")},leadingContent={Icon(Icons.Default.Warning,null)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.errorContainer))
+                ListItem(headlineContent={Text(tr("Low storage"))},supportingContent={Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.size_available,fmt(free)))},leadingContent={Icon(Icons.Default.Warning,null)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.errorContainer))
             }
         }
         if(history.scannedAt==0L) item(span={GridItemSpan(maxLineSpan)}) {
@@ -169,7 +169,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, analyze: (File) ->
             if(suggestions.isEmpty()) item { Text(tr("No large folders found"),style=MaterialTheme.typography.bodyMedium) }
             items(suggestions,key={"insight:"+it.name}){insight->
                 Card(onClick={review(File(primary,insight.name))},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
-                    ListItem(headlineContent={Text(insight.name)},supportingContent={Text(fmt(insight.bytes)+(insight.increase?.takeIf{it>=50L*1024*1024}?.let{" · +"+fmt(it)+" since scan"} ?: " · Large folder"))},
+                    ListItem(headlineContent={Text(insight.name)},supportingContent={Text(insight.increase?.takeIf{it>=50L*1024*1024}?.let{androidx.compose.ui.res.stringResource(com.slate.android.R.string.growth_since_scan,fmt(insight.bytes),fmt(it))} ?: androidx.compose.ui.res.stringResource(com.slate.android.R.string.large_folder,fmt(insight.bytes)))},
                         leadingContent={Icon(Icons.Default.Search,null,tint=MaterialTheme.colorScheme.primary)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,"Review")},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
                 }
             }
@@ -232,7 +232,7 @@ internal fun ScanLoading(state: com.slate.android.storage.ScanState, cancel: ()-
     Column(Modifier.fillMaxWidth().padding(vertical=24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)) {
         CircularProgressIndicator(Modifier.size(76.dp),strokeWidth=5.dp)
         Text(Formatter.formatFileSize(context,state.measuredBytes),style=MaterialTheme.typography.headlineMedium)
-        Text(java.text.NumberFormat.getIntegerInstance().format(state.visited)+" items · "+state.elapsedMs/1000+" s",style=MaterialTheme.typography.bodyMedium)
+        Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.scan_items_count,java.text.NumberFormat.getIntegerInstance().format(state.visited),state.elapsedMs/1000),style=MaterialTheme.typography.bodyMedium)
         Text(state.currentPath.ifBlank{state.directory?.path.orEmpty()},maxLines=2,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedButton(onClick=cancel){Text(tr("Cancel"))}
     }

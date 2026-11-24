@@ -249,7 +249,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                 }
                 if (state.running) ScanLoading(state, model::cancel)
                 if (state.error != null && !state.running) {
-                    Text(state.error.orEmpty(),style=MaterialTheme.typography.bodyMedium)
+                    Text(tr(state.error.orEmpty()),style=MaterialTheme.typography.bodyMedium)
                     Button(onClick={model.open(directory,refresh=true)}){Text(tr("Scan again"))}
                 }
                 val snapshot = state.snapshot?.takeIf { it.directory == directory }
@@ -276,7 +276,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 Row(verticalAlignment=Alignment.CenterVertically) {
                                     IconButton(onClick={selection=emptySet()},enabled=!deleting){Icon(Icons.Default.Close,"Clear selection")}
                                     Column(Modifier.weight(1f)) {
-                                        Text("${selected.size} selected",style=MaterialTheme.typography.titleMedium)
+                                        Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.selected_count,selected.size),style=MaterialTheme.typography.titleMedium)
                                         Text(fmt(selected.sumOf{it.bytes}),style=MaterialTheme.typography.bodySmall)
                                     }
                                     IconButton(onClick={confirmDelete=true},enabled=!deleting && !state.saved && !state.partialRefresh && selected.isNotEmpty()){Icon(Icons.Default.Delete,"Delete selected")}
@@ -297,8 +297,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                             Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                                 Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                                     Text(fmt(snapshot.bytes),style=MaterialTheme.typography.headlineMedium,color=MaterialTheme.colorScheme.primary)
-                                    Text(java.text.NumberFormat.getIntegerInstance().format(snapshot.files)+" files · "+snapshot.entries.count{it.directory}+" folders",style=MaterialTheme.typography.bodySmall)
-                                    if(snapshot.skipped>0) Text("${snapshot.skipped} inaccessible",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.files_folders_count,java.text.NumberFormat.getIntegerInstance().format(snapshot.files),snapshot.entries.count{it.directory}),style=MaterialTheme.typography.bodySmall)
+                                    if(snapshot.skipped>0) Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.inaccessible_count,snapshot.skipped),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             if(directory==primary && selection.isEmpty() && !largeFiles) {
@@ -366,7 +366,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 headlineContent={Text(entry.file.name,maxLines=1,overflow=TextOverflow.Ellipsis)},
                                 supportingContent={
                                     Column(verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                                        Text(if(largeFiles)entry.file.relativeTo(snapshot.directory).path else if(entry.directory)"${entry.files} files" else entry.file.extension.uppercase().ifBlank{"File"},maxLines=1,overflow=TextOverflow.Ellipsis)
+                                        Text(if(largeFiles)entry.file.relativeTo(snapshot.directory).path else if(entry.directory)androidx.compose.ui.res.stringResource(com.slate.android.R.string.files_count,java.text.NumberFormat.getIntegerInstance().format(entry.files)) else entry.file.extension.uppercase().ifBlank{"File"},maxLines=1,overflow=TextOverflow.Ellipsis)
                                     }
                                 },
                                 leadingContent={
@@ -381,12 +381,12 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                         }
                     }
                     }
-                    if(confirmDelete && !state.saved && !state.partialRefresh) AlertDialog(onDismissRequest={confirmDelete=false},title={Text("Permanently delete ${selected.size} items?")},
+                    if(confirmDelete && !state.saved && !state.partialRefresh) AlertDialog(onDismissRequest={confirmDelete=false},title={Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.confirm_delete_count,selected.size))},
                         text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
                             Text(tr("Measured size: ")+fmt(selected.sumOf{it.bytes}))
                             Text(tr("This cannot be undone. Inaccessible or incomplete items are skipped."))
                             selected.take(4).forEach{Text(it.file.relativeTo(root).path,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)}
-                            if(selected.size>4)Text("And ${selected.size-4} more")
+                            if(selected.size>4)Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.additional_count,selected.size-4))
                         }},
                         dismissButton={TextButton(onClick={confirmDelete=false}){Text(tr("Cancel"))}},
                         confirmButton={TextButton(onClick={
@@ -395,14 +395,14 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                             scope.launch {
                                 try {
                                     val result=withContext(Dispatchers.IO){deleteSelected(root,targets)}
-                                    deletionMessage="${result.first} items deleted · ${result.second} failed or skipped. A failed folder may have been partially deleted."
+                                    deletionMessage=context.getString(R.string.delete_result_count,result.first,result.second)
                                     selection=emptySet()
                                     model.open(directory,refresh=true)
                                 } finally {deleting=false}
                             }
                         }){Text(tr("Delete permanently"),color=MaterialTheme.colorScheme.error)}})
                 }
-                deletionMessage?.let { message -> AlertDialog(onDismissRequest={deletionMessage=null},title={Text(tr("Deletion result"))},text={Text(message)},confirmButton={TextButton(onClick={deletionMessage=null}){Text(tr("Done"))}}) }
+                deletionMessage?.let { message -> AlertDialog(onDismissRequest={deletionMessage=null},title={Text(tr("Deletion result"))},text={Text(tr(message))},confirmButton={TextButton(onClick={deletionMessage=null}){Text(tr("Done"))}}) }
 
             }
         }

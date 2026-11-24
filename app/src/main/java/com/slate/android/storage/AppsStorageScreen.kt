@@ -127,10 +127,10 @@ internal fun AppsStorageScreen(onBack:()->Unit) {
                     Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
                         Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
                             Text(if(loaded)fmt(rows.sumOf{it.total}) else "—",style=MaterialTheme.typography.headlineMedium)
-                            Text("Reported app storage · ${rows.size} apps",style=MaterialTheme.typography.bodySmall)
+                            Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.apps_reported,rows.size),style=MaterialTheme.typography.bodySmall)
                             Text(tr("Cache · ")+fmt(rows.sumOf{it.cacheBytes}),style=MaterialTheme.typography.titleSmall,color=MaterialTheme.colorScheme.primary)
                             Text(tr("Shared files may overlap with file analysis."),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                            if(skipped>0)Text("$skipped apps unavailable",style=MaterialTheme.typography.labelSmall)
+                            if(skipped>0)Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.apps_unavailable,skipped),style=MaterialTheme.typography.labelSmall)
                         }
                     }
                     Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
@@ -141,7 +141,7 @@ internal fun AppsStorageScreen(onBack:()->Unit) {
                     }
                     if(searching)OutlinedTextField(value=query,onValueChange={query=it},singleLine=true,placeholder={Text(tr("Search apps"))},modifier=Modifier.fillMaxWidth())
                     Row(verticalAlignment=Alignment.CenterVertically){
-                        Text("${filtered.size} apps",style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
+                        Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.apps_count,filtered.size),style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
                         TextButton(onClick={cacheSort=!cacheSort}){Text(tr(if(cacheSort)"Cache ↓" else "Size ↓"))}
                     }
                 }

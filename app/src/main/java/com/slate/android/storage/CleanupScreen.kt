@@ -66,7 +66,7 @@ internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:S
             }
             if(busy || deleting){
                 LinearProgressIndicator(Modifier.fillMaxWidth())
-                Text(tr(if(deleting)"Deleting…" else "$visited items scanned"),style=MaterialTheme.typography.bodySmall)
+                Text(if(deleting)tr("Deleting…") else androidx.compose.ui.res.stringResource(com.slate.android.R.string.cleanup_scanned_count,visited),style=MaterialTheme.typography.bodySmall)
                 if(!deleting)TextButton(onClick={job?.cancel()}){Text(tr("Cancel"))}
             }else if(remnants){
                 Text(tr("Possible app remnants"),style=MaterialTheme.typography.titleMedium)
@@ -93,7 +93,7 @@ internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:S
                     val chosen=data.items.filter{it.file.path in selected}
                     Row(verticalAlignment=Alignment.CenterVertically){
                         Column(Modifier.weight(1f)){
-                            Text("${data.items.size} candidates",style=MaterialTheme.typography.titleMedium)
+                            Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.cleanup_candidates,data.items.size),style=MaterialTheme.typography.titleMedium)
                             if(data.limited)Text(tr("Scan limit reached"),style=MaterialTheme.typography.labelSmall)
                         }
                         TextButton(onClick={scan()}){Text(tr("Refresh"))}
@@ -111,21 +111,21 @@ internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:S
                         }
                     }
                     Button(onClick={confirm=true},enabled=chosen.isNotEmpty(),modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=MaterialTheme.colorScheme.errorContainer,contentColor=MaterialTheme.colorScheme.onErrorContainer)){
-                        Icon(Icons.Default.Delete,null);Spacer(Modifier.width(8.dp));Text("Delete ${chosen.size} · "+Formatter.formatFileSize(context,chosen.sumOf{it.bytes}))
+                        Icon(Icons.Default.Delete,null);Spacer(Modifier.width(8.dp));Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.cleanup_delete_size,chosen.size,Formatter.formatFileSize(context,chosen.sumOf{it.bytes})))
                     }
-                    if(confirm) AlertDialog(onDismissRequest={confirm=false},title={Text("Delete ${chosen.size} items?")},text={Text(tr("This cannot be undone."))},dismissButton={TextButton(onClick={confirm=false}){Text(tr("Cancel"))}},confirmButton={TextButton(onClick={
+                    if(confirm) AlertDialog(onDismissRequest={confirm=false},title={Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.cleanup_confirm,chosen.size))},text={Text(tr("This cannot be undone."))},dismissButton={TextButton(onClick={confirm=false}){Text(tr("Cancel"))}},confirmButton={TextButton(onClick={
                         confirm=false;deleting=true
                         scope.launch{
                             try{
                                 val done=withContext(Dispatchers.IO){deleteCleanup(root,chosen,kind)}
-                                message="${done.first} deleted · ${done.second} skipped"
+                                message=context.getString(R.string.cleanup_result,done.first,done.second)
                                 result=null;selected=emptySet();onChanged()
                             }finally{deleting=false}
                         }
                     }){Text(tr("Delete"),color=MaterialTheme.colorScheme.error)}})
                 }
             }
-            message?.let{Text(it,style=MaterialTheme.typography.bodyMedium)}
+            message?.let{Text(tr(it),style=MaterialTheme.typography.bodyMedium)}
         }
     }
 }

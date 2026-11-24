@@ -60,16 +60,16 @@ internal fun AdvancedCacheSettings(onChanged:()->Unit){
     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
         listOf(1,2,5).forEach{n->FilterChip(selected=amount==n,onClick={amount=n},enabled=!busy,label={Text("$n GB")})}
     }
-    Text("Shizuku: "+if(granted)"Authorized" else if(available)"Permission required" else "Not running",style=MaterialTheme.typography.labelMedium)
+    Text("Shizuku: "+tr(if(granted)"Authorized" else if(available)"Permission required" else "Not running"),style=MaterialTheme.typography.labelMedium)
     OutlinedButton(onClick={
         if(granted)confirm="Shizuku"
         else runCatching{Shizuku.requestPermission(301)}.onFailure{message="Could not request Shizuku permission"}
     },enabled=available&&!busy,modifier=Modifier.fillMaxWidth()){Text(tr(if(granted)"Clean with Shizuku" else "Authorize Shizuku"))}
     OutlinedButton(onClick={confirm="Root"},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(tr("Clean with root"))}
     if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
-    message?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
+    message?.let{Text(tr(it),style=MaterialTheme.typography.bodySmall)}
     confirm?.let{backend->
-        AlertDialog(onDismissRequest={confirm=null},title={Text(tr("Trim app caches?"))},text={Text("Request up to $amount GB of additional free space using $backend. Cached downloads may need to be downloaded again. Android decides what can be freed.")},
+        AlertDialog(onDismissRequest={confirm=null},title={Text(tr("Trim app caches?"))},text={Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.cache_request,amount,backend))},
             dismissButton={TextButton(onClick={confirm=null}){Text(tr("Cancel"))}},
             confirmButton={TextButton(onClick={
                 confirm=null;busy=true;message=null
@@ -79,8 +79,8 @@ internal fun AdvancedCacheSettings(onChanged:()->Unit){
                         val target=before+amount*1_000_000_000L
                         val result=if(backend=="Root")withContext(Dispatchers.IO){trimCaches(target,true)} else shizukuTrim(context,target)
                         val after=withContext(Dispatchers.IO){freeBytes()}
-                        message=if(result==0)"Free space change: "+Formatter.formatFileSize(context,(after-before).coerceAtLeast(0))
-                            else "Cleanup did not complete (code $result). Check permissions and free space."
+                        message=if(result==0)context.getString(com.slate.android.R.string.cache_space_change,Formatter.formatFileSize(context,(after-before).coerceAtLeast(0)))
+                            else context.getString(com.slate.android.R.string.cache_failed,result)
                         onChanged()
                     }catch(e:CancellationException){throw e}catch(e:Exception){message=e.message ?: "Cleanup unavailable"}
                     finally{busy=false}

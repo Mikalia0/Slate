@@ -39,7 +39,7 @@ internal fun HistoryScreen(history:StorageHistory,onBack:()->Unit) {
                             Text(fmt(record.bytes),Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall)
                             record.delta?.let{Text((if(it>=0)"+" else "−")+fmt(abs(it)),color=MaterialTheme.colorScheme.primary)}
                         }
-                        Text("${record.files} files · ${record.skipped} skipped",style=MaterialTheme.typography.bodySmall)
+                        Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.scan_file_count,record.files,record.skipped),style=MaterialTheme.typography.bodySmall)
                     }
                 }
             }

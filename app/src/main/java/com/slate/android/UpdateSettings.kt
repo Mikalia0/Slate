@@ -196,7 +196,7 @@ internal fun UpdateSettings(onCheck: () -> Unit) {
     Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Text("Slate ${installed.versionName.orEmpty()}",style=MaterialTheme.typography.titleMedium)
-            Text("Build ${packageVersion(installed)} · GitHub releases",style=MaterialTheme.typography.bodySmall)
+            Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.update_build,packageVersion(installed).toString()),style=MaterialTheme.typography.bodySmall)
             Text(tr("Checks for updates when Slate opens."),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             OutlinedButton(onClick=onCheck,modifier=Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Refresh,null,Modifier.size(18.dp))
@@ -282,7 +282,7 @@ internal fun UpdatePrompt(manualRequest: Int) {
             Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
                 candidate?.let {
                     Text(tr("A newer version of Slate is available."))
-                    Text("Build ${it.code} · ${Formatter.formatFileSize(context,it.size)}",style=MaterialTheme.typography.bodyMedium)
+                    Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.update_build_size,it.code.toString(),Formatter.formatFileSize(context,it.size)),style=MaterialTheme.typography.bodyMedium)
                 }
                 if(checking) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())
