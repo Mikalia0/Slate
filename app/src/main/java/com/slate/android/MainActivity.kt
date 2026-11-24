@@ -95,6 +95,14 @@ class MainActivity : ComponentActivity() {
             val dashboard=remember{DashboardPreferences(this@MainActivity)}
             var settings by rememberSaveable { mutableStateOf(false) }
             var rootAuthorized by remember { mutableStateOf(false) }
+            var privilege by remember {
+                mutableStateOf(runCatching{PrivilegeMode.valueOf(prefs.getString("privilege_mode",if(setup)"SHIZUKU" else "NONE")?:"NONE")}.getOrDefault(PrivilegeMode.NONE))
+            }
+            val onPrivilege:(PrivilegeMode)->Unit={value->
+                privilege=value
+                if(value!=PrivilegeMode.ROOT)rootAuthorized=false
+                prefs.edit().putString("privilege_mode",value.name).apply()
+            }
             val screenState=rememberSaveableStateHolder()
             var manualUpdateRequest by remember { mutableIntStateOf(0) }
             val onMode: (SlateTheme)->Unit = { mode=it; prefs.edit().putString("theme",it.name).apply() }
@@ -102,7 +110,7 @@ class MainActivity : ComponentActivity() {
             val onAccent:(SlateAccent)->Unit={accent=it;prefs.edit().putString("accent",it.name).apply()}
             SlateAppearance(mode,dynamic,accent,this@MainActivity) {
                 when {
-                    !setup -> Onboarding(granted,::requestStorage,mode,dynamic,accent,onMode,onDynamic,onAccent) { setup=true; prefs.edit().putBoolean("setup",true).apply() }
+                    !setup -> Onboarding(granted,::requestStorage,mode,dynamic,accent,onMode,onDynamic,onAccent,privilege,onPrivilege,rootAuthorized,{rootAuthorized=it}) { setup=true; prefs.edit().putBoolean("setup",true).apply() }
                     settings -> {
                         BackHandler { settings=false }
                         Scaffold(contentWindowInsets=WindowInsets.safeDrawing) { padding ->
@@ -112,8 +120,7 @@ class MainActivity : ComponentActivity() {
                                 ThemeOptions(mode,dynamic,accent,onMode,onDynamic,onAccent)
                                 HorizontalDivider()
                                 ListItem(headlineContent={Text(tr("Storage access"))},supportingContent={Text(tr(if(granted)"Granted" else "Not granted"))},trailingContent={TextButton(onClick=::requestStorage){Text(tr("Manage"))}})
-                                ShizukuAccessRow()
-                                RootAccessRow(rootAuthorized,onChanged={rootAuthorized=it})
+                                PrivilegeOptions(privilege,onPrivilege,rootAuthorized,onRootChanged={rootAuthorized=it})
                                 HorizontalDivider()
                                 DashboardSettings(dashboard)
                                 HorizontalDivider()
@@ -126,7 +133,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    else -> screenState.SaveableStateProvider("slate") { Slate(granted, volumes, ::requestStorage, onSettings={settings=true}, history=history,model=storageModel,dashboard=dashboard,rootAuthorized=rootAuthorized,onRootRevoked={rootAuthorized=false}) }
+                    else -> screenState.SaveableStateProvider("slate") { Slate(granted, volumes, ::requestStorage, onSettings={settings=true}, history=history,model=storageModel,dashboard=dashboard,rootAuthorized=privilege==PrivilegeMode.ROOT&&rootAuthorized,onRootRevoked={rootAuthorized=false}) }
                 }
                 if(setup) UpdatePrompt(manualUpdateRequest)
             }

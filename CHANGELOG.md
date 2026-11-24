@@ -2,6 +2,11 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Optional advanced access setup
+
+- Offer Root, Shizuku or None in onboarding and Settings, with explicit authorization and no automatic permission prompts.
+- Keep shared storage permission separate and hide /data unless root access is verified.
+
 ## 0.5.0-dev — Root storage analysis
 
 - Add a read-only root scan of /data to the storage volume overview.

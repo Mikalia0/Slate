@@ -138,7 +138,7 @@ private fun SetupFeature(icon:Int,title:String,subtitle:String){
     }
 }
 @Composable
-internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,dynamic:Boolean,accent:SlateAccent,onMode:(SlateTheme)->Unit,onDynamic:(Boolean)->Unit,onAccent:(SlateAccent)->Unit,finish:()->Unit){
+internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,dynamic:Boolean,accent:SlateAccent,onMode:(SlateTheme)->Unit,onDynamic:(Boolean)->Unit,onAccent:(SlateAccent)->Unit,privilege:PrivilegeMode,onPrivilege:(PrivilegeMode)->Unit,rootAuthorized:Boolean,onRootChanged:(Boolean)->Unit,finish:()->Unit){
     var page by androidx.compose.runtime.saveable.rememberSaveable{mutableIntStateOf(0)}
     BackHandler(page>0){page--}
     Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing){padding->
@@ -171,11 +171,10 @@ internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,dynamic
                             Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
                                 Column(Modifier.padding(8.dp)){
                                     ListItem(headlineContent={Text(tr("Storage access"))},supportingContent={Text(tr(if(granted)"Granted"else"Required to scan shared files and folders."))},leadingContent={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},trailingContent={if(granted)Icon(Icons.Default.Check,tr("Granted"),tint=MaterialTheme.colorScheme.primary)else TextButton(onClick=request){Text(tr("Allow"))}},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-                                    HorizontalDivider(Modifier.padding(horizontal=12.dp))
-                                    com.slate.android.storage.ShizukuAccessRow()
+
                                 }
                             }
-                            SetupFeature(R.drawable.ic_device_cpu,tr("Device information"),tr("No additional permission required."))
+                            PrivilegeOptions(privilege,onPrivilege,rootAuthorized,onRootChanged)
                             Text(tr("You can continue without storage access and enable it later."),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         else->{
