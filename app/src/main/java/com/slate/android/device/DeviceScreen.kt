@@ -36,7 +36,7 @@ fun DeviceScreen(onBack: () -> Unit) {
     val pager = rememberPagerState(pageCount = { tabs.size })
     val scope = rememberCoroutineScope()
     val tab = pager.currentPage
-    fun select(page: Int) { scope.launch { pager.animateScrollToPage(page) } }
+    fun select(page: Int) { scope.launch { pager.scrollToPage(page) } }
     var fixed by remember { mutableStateOf<StaticInfo?>(null) }
     var live by remember { mutableStateOf<LiveInfo?>(null) }
     var storage by remember { mutableStateOf<List<Section>>(emptyList()) }
@@ -95,7 +95,6 @@ fun DeviceScreen(onBack: () -> Unit) {
                     }
                     if (sections.isEmpty()) item { Text(if (error || fixed != null) "No information available" else "Reading device information…") }
                     items(sections) { section -> InfoCard(section) }
-                    item { Text("Unavailable means Android or the device did not expose this value.", style = MaterialTheme.typography.bodySmall) }
                 }
             }
         }
@@ -104,8 +103,8 @@ fun DeviceScreen(onBack: () -> Unit) {
 
 @Composable
 private fun InfoCard(section: Section) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(section.title, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
             section.rows.forEach { info ->
                 if (info.value.length > 100 || info.value.contains('\n')) {

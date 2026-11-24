@@ -48,6 +48,7 @@ import java.io.File
 
 
 class MainActivity : ComponentActivity() {
+    private val history by lazy { StorageHistory(this) }
     private var granted by mutableStateOf(false)
     private var volumes by mutableStateOf<List<Volume>>(emptyList())
     private val legacyPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted = hasStorageAccess() }
@@ -95,7 +96,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    else -> Slate(granted, volumes, ::requestStorage, onSettings={settings=true})
+                    else -> Slate(granted, volumes, ::requestStorage, onSettings={settings=true}, history=history)
                 }
                 if(setup) UpdatePrompt(manualUpdateRequest)
             }
@@ -105,19 +106,20 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, onSettings: () -> Unit, model: StorageModel = viewModel()) {
+private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, onSettings: () -> Unit, history: StorageHistory, model: StorageModel = viewModel()) {
     val context = LocalContext.current
     val primary = remember { Environment.getExternalStorageDirectory() }
     var selectedPath by rememberSaveable { mutableStateOf(primary.absolutePath) }
     val root = remember(selectedPath) { File(selectedPath) }
     val selectedVolume = volumes.firstOrNull { it.root.absolutePath == selectedPath }
     val state by model.state.collectAsState()
+    LaunchedEffect(state.scanId,state.fresh) { if(state.fresh) state.snapshot?.let{history.record(it,state.scanId)} }
     var analyzer by rememberSaveable { mutableStateOf(false) }
     var device by rememberSaveable { mutableStateOf(false) }
     var about by rememberSaveable { mutableStateOf(false) }
     var sortMode by rememberSaveable { mutableStateOf(0) }
     var sortMenu by remember { mutableStateOf(false) }
-    var showMap by rememberSaveable { mutableStateOf(true) }
+    var showMap by rememberSaveable { mutableStateOf(false) }
     var search by rememberSaveable { mutableStateOf(false) }
     var selection by remember { mutableStateOf(setOf<String>()) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -143,8 +145,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets.safeDrawing) { padding ->
         if (device) {
             Box(Modifier.fillMaxSize().padding(padding)) { DeviceScreen(onBack = { device = false }) }
-        } else Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp)) {
-            Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        } else Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 14.dp)) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (analyzer) IconButton(onClick = ::back) { Icon(Icons.Default.ArrowBack,"Back") }
                 else Image(painterResource(R.drawable.ic_slate), null, Modifier.size(36.dp))
                 Spacer(Modifier.width(8.dp))
@@ -154,8 +156,11 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
             }
             if (!analyzer) {
                 HomeScreen(primary,volumes,analyze={file ->
-                    selectedPath=file.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query=""; search=false; if(granted)model.open(file, refresh=true)
-                },device={device=true})
+                    selectedPath=file.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query=""; search=false; if(granted)model.open(file)
+                },device={device=true},history=history,review={folder->
+                    selectedPath=primary.absolutePath; analyzer=true; selection=emptySet(); largeFiles=false; query="";search=false
+                    if(granted) model.open(folder)
+                })
             } else if (!granted) {
                 LaunchedEffect(granted) { model.cancel() }
                 Text("Storage access", style = MaterialTheme.typography.titleLarge)
@@ -211,7 +216,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                                     Text(fmt(snapshot.bytes),style=MaterialTheme.typography.headlineMedium,color=MaterialTheme.colorScheme.primary)
                                     Text(java.text.NumberFormat.getIntegerInstance().format(snapshot.files)+" files · "+snapshot.entries.count{it.directory}+" folders",style=MaterialTheme.typography.bodySmall)
-                                    if(snapshot.skipped>0) Text("${snapshot.skipped} items inaccessible · scan may be incomplete",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                    if(snapshot.skipped>0) Text("${snapshot.skipped} inaccessible",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -219,10 +224,9 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 FilterChip(selected=largeFiles,onClick={largeFiles=true;selection=emptySet();query=""},enabled=!deleting,label={Text("Largest files")})
                             }
                             if(!largeFiles && snapshot.bytes>0) {
-                                TextButton(onClick={showMap=!showMap}){Text(if(showMap)"Hide storage map" else "Show storage map")}
+                                TextButton(onClick={showMap=!showMap}){Text(if(showMap)"Hide map" else "Map")}
                                 if(showMap) TreemapView(snapshot.entries,fmt){ if(!deleting) { if(selection.isNotEmpty()) toggle(it) else selectEntry(it) } }
                             }
-                            if(largeFiles) Text("100 largest accessible files",style=MaterialTheme.typography.bodySmall)
                             Row(verticalAlignment=Alignment.CenterVertically) {
                                 Text(if(largeFiles)"Files" else "Contents",modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
                                 IconButton(onClick={search=!search;if(!search)query=""},enabled=!deleting){Icon(Icons.Default.Search,"Search")}
@@ -246,7 +250,6 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 supportingContent={
                                     Column(verticalArrangement=Arrangement.spacedBy(5.dp)) {
                                         Text(if(largeFiles)entry.file.relativeTo(snapshot.directory).path else if(entry.directory)"${entry.files} files" else entry.file.extension.uppercase().ifBlank{"File"},maxLines=1,overflow=TextOverflow.Ellipsis)
-                                        LinearProgressIndicator(progress={if(snapshot.bytes>0)(entry.bytes.toDouble()/snapshot.bytes).toFloat().coerceIn(0f,1f) else 0f},modifier=Modifier.fillMaxWidth().height(3.dp))
                                     }
                                 },
                                 leadingContent={
@@ -262,7 +265,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     if(confirmDelete) AlertDialog(onDismissRequest={confirmDelete=false},title={Text("Permanently delete ${selected.size} items?")},
                         text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
                             Text("Measured size: "+fmt(selected.sumOf{it.bytes}))
-                            Text("Selected files and folders will be deleted permanently. This cannot be undone. Inaccessible or incomplete items will be skipped.")
+                            Text("This cannot be undone. Inaccessible or incomplete items are skipped.")
                             selected.take(4).forEach{Text(it.file.relativeTo(root).path,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)}
                             if(selected.size>4)Text("And ${selected.size-4} more")
                         }},
