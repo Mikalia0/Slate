@@ -23,6 +23,12 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
@@ -238,7 +244,23 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
     var albums by rememberSaveable{mutableStateOf(false)}
     var bucket by rememberSaveable{mutableStateOf<String?>(null)}
     var filter by rememberSaveable{mutableIntStateOf(0)}
-    var columns by rememberSaveable{mutableIntStateOf(prefs.getInt("columns",3).coerceIn(2,5))}
+    var columns by rememberSaveable{mutableIntStateOf(prefs.getInt("columns",3).coerceIn(1,6))}
+    val width=LocalConfiguration.current.screenWidthDp
+    var albumColumns by rememberSaveable{mutableIntStateOf(prefs.getInt("album_columns",0).coerceIn(0,5))}
+    val albumGrid=albums&&bucket==null
+    val currentColumns=if(albumGrid)albumColumns.takeIf{it>0}?:((width-28+12)/164).coerceIn(1,5) else columns
+    val maxColumns=if(albumGrid)5 else 6
+    val photoGridState=rememberLazyGridState()
+    val albumGridState=rememberLazyGridState()
+    fun setColumns(count:Int){
+        val next=count.coerceIn(1,maxColumns)
+        if(albumGrid){
+            albumColumns=next;prefs.edit().putInt("album_columns",next).apply()
+        }else{
+            columns=next;prefs.edit().putInt("columns",next).apply()
+        }
+    }
+
     var menu by remember{mutableStateOf(false)}
     var search by rememberSaveable{mutableStateOf(false)}
     var query by rememberSaveable{mutableStateOf("")}
@@ -249,6 +271,9 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
     var pendingDelete by rememberSaveable{mutableStateOf(arrayListOf<String>())}
     var deleting by remember{mutableStateOf(false)}
     var message by remember{mutableStateOf<String?>(null)}
+    val onGridPinch by rememberUpdatedState<(Int)->Unit>({delta->
+        if(!deleting && preview==null)setColumns(currentColumns+delta)
+    })
     val launcher=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){revision++}
     val deleteLauncher=rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()){result->
         if(result.resultCode==Activity.RESULT_OK){selected=selected-pendingDelete.toSet();if(preview in pendingDelete)preview=null;revision++}
@@ -287,8 +312,8 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
                     IconButton(onClick={menu=true}){Icon(Icons.Default.MoreVert,null)}
                     DropdownMenu(expanded=menu,onDismissRequest={menu=false}){
                         DropdownMenuItem(text={Text(tr("Refresh"))},onClick={revision++;menu=false})
-                        (2..5).forEach{count->
-                            DropdownMenuItem(text={Text(stringResource(R.string.gallery_grid_columns,count))},trailingIcon={if(columns==count)Icon(Icons.Default.Check,null)},onClick={columns=count;prefs.edit().putInt("columns",count).apply();menu=false})
+                        (1..maxColumns).forEach{count->
+                            DropdownMenuItem(text={Text(stringResource(R.string.gallery_grid_columns,count))},trailingIcon={if(currentColumns==count)Icon(Icons.Default.Check,null)},onClick={setColumns(count);menu=false})
                         }
                     }
                 }
@@ -321,7 +346,29 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
                 }
             }
         }
-        if(if(albums&&bucket==null)groups.isNotEmpty()||loading else visible.isNotEmpty()||loading)LazyVerticalGrid(columns=if(albums&&bucket==null)GridCells.Adaptive(152.dp)else GridCells.Fixed(columns),modifier=Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)12.dp else 3.dp),verticalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)14.dp else 3.dp),contentPadding=PaddingValues(if(albums&&bucket==null)14.dp else 4.dp)){
+        if(if(albums&&bucket==null)groups.isNotEmpty()||loading else visible.isNotEmpty()||loading)LazyVerticalGrid(columns=GridCells.Fixed(currentColumns),state=if(albumGrid)albumGridState else photoGridState,modifier=Modifier.weight(1f).pointerInput(albumGrid){
+            awaitEachGesture{
+                awaitFirstDown(requireUnconsumed=false,pass=PointerEventPass.Initial)
+                var pinching=false
+                var accumulated=1f
+                do{
+                    val event=awaitPointerEvent(PointerEventPass.Initial)
+                    val pressed=event.changes.count{it.pressed}
+                    if(pressed>=2){
+                        pinching=true
+                        val zoom=event.calculateZoom()
+                        if(zoom.isFinite()&&zoom>0f){
+                            accumulated*=zoom
+                            val step=galleryPinchStep(accumulated)
+                            if(step!=0){onGridPinch(step);accumulated=1f}
+                        }
+                    }
+                    // Once a pinch starts, do not let the remaining finger open a photo,
+                    // select an item or fling the grid. Single-finger scrolling is untouched.
+                    if(pinching)event.changes.forEach{it.consume()}
+                }while(event.changes.any{it.pressed})
+            }
+        },horizontalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)12.dp else 3.dp),verticalArrangement=Arrangement.spacedBy(if(albums&&bucket==null)14.dp else 3.dp),contentPadding=PaddingValues(if(albums&&bucket==null)14.dp else 4.dp)){
             if(albums&&bucket==null){
                 items(groups,key={it.first().bucket}){group->
                     Column(Modifier.fillMaxWidth().clickable{bucket=group.first().bucket;filter=0;query=""}){
