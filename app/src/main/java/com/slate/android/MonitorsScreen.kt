@@ -23,6 +23,8 @@ internal fun MonitorsScreen(){
     var packageName by remember{mutableStateOf(PerformanceOverlayService.packageName)}
     var fps by remember{mutableStateOf(PerformanceOverlayService.fps)}
     var failed by remember{mutableStateOf(false)}
+    val prefs=remember{context.getSharedPreferences("monitor",0)}
+    var neon by remember{mutableStateOf(prefs.getBoolean("neon_edge",false))}
     LaunchedEffect(Unit){
         while(true){
             running=PerformanceOverlayService.running
@@ -42,6 +44,7 @@ internal fun MonitorsScreen(){
                 Text(packageName?:stringResource(R.string.monitor_no_app),style=MaterialTheme.typography.bodyMedium)
             }
         }
+        ListItem(headlineContent={Text("Neon Edge")},supportingContent={Text(stringResource(R.string.monitor_neon_desc))},trailingContent={Switch(checked=neon,enabled=!running,onCheckedChange={neon=it;prefs.edit().putBoolean("neon_edge",it).apply()})})
         if(!authorized)ShizukuAccessRow()
         if(!overlayAllowed&&!running)OutlinedButton(onClick={
             failed=runCatching{context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+context.packageName)))}.isFailure

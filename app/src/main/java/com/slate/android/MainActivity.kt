@@ -88,6 +88,7 @@ class MainActivity : ComponentActivity() {
             val prefs = remember { getSharedPreferences("appearance", MODE_PRIVATE) }
             var mode by remember { mutableStateOf(runCatching { SlateTheme.valueOf(prefs.getString("theme","SYSTEM") ?: "SYSTEM") }.getOrDefault(SlateTheme.SYSTEM)) }
             var dynamic by remember { mutableStateOf(prefs.getBoolean("dynamic",false)) }
+            var accent by remember { mutableStateOf(runCatching{SlateAccent.valueOf(prefs.getString("accent","MINT")?:"MINT")}.getOrDefault(SlateAccent.MINT)) }
             var setup by remember { mutableStateOf(prefs.getBoolean("setup",false)) }
             val storageModel:StorageModel = viewModel()
             val history=storageModel.history
@@ -97,16 +98,17 @@ class MainActivity : ComponentActivity() {
             var manualUpdateRequest by remember { mutableIntStateOf(0) }
             val onMode: (SlateTheme)->Unit = { mode=it; prefs.edit().putString("theme",it.name).apply() }
             val onDynamic: (Boolean)->Unit = { dynamic=it; prefs.edit().putBoolean("dynamic",it).apply() }
-            SlateAppearance(mode,dynamic,this@MainActivity) {
+            val onAccent:(SlateAccent)->Unit={accent=it;prefs.edit().putString("accent",it.name).apply()}
+            SlateAppearance(mode,dynamic,accent,this@MainActivity) {
                 when {
-                    !setup -> Onboarding(granted,::requestStorage,mode,dynamic,onMode,onDynamic) { setup=true; prefs.edit().putBoolean("setup",true).apply() }
+                    !setup -> Onboarding(granted,::requestStorage,mode,dynamic,accent,onMode,onDynamic,onAccent) { setup=true; prefs.edit().putBoolean("setup",true).apply() }
                     settings -> {
                         BackHandler { settings=false }
                         Scaffold(contentWindowInsets=WindowInsets.safeDrawing) { padding ->
                             Column(Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                                 Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick={settings=false}){Icon(Icons.Default.ArrowBack,"Back")};Text(tr("Settings"),style=MaterialTheme.typography.headlineSmall)}
                                 Text(tr("Appearance"),style=MaterialTheme.typography.titleMedium)
-                                ThemeOptions(mode,dynamic,onMode,onDynamic)
+                                ThemeOptions(mode,dynamic,accent,onMode,onDynamic,onAccent)
                                 HorizontalDivider()
                                 ListItem(headlineContent={Text(tr("Storage access"))},supportingContent={Text(tr(if(granted)"Granted" else "Not granted"))},trailingContent={TextButton(onClick=::requestStorage){Text(tr("Manage"))}})
                                 ShizukuAccessRow()

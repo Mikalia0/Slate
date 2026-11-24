@@ -2,6 +2,13 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — Appearance and GPU monitoring
+
+- Refine the three-step onboarding with a compact layout, clearer permission actions and appearance previews.
+- Add eight persistent accent palettes independent of light, dark and AMOLED modes.
+- Add optional Neon Edge styling to the FPS/package overlay.
+- Add the Ludashi KGSL memstore fallback for Adreno busy estimates when sysfs is unavailable.
+
 ## 0.5.0-dev — Adreno GPU monitoring
 
 - Add the Ludashi KGSL memstore fallback for whole-GPU busy estimates when sysfs is unavailable, with idle shutdown and retry backoff.

@@ -40,7 +40,13 @@ class PerformanceOverlayService:Service(){
         val text=TextView(this).apply{
             setTextColor(Color.WHITE);textSize=13f;typeface=Typeface.MONOSPACE;setText("— FPS")
             val pad=(8*density).toInt();setPadding(pad,pad,pad,pad)
-            background=GradientDrawable().apply{setColor(0xD9222927.toInt());cornerRadius=10*density}
+            val neon=getSharedPreferences("monitor",MODE_PRIVATE).getBoolean("neon_edge",false)
+            if(neon)setTextColor(0xFFE6D9FF.toInt())
+            background=GradientDrawable().apply{
+                setColor(if(neon)0xD91A1424.toInt()else 0xD9222927.toInt())
+                cornerRadius=10*density
+                if(neon)setStroke((density*1.25f).toInt().coerceAtLeast(1),0xFFA98AEF.toInt())
+            }
             var sx=0f;var sy=0f;var ox=0;var oy=0
             setOnTouchListener{_,event->
                 when(event.actionMasked){
