@@ -2,6 +2,13 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.5.0-dev — New tools navigation
+
+- Add bottom navigation for Home, Files, Gallery and Monitors.
+- Browse shared storage directly, search folders, switch volumes and manage files with explicit operations.
+- Browse local photos and videos by date or album with lazy thumbnails and external viewing/sharing.
+- Add live performance charts and a user-started draggable floating hardware monitor. Game FPS is not implemented yet.
+
 ## 0.5.0-dev — Device information redesign
 
 - Redesign CPU, GPU, memory, display, thermal, storage and network sections around visual summaries and compact metrics.

@@ -1,0 +1,30 @@
+<resources>
+    <string name="tool_home">Home</string>
+    <string name="tool_files">Files</string>
+    <string name="tool_gallery">Gallery</string>
+    <string name="tool_monitors">Monitors</string>
+    <string name="file_volumes">Storage volumes</string>
+    <string name="file_new_folder">New folder</string>
+    <string name="file_hidden">Hidden files</string>
+    <string name="file_sort">Change sort order</string>
+    <string name="file_search">Search this folder</string>
+    <string name="file_paste">Paste</string>
+    <string name="file_empty">No files found</string>
+    <string name="file_failed">Could not access or modify the file. Check storage permissions.</string>
+    <string name="file_copy">Copy</string>
+    <string name="file_move">Move</string>
+    <string name="file_rename">Rename</string>
+    <string name="file_delete_confirm">Delete item?</string>
+    <string name="file_delete_description">Delete %1$s? Only files and empty folders can be removed here.</string>
+    <string name="gallery_access">Allow photo and video access to browse your local gallery.</string>
+    <string name="gallery_photos">Photos</string>
+    <string name="gallery_folders">Folders</string>
+    <string name="gallery_empty">No photos or videos found</string>
+    <string name="monitor_overlay">Floating monitor</string>
+    <string name="monitor_overlay_desc">Live CPU clock, GPU load (when available), RAM, temperature and battery power over apps.</string>
+    <string name="monitor_start">Start overlay</string>
+    <string name="monitor_stop">Stop overlay</string>
+    <string name="monitor_failed">Could not start overlay.</string>
+    <string name="monitor_cpu_clock">CPU clock</string>
+    <string name="monitor_fps_pending">Game FPS and frame times require a separate privileged compositor backend; not available yet.</string>
+</resources>

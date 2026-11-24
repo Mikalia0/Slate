@@ -137,6 +137,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     val selectedVolume = volumes.firstOrNull { it.root.absolutePath == selectedPath }
     val state by model.state.collectAsState()
     LaunchedEffect(granted) { if(granted)model.checkSession() }
+    var destination by rememberSaveable { mutableIntStateOf(0) }
+    val toolState=rememberSaveableStateHolder()
     var analyzer by rememberSaveable { mutableStateOf(false) }
     var device by rememberSaveable { mutableStateOf(false) }
     var showHistory by rememberSaveable{mutableStateOf(false)}
@@ -181,11 +183,15 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     BackHandler(analyzer || device || apps || cleanup || showHistory) { if(showHistory)showHistory=false else if(cleanup)cleanup=false else if(apps) {apps=false;appsState.removeState("apps")} else if (device) device = false else back() }
     val config=LocalConfiguration.current
     val landscape=config.screenWidthDp>config.screenHeightDp && config.screenWidthDp>=600
-    val screenKey=when{showHistory->"history";cleanup->"cleanup";apps->"apps";device->"device";analyzer->"storage";else->"home"}
+    val screenKey=when{showHistory->"history";cleanup->"cleanup";apps->"apps";device->"device";analyzer->"storage";else->"tool-$destination"}
     val screenAlpha=remember{Animatable(1f)}
     var previousScreen by remember{mutableStateOf(screenKey)}
     LaunchedEffect(screenKey){if(previousScreen!=screenKey){previousScreen=screenKey;screenAlpha.snapTo(.82f);screenAlpha.animateTo(1f,tween(120))}}
-    Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing){padding->
+    val mainDestination=!showHistory&&!cleanup&&!apps&&!device&&!analyzer
+    BackHandler(mainDestination&&destination!=0){destination=0}
+    Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing,bottomBar={
+        if(mainDestination)SlateBottomNavigation(destination){destination=it}
+    }){padding->
         Row(Modifier.fillMaxSize().padding(padding)){
             Box(Modifier.weight(1f).fillMaxHeight().graphicsLayer{alpha=screenAlpha.value}){
         if(showHistory) {
@@ -194,7 +200,15 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
             Box(Modifier.fillMaxSize()){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()},review={folder->cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();largeFiles=false;query="";search=false;model.open(folder)})}
         } else if(apps) {
             appsState.SaveableStateProvider("apps"){Box(Modifier.fillMaxSize()){AppsStorageScreen(onBack={apps=false},reviewFolder={folder->returnToApps=true;apps=false;analyzer=true;personalOnly=false;selectedPath=folder.absolutePath;openFolder(folder)},initialCacheSort=appCacheSort,onCacheChanged={model.invalidate()})}}
-        } else if (device) {
+        } else if(mainDestination&&destination!=0) {
+             toolState.SaveableStateProvider(destination){
+                 when(destination){
+                     1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()})
+                     2 -> GalleryScreen(granted,request)
+                     3 -> MonitorsScreen(deviceStatus)
+                 }
+             }
+         } else if (device) {
             Box(Modifier.fillMaxSize()) { DeviceScreen(onBack = { device = false },status=deviceStatus,initialPage=devicePage) }
         } else Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {

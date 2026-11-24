@@ -41,6 +41,13 @@ Status: implemented features still need device validation. CI verifies compilati
 - [ ] Localization review (English/PT-BR), actionable changelogs, update history and reproducible release checks.
 - [ ] Establish a stable-release checklist: CI, device matrix, migration/signature checks, cleanup safety, performance and regressions.
 
+## P4 — Dedicated tools
+
+- [ ] File manager: validate basic browsing and safe operations; add tabs, multi-select, bookmarks, grid, archives, and dual pane for landscape.
+- [ ] Gallery: validate date/album browsing and permission handling; add full-screen swiping, video playback, favorites, editing and reviewed MediaStore deletion.
+- [ ] Monitors: validate hardware overlay, add configurable metrics and presets, session graphs and export; implement real game FPS/frame times via a Shizuku-compatible compositor backend with device validation. Never substitute display refresh rate for FPS.
+- [ ] Add performance and memory budgets for all three tools. Keep the four-tab navigation compact.
+
 ## Progress tracking
 
 Track each item as planned, implemented, CI-verified or device-verified in GitHub issues. Only count an item complete after the applicable acceptance tests pass. Keep scope lean: no ads, analytics, RAM boosters, artificial speed claims or automatic deletion of personal files.

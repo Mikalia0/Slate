@@ -1,0 +1,30 @@
+<resources>
+    <string name="tool_home">Início</string>
+    <string name="tool_files">Arquivos</string>
+    <string name="tool_gallery">Galeria</string>
+    <string name="tool_monitors">Monitores</string>
+    <string name="file_volumes">Volumes de armazenamento</string>
+    <string name="file_new_folder">Nova pasta</string>
+    <string name="file_hidden">Arquivos ocultos</string>
+    <string name="file_sort">Alterar ordenação</string>
+    <string name="file_search">Pesquisar nesta pasta</string>
+    <string name="file_paste">Colar</string>
+    <string name="file_empty">Nenhum arquivo encontrado</string>
+    <string name="file_failed">Não foi possível acessar ou modificar o arquivo. Verifique as permissões.</string>
+    <string name="file_copy">Copiar</string>
+    <string name="file_move">Mover</string>
+    <string name="file_rename">Renomear</string>
+    <string name="file_delete_confirm">Excluir item?</string>
+    <string name="file_delete_description">Excluir %1$s? Apenas arquivos e pastas vazias podem ser removidos aqui.</string>
+    <string name="gallery_access">Permita acesso a fotos e vídeos para navegar na galeria local.</string>
+    <string name="gallery_photos">Fotos</string>
+    <string name="gallery_folders">Pastas</string>
+    <string name="gallery_empty">Nenhuma foto ou vídeo encontrado</string>
+    <string name="monitor_overlay">Monitor flutuante</string>
+    <string name="monitor_overlay_desc">Clock da CPU, carga da GPU (quando disponível), RAM, temperatura e potência da bateria sobre os apps.</string>
+    <string name="monitor_start">Iniciar overlay</string>
+    <string name="monitor_stop">Parar overlay</string>
+    <string name="monitor_failed">Não foi possível iniciar o overlay.</string>
+    <string name="monitor_cpu_clock">Clock da CPU</string>
+    <string name="monitor_fps_pending">FPS e frametimes de jogos precisam de um backend privilegiado do compositor; ainda não disponíveis.</string>
+</resources>
