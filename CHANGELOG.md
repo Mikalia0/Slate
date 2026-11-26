@@ -2,6 +2,14 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## 0.1.0 — First public release
+
+- Storage analysis, duplicate detection, cleanup and app management.
+- Device diagnostics, sensors, performance monitoring and Material 3 themes.
+- Tabbed file manager, media and document viewers, ZIP extraction and APK inspection and signing.
+- Optional Slate Advanced companion for additional archive formats, manifest viewing and basic APK metadata editing.
+- Unified updater supports numbered releases and development builds.
+
 ## 0.5.0-dev — Gallery date groups
 
 - Select or deselect an entire date group from its heading and delete a group using its contextual trash button.

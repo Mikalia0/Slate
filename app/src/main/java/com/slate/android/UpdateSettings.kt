@@ -43,7 +43,11 @@ private const val RELEASES = "https://api.github.com/repos/stevenmx2/Slate/relea
 private const val MAX_APK_BYTES = 200L * 1024 * 1024
 private data class Update(val code: Long, val attempt: Long, val tag: String, val url: String, val size: Long, val digest: String?, val notes: String)
 
-internal fun updateVersion(tag: String): Pair<Long,Long>? {
+internal fun updateVersion(tag: String, notes: String = ""): Pair<Long,Long>? {
+    if (Regex("""v[0-9]+\.[0-9]+\.[0-9]+""").matches(tag)) {
+        val code = Regex("""(?m)^Version code: ([1-9][0-9]*)\s*$""").findAll(notes).toList().singleOrNull()?.groupValues?.get(1)?.toLongOrNull() ?: return null
+        return if (code in 1001L..2_100_000_000L) code to 1L else null
+    }
     val m = Regex("""dev-([1-9][0-9]*)-([1-9][0-9]*)""").matchEntire(tag) ?: return null
     val run = m.groupValues[1].toLongOrNull() ?: return null
     val attempt = m.groupValues[2].toLongOrNull() ?: return null
@@ -104,7 +108,7 @@ private suspend fun findUpdate(installed: Long): Update? = withContext(Dispatche
         val release = data.getJSONObject(i)
         if(release.optBoolean("draft")) continue
         val tag = release.optString("tag_name")
-        val (code,attempt) = updateVersion(tag) ?: continue
+        val (code,attempt) = updateVersion(tag, release.optString("body")) ?: continue
         if(code <= installed) continue
         val assets = release.optJSONArray("assets") ?: continue
         for(j in 0 until assets.length()) {

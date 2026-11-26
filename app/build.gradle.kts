@@ -13,7 +13,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = providers.environmentVariable("SLATE_VERSION_CODE").orNull?.toInt() ?: 6
-        versionName = "0.5.0-dev"
+        versionName = rootProject.file("VERSION").readText().trim()
     }
     val keystorePath = providers.environmentVariable("SLATE_KEYSTORE_PATH").orNull
     val keystorePassword = providers.environmentVariable("SLATE_KEYSTORE_PASSWORD").orNull

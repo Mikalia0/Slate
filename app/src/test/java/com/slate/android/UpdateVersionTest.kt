@@ -8,5 +8,9 @@ class UpdateVersionTest {
         assertNull(updateVersion("dev-0-1"))
         assertNull(updateVersion("dev-999999999999999999999-1"))
         assertNull(updateVersion("v1.0"))
+        assertEquals(1083L to 1L,updateVersion("v0.1.0","Version code: 1083\n\nFirst release"))
+        assertNull(updateVersion("v0.1.0"))
+        assertNull(updateVersion("v0.1.0","Version code: 999"))
+        assertNull(updateVersion("v0.1.0","Version code: 1083\nVersion code: 1084"))
     }
 }
