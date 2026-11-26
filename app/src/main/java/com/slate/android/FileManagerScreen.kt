@@ -3,6 +3,9 @@ package com.slate.android
 import android.media.MediaScannerConnection
 import android.os.Environment
 import android.text.format.Formatter
+import android.text.format.DateUtils
+import androidx.compose.foundation.shape.RoundedCornerShape
+import java.util.Calendar
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -37,6 +40,7 @@ import com.slate.android.storage.withProtectedRead
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.withPermit
 import java.io.File
 import java.nio.file.Files
 internal fun safeFile(root:File,file:File):Boolean=runCatching{
@@ -44,12 +48,53 @@ internal fun safeFile(root:File,file:File):Boolean=runCatching{
 }.getOrDefault(false)
 internal fun validFileName(name:String)=name.isNotBlank()&&name!="."&&name!=".."&&name.none{it=='/'||it=='\\'||it.code<32}
 private data class FileRow(val file:File,val directory:Boolean,val size:Long,val modified:Long)
+private val folderSummarySlots=kotlinx.coroutines.sync.Semaphore(2)
+private data class FolderSummary(val count:String,val preview:File?)
+private fun folderSummary(root:File,folder:File,hidden:Boolean):FolderSummary?=runCatching{
+    if(!safeFile(root,folder)||protectedAppPath(folder.toPath()))return@runCatching null
+    var count=0
+    var scanned=0
+    var preview:File?=null
+    Files.newDirectoryStream(folder.toPath()).use{stream->
+        for(child in stream){
+            if(Thread.currentThread().isInterrupted||++scanned>1500)break
+            if(!hidden&&child.fileName.toString().startsWith("."))continue
+            count++
+            if(count<=32&&preview==null){
+                val file=child.toFile()
+                if(file.extension.lowercase() in setOf("jpg","jpeg","png","webp","mp4","mkv","apk")&&
+                    !protectedAppPath(child)&&safeFile(root,file)&&file.isFile)preview=file
+            }
+            if(count>1000)break
+        }
+    }
+    FolderSummary(if(count>1000)"1000+" else if(scanned>1500)"$count+" else count.toString(),preview)
+}.getOrNull()
+
+private fun fileDay(time:Long):Long=Calendar.getInstance().apply{
+    timeInMillis=time
+    set(Calendar.HOUR_OF_DAY,0);set(Calendar.MINUTE,0);set(Calendar.SECOND,0);set(Calendar.MILLISECOND,0)
+}.timeInMillis
+
+@Composable
+private fun BrowserFileIcon(row:FileRow,preview:File?,modifier:Modifier=Modifier.size(40.dp)){
+    val color=MaterialTheme.colorScheme
+    val ext=row.file.extension.lowercase()
+    val typeLabel=if(!row.directory&&ext in setOf("zip","rar","7z","tar","gz","xz","zst","tzst","bz2","dll","exe","msi","patch","diff","so","json","xml","ini","cfg","log","txt","pdf","bin","iso","sh","bat"))ext.uppercase() else null
+    Box(modifier.background(if(row.directory)color.primaryContainer else color.secondaryContainer,RoundedCornerShape(11.dp)),contentAlignment=Alignment.Center){
+        if(typeLabel!=null)Text(typeLabel,style=MaterialTheme.typography.labelSmall,color=color.onSecondaryContainer,maxLines=1)
+        else FilePreview(Entry(row.file,row.directory,row.size,0,0,row.modified),Modifier.size(if(row.directory)25.dp else 40.dp),if(row.directory)color.onPrimaryContainer else color.onSecondaryContainer)
+        if(preview!=null)Box(Modifier.align(Alignment.BottomEnd).size(18.dp).background(color.surface,RoundedCornerShape(4.dp))){
+            FilePreview(Entry(preview,false,0,0,0,row.modified),Modifier.fillMaxSize(),color.primary)
+        }
+    }
+}
 private data class ClipboardFile(val root:File,val files:List<FileRow>,val move:Boolean)
 private fun tabKey(root:File,folder:File)=root.path+"\n"+folder.path
 private fun tabFiles(key:String)=File(key.substringBefore('\n')) to File(key.substringAfter('\n'))
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->Unit,onChanged:()->Unit,model:com.slate.android.storage.StorageModel){
+internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->Unit,onChanged:()->Unit,model:com.slate.android.storage.StorageModel,onBrowsingChanged:(Boolean)->Unit={}){
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val primary=Environment.getExternalStorageDirectory()
@@ -83,6 +128,9 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     var loading by remember{mutableStateOf(false)}
     var rows by remember{mutableStateOf<List<FileRow>>(emptyList())}
     var showHome by rememberSaveable{mutableStateOf(true)}
+    val browsingCallback by rememberUpdatedState(onBrowsingChanged)
+    LaunchedEffect(showHome){browsingCallback(!showHome)}
+    DisposableEffect(Unit){onDispose{browsingCallback(false)}}
     val availableVolumes=volumes.ifEmpty{listOf(Volume(primary,"Internal storage"))}
     val catalog by produceState<FileCatalog?>(null,granted,availableVolumes,revision){
         value=null
@@ -128,15 +176,23 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         return
     }
     Column(Modifier.fillMaxSize()){
-        val title=if(folder==root)tr(volumes.firstOrNull{it.root.path==rootPath}?.label?:"Internal storage")else folder.name
+        val rootLabel=tr(availableVolumes.firstOrNull{it.root.path==rootPath}?.label?:"Internal storage")
+        val title=if(folder==root)rootLabel else rootLabel+"/"+folder.path.removePrefix(root.path).trim('/')
+        val storage by produceState<Pair<Long,Long>?>(null,rootPath,revision,granted){
+            value=withContext(Dispatchers.IO){runCatching{val total=root.totalSpace; if(total>0)(total-root.usableSpace).coerceIn(0,total) to total else null}.getOrNull()}
+        }
+        val shown=remember(rows,query,sort,descending){
+            val comparator=when(sort){1->compareBy<FileRow>{it.size};2->compareBy<FileRow>{it.modified};3->compareBy<FileRow>{it.file.extension.lowercase()};else->compareBy<FileRow>{it.file.name.lowercase()}}
+            val filtered=rows.filter{it.file.name.contains(query,true)}
+            val order=if(descending)comparator.reversed()else comparator
+            filtered.sortedWith(if(sort==2)order.thenBy{it.file.name.lowercase()}else compareByDescending<FileRow>{it.directory}.then(order))
+        }
         Row(Modifier.fillMaxWidth().padding(start=8.dp,end=4.dp),verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick={volumeMenu=true},enabled=!busy){Icon(Icons.Default.Menu,stringResource(R.string.file_volumes))}
             Column(Modifier.weight(1f)){
                 Text(title,style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
-                Text(stringResource(R.string.tool_files),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.file_items,shown.size),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick={searching=!searching;if(!searching)query=""},enabled=(granted||shizuku)&&!busy){Icon(Icons.Default.Search,stringResource(R.string.file_search))}
-            IconButton(onClick={grid=!grid;prefs.edit().putBoolean("grid",grid).apply()},enabled=(granted||shizuku)&&!busy){Icon(painterResource(if(grid)R.drawable.ic_storage_file else R.drawable.ic_storage_folder),stringResource(R.string.file_view))}
             Box{
                 DropdownMenu(expanded=volumeMenu,onDismissRequest={volumeMenu=false}){
                     if(shizuku){
@@ -169,16 +225,20 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         if(!granted&&!(protected&&shizuku)){Text(tr("Storage access"));Button(onClick=request){Text(tr("Grant access"))};return@Column}
         Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow).horizontalScroll(rememberScrollState()).padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)){
             tabs.forEachIndexed{index,key->
-                val (_,dir)=tabFiles(key)
-                FilterChip(selected=index==tab,onClick={if(!busy){tab=index;selected=null;marked=emptySet();query=""}},label={Text(dir.name.ifBlank{"/"},maxLines=1)})
+                val (volume,dir)=tabFiles(key)
+                val label=if(dir==volume)tr(availableVolumes.firstOrNull{it.root.path==volume.path}?.label?:"Internal storage")else dir.name
+                val active=index==tab
+                Text(label,Modifier.heightIn(min=40.dp).clickable(enabled=!busy){tab=index;selected=null;marked=emptySet();query=""}.background(if(active)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,MaterialTheme.shapes.small).padding(horizontal=12.dp,vertical=10.dp),style=MaterialTheme.typography.bodyMedium,color=if(active)MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
             }
             IconButton(enabled=!busy&&tabs.size<12,onClick={tabs=ArrayList(tabs).apply{add(tabKey(root,folder))};tab=tabs.lastIndex;marked=emptySet()}){Icon(Icons.Default.Add,stringResource(R.string.file_new_tab))}
             if(tabs.size>1)IconButton(enabled=!busy,onClick={tabs=ArrayList(tabs).apply{removeAt(tab)};tab=tab.coerceAtMost(tabs.lastIndex);marked=emptySet()}){Icon(Icons.Default.Close,stringResource(R.string.file_close_tab))}
         }
-        HorizontalDivider()
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick={if(folder==root)showHome=true else go(folder.parentFile?:root)},enabled=!busy){Icon(Icons.Default.ArrowBack,tr("Back"))}
-            TextButton(onClick={go(root)},enabled=!busy){Text(tr(volumes.firstOrNull{it.root.path==rootPath}?.label?:"Internal storage"))}
+            TextButton(onClick={go(root)},enabled=!busy){Text(rootLabel)}
+            if(folder==root)storage?.let{(used,total)->
+                Text(Formatter.formatFileSize(context,used)+" / "+Formatter.formatFileSize(context,total),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             var crumb=root
             folder.path.removePrefix(root.path).trim('/').split('/').filter{it.isNotEmpty()}.forEach{part->
                 crumb=File(crumb,part)
@@ -199,6 +259,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                     TextButton(enabled=!busy&&chosen.isNotEmpty()&&chosen.all{writable(it.file)},onClick={clipboard=ClipboardFile(root,chosen,false);marked=emptySet()}){Text(stringResource(R.string.file_copy))}
                     TextButton(enabled=!busy&&chosen.isNotEmpty()&&chosen.all{writable(it.file)},onClick={clipboard=ClipboardFile(root,chosen,true);marked=emptySet()}){Text(stringResource(R.string.file_move))}
                     TextButton(enabled=!busy&&chosen.isNotEmpty()&&chosen.all{writable(it.file)},onClick={operation="batch_delete"}){Text(tr("Delete"))}
+                    if(chosen.size==1)IconButton(enabled=!busy,onClick={selected=chosen.single()}){Icon(Icons.Default.MoreVert,tr("More"))}
                     IconButton(onClick={marked=emptySet()}){Icon(Icons.Default.Close,null)}
                 }
             }
@@ -224,42 +285,68 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         }
         if(loading||busy)LinearProgressIndicator(Modifier.fillMaxWidth())
         message?.let{Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
-        val shown=remember(rows,query,sort,descending){
-            val comparator=when(sort){1->compareBy<FileRow>{it.size};2->compareBy<FileRow>{it.modified};3->compareBy<FileRow>{it.file.extension.lowercase()};else->compareBy<FileRow>{it.file.name.lowercase()}}
-            rows.filter{it.file.name.contains(query,true)}.sortedWith(compareByDescending<FileRow>{it.directory}.then(if(descending)comparator.reversed()else comparator))
-        }
-        Row(Modifier.fillMaxWidth().padding(start=16.dp,end=8.dp),verticalAlignment=Alignment.CenterVertically){
-            Text(stringResource(R.string.file_items,shown.size),Modifier.weight(1f),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton(onClick={sorting=true},enabled=!busy){Text(stringResource(listOf(R.string.file_sort_name,R.string.file_sort_size,R.string.file_sort_date,R.string.file_sort_type)[sort])+" "+if(descending)"↓" else "↑")}
-        }
-        HorizontalDivider()
-        if(shown.isEmpty()&&!loading)Text(stringResource(R.string.file_empty),Modifier.padding(14.dp))
         fun tap(row:FileRow){
             if(marked.isNotEmpty())marked=if(row.file.path in marked)marked-row.file.path else marked+row.file.path
             else if(row.directory)go(row.file)
             else if(!openSharedFile(context,root,row.file,false))message=context.getString(R.string.file_failed)
         }
+        if(grid&&shown.isEmpty()&&!loading)Text(stringResource(R.string.file_empty),Modifier.padding(14.dp))
         if(grid)LazyVerticalGrid(columns=GridCells.Adaptive(105.dp),modifier=Modifier.weight(1f),contentPadding=PaddingValues(10.dp),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
             items(shown,key={it.file.path}){row->
                 Surface(shape=MaterialTheme.shapes.medium,color=if(row.file.path in marked)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface){
                     Column(Modifier.fillMaxWidth().combinedClickable(enabled=!busy,onClick={tap(row)},onLongClick={marked=marked+row.file.path}).padding(10.dp),horizontalAlignment=Alignment.CenterHorizontally){
-                        FilePreview(Entry(row.file,row.directory,row.size,0,0,row.modified),Modifier.size(40.dp),MaterialTheme.colorScheme.primary)
+                        BrowserFileIcon(row,null)
                         Text(row.file.name,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)
                         if(!row.directory)Text(Formatter.formatFileSize(context,row.size),style=MaterialTheme.typography.labelSmall)
                     }
                 }
             }
-        }else LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(vertical=2.dp)){
-            items(shown,key={it.file.path}){row->
-                Row(Modifier.fillMaxWidth().combinedClickable(enabled=!busy,onClick={tap(row)},onLongClick={marked=marked+row.file.path}).background(if(row.file.path in marked)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface).heightIn(min=62.dp).padding(start=16.dp,end=4.dp,top=5.dp,bottom=5.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
-                    if(row.file.path in marked)Icon(Icons.Default.Check,null,Modifier.size(30.dp),tint=MaterialTheme.colorScheme.primary) else FilePreview(Entry(row.file,row.directory,row.size,0,0,row.modified),Modifier.size(30.dp),MaterialTheme.colorScheme.primary)
-                    Column(Modifier.weight(1f)){
-                        Text(row.file.name,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        Text(listOfNotNull(if(row.directory)null else Formatter.formatFileSize(context,row.size),if(row.modified>0)DateFormat.getDateInstance(DateFormat.SHORT).format(Date(row.modified))else null).joinToString(" · "),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }else {
+            val groups=remember(shown,sort){
+                if(sort==2)shown.groupBy{if(it.modified>0)fileDay(it.modified)else 0L}.toList()
+                else listOf(0L to shown)
+            }
+            LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(vertical=2.dp)){
+                groups.forEach{(day,entries)->
+                    if(sort==2&&entries.isNotEmpty())item(key="day-$day"){
+                        Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal=14.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically){
+                            Text(if(day>0)DateUtils.getRelativeTimeSpanString(day,System.currentTimeMillis(),DateUtils.DAY_IN_MILLIS,DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH).toString()else "—",Modifier.weight(1f),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(entries.size.toString(),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
-                    IconButton(onClick={selected=row},enabled=!busy){Icon(Icons.Default.MoreVert,null)}
+                    items(entries,key={it.file.path}){row->
+                        val summary by produceState<FolderSummary?>(null,row.file.path,row.modified,revision,protected,hidden,rootPath){
+                            value=null
+                            if(row.directory&&!protected)value=folderSummarySlots.withPermit{withContext(Dispatchers.IO){folderSummary(root,row.file,hidden)}}
+                        }
+                        val active=row.file.path in marked
+                        Row(Modifier.fillMaxWidth().combinedClickable(enabled=!busy,onClick={tap(row)},onLongClick={marked=marked+row.file.path}).background(if(active)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface).heightIn(min=51.dp).padding(horizontal=8.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                            if(active)Box(Modifier.size(40.dp),contentAlignment=Alignment.Center){Icon(Icons.Default.Check,null,Modifier.size(28.dp),tint=MaterialTheme.colorScheme.primary)}
+                            else BrowserFileIcon(row,summary?.preview)
+                            Column(Modifier.weight(1f)){
+                                Text(row.file.name,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodyLarge)
+                                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)){
+                                    Text(if(row.modified>0)DateUtils.getRelativeTimeSpanString(row.modified,System.currentTimeMillis(),DateUtils.MINUTE_IN_MILLIS,DateUtils.FORMAT_ABBREV_RELATIVE).toString()else "—",Modifier.weight(1f),maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                    val metadata=if(row.directory)summary?.count?.let{"($it)"}else Formatter.formatFileSize(context,row.size)
+                                    if(metadata!=null)Text(metadata,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
+                                }
+                            }
+                        }
+                    }
                 }
-                HorizontalDivider(Modifier.padding(start=60.dp),thickness=.5.dp)
+                if(shown.isEmpty()&&!loading)item{Text(stringResource(R.string.file_empty),Modifier.padding(14.dp))}
+            }
+        }
+        Surface(color=MaterialTheme.colorScheme.surfaceContainer){
+            Row(Modifier.fillMaxWidth().padding(horizontal=4.dp),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
+                IconButton(onClick={searching=!searching;if(!searching)query=""},enabled=!busy){Icon(Icons.Default.Search,stringResource(R.string.file_search))}
+                IconButton(onClick={grid=!grid;prefs.edit().putBoolean("grid",grid).apply()},enabled=!busy){Icon(painterResource(if(grid)R.drawable.ic_storage_file else R.drawable.ic_storage_folder),stringResource(R.string.file_view),Modifier.size(23.dp))}
+                IconButton(onClick={name="";operation="mkdir"},enabled=!busy&&(!protected||shizuku)){Icon(Icons.Default.Add,stringResource(R.string.file_new_folder))}
+                IconButton(onClick={revision++},enabled=!busy){Icon(Icons.Default.Refresh,tr("Refresh"))}
+                TextButton(onClick={sorting=true},enabled=!busy,contentPadding=PaddingValues(horizontal=4.dp)){
+                    Text((when(sort){1->"KB";2->"◷";3->"Aa";else->"AZ"})+(if(descending)"↓"else"↑"),style=MaterialTheme.typography.labelLarge)
+                }
+                IconButton(onClick={val all=shown.map{it.file.path}.toSet();marked=if(marked==all)emptySet()else all},enabled=!busy&&shown.isNotEmpty()){Icon(Icons.Default.Check,stringResource(R.string.cache_select_all))}
             }
         }
     }
@@ -280,7 +367,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     if(sorting)AlertDialog(onDismissRequest={sorting=false},title={Text(stringResource(R.string.file_sort))},text={
         Column{
             listOf(R.string.file_sort_name,R.string.file_sort_size,R.string.file_sort_date,R.string.file_sort_type).forEachIndexed{index,label->
-                Row(verticalAlignment=Alignment.CenterVertically){RadioButton(selected=sort==index,onClick={sort=index});Text(stringResource(label))}
+                Row(verticalAlignment=Alignment.CenterVertically){RadioButton(selected=sort==index,onClick={if(sort!=index){sort=index;descending=index==2}});Text(stringResource(label))}
             }
             Row(verticalAlignment=Alignment.CenterVertically){Checkbox(checked=descending,onCheckedChange={descending=it});Text(stringResource(R.string.file_descending))}
         }

@@ -215,9 +215,10 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var previousScreen by remember{mutableStateOf(screenKey)}
     LaunchedEffect(screenKey){if(previousScreen!=screenKey){previousScreen=screenKey;screenAlpha.snapTo(.82f);screenAlpha.animateTo(1f,tween(120))}}
     val mainDestination=!about&&!rootData&&!showVolumes&&!showHistory&&!cleanup&&!apps&&!device&&!analyzer
+    var fileBrowsing by remember{mutableStateOf(false)}
     BackHandler(mainDestination&&destination!=0){destination=0}
     Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing,bottomBar={
-        if(mainDestination)SlateBottomNavigation(destination){destination=it}
+        if(mainDestination&&!(destination==1&&fileBrowsing))SlateBottomNavigation(destination){destination=it}
     }){padding->
         Row(Modifier.fillMaxSize().padding(padding)){
             Box(Modifier.weight(1f).fillMaxHeight().graphicsLayer{alpha=screenAlpha.value}){
@@ -240,7 +241,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         } else if(mainDestination&&destination!=0) {
              toolState.SaveableStateProvider(destination){
                  when(destination){
-                     1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()},model=model)
+                     1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()},model=model,onBrowsingChanged={fileBrowsing=it})
                      2 -> GalleryScreen(granted,request)
                      3 -> MonitorsScreen()
                  }
