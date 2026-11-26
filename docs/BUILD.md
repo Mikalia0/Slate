@@ -3,10 +3,10 @@
 Requirements: JDK 17, Android SDK 35, Gradle 8.9, NDK 27.2.12479018 and CMake 3.22.1.
 
 ```sh
-gradle :app:testReleaseUnitTest :app:assembleRelease :advanced:assembleRelease
+gradle :app:testReleaseUnitTest :app:assembleRelease
 ```
 
-The main APK is in `app/build/outputs/apk/release/`. The optional companion APK is in `advanced/build/outputs/apk/release/`.
+The main APK is in `app/build/outputs/apk/release/`.
 
 Set `SLATE_KEYSTORE_PATH` and `SLATE_KEYSTORE_PASSWORD` to sign local builds. Without them release APKs are unsigned. Maintainers can use `scripts/setup-signing.sh` to configure persistent signing and Actions secrets. Never commit signing credentials. Keep the original key backed up: rotating it prevents in-place updates.
 

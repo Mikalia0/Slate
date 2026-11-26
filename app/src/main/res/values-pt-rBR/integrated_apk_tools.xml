@@ -1,0 +1,8 @@
+<resources>
+    <string name="apk_manifest_tools">Manifesto e metadados</string>
+    <string name="apk_manifest_tools_desc">Visualize XML binário, edite nome e versão e inspecione HEX.</string>
+    <string name="apk_inject_provider">Injetar Documents Provider</string>
+    <string name="apk_inject_provider_desc">Adicione acesso somente leitura aos arquivos externos do app pelo seletor do Android.</string>
+    <string name="apk_inject_provider_confirm">Modifique apenas APKs próprios ou autorizados. Será criada uma cópia sem assinatura, com SDK mínimo Android 8.0 ou superior. O provider expõe somente os arquivos externos do próprio app, não os dados privados internos. Assine a cópia antes de instalar.</string>
+    <string name="apk_provider_created">APK sem assinatura criado: %1$s</string>
+</resources>

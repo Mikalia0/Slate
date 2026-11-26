@@ -103,8 +103,11 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
     var busy by remember{mutableStateOf(false)}
     var failed by remember{mutableStateOf(false)}
     var viewer by remember{mutableStateOf<CatalogFile?>(null)}
-    fun open(item:CatalogFile){if(canViewSlateFile(item.root,item.entry.file))viewer=item else if(isAddonArchive(item.entry.file.name))openSlateAddon(context,item.root,item.entry.file)else if(!openSharedFile(context,item.root,item.entry.file,false))failed=true}
-    viewer?.let{item->SlateFileViewer(item.root,item.entry.file,onClose={viewer=null;onChanged()},onExternal={openSharedFile(context,item.root,item.entry.file,false)});return}
+    var apkChoice by remember{mutableStateOf<CatalogFile?>(null)}
+    var viewerTab by remember{mutableIntStateOf(0)}
+    fun open(item:CatalogFile){if(canViewSlateFile(item.root,item.entry.file)){if(item.entry.file.extension.equals("apk",true))apkChoice=item else{viewerTab=0;viewer=item}}else if(!openSharedFile(context,item.root,item.entry.file,false))failed=true}
+    apkChoice?.let{item->SlateApkActions(item.root,item.entry.file,onClose={apkChoice=null},onInspect={viewerTab=it;apkChoice=null;viewer=item})}
+    viewer?.let{item->SlateFileViewer(item.root,item.entry.file,onClose={viewer=null;onChanged()},onExternal={openSharedFile(context,item.root,item.entry.file,false)},initialApkTab=viewerTab);return}
     val grouped by produceState<Map<FileCategory,List<CatalogFile>>>(emptyMap(),catalog){
         value=withContext(Dispatchers.Default){catalog?.files.orEmpty().groupBy{fileCategory(it.entry.file.extension)}}
     }

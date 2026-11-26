@@ -57,11 +57,9 @@ English · Português (Brasil) · Español · Français · Italiano · Русс�
 
 O idioma pode ser alterado nas configurações do Slate ou seguir o sistema.
 
-## Complementos
+## Ferramentas integradas
 
-**Slate Advanced** — complemento opcional para formatos compactados adicionais, visualização de manifesto, edição de informações de APK e inspeção hexadecimal.
-
-Quando disponível, instale `Slate-Advanced.apk` nas [GitHub Releases](https://github.com/stevenmx2/Slate/releases). Os visualizadores básicos já estão incluídos no Slate.
+Edição de ZIP, JAR e CBZ, inspeção e edição de APK, manifesto, editor de texto e extração de formatos adicionais como 7Z, TZST, XZ e RAR compatível. Inclui injeção de Documents Provider somente leitura para arquivos externos de APKs autorizados. Tudo no mesmo APK.
 
 ## Instalação
 

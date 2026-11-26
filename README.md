@@ -57,11 +57,9 @@ English · Português (Brasil) · Español · Français · Italiano · Русс�
 
 Choose a language in Slate settings or follow the system default.
 
-## Add-ons
+## Built-in tools
 
-**Slate Advanced** — An optional companion for additional archive formats, manifest viewing, APK metadata editing and hex inspection.
-
-When available, install `Slate-Advanced.apk` from [GitHub Releases](https://github.com/stevenmx2/Slate/releases). The basic viewers are already included in Slate.
+ZIP, JAR and CBZ editing, APK inspection and metadata editing, manifest viewer, text editing and additional archive extraction including 7Z, TZST, XZ and supported RAR versions. Includes read-only Documents Provider injection for external app files in authorized APKs. All in a single APK.
 
 ## Installation
 

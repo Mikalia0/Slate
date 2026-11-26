@@ -149,7 +149,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     var properties by remember{mutableStateOf<FileRow?>(null)}
     var handler by remember{mutableStateOf<File?>(null)}
     var toolsScreen by remember{mutableStateOf(false)}
-    var addonsScreen by remember{mutableStateOf(false)}
+    var viewerTab by remember{mutableIntStateOf(0)}
     var actionMenu by remember{mutableStateOf(false)}
     val pathClipboard=LocalClipboardManager.current
     var clipboard by remember{mutableStateOf<ClipboardFile?>(null)}
@@ -251,10 +251,9 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     }
     BackHandler(!showHome){if(!busy){when{marked.isNotEmpty()->marked=emptySet();selected!=null->selected=null;searching->{searching=false;query=""};else->if(folder==root)showHome=true else go(folder.parentFile?.takeIf{safeFile(root,it)}?:root)}}}
     if(safSource!=null){SlateSafBrowser(Uri.parse(safSource),onClose={safSource=null},onForget={val old=safSource; if(old!=null){sources=sources-old;prefs.edit().putStringSet("saf_sources",sources).apply();runCatching{val uri=Uri.parse(old);val grant=context.contentResolver.persistedUriPermissions.firstOrNull{it.uri==uri};if(grant!=null)context.contentResolver.releasePersistableUriPermission(uri,(if(grant.isReadPermission)Intent.FLAG_GRANT_READ_URI_PERMISSION else 0) or (if(grant.isWritePermission)Intent.FLAG_GRANT_WRITE_URI_PERMISSION else 0))}};safSource=null});return}
-    if(addonsScreen){SlateAddonsScreen(onClose={addonsScreen=false});return}
     if(toolsScreen){SlateDocumentsScreen(onClose={toolsScreen=false});return}
     viewer?.let{file->
-        SlateFileViewer(root,file,onClose={viewer=null;revision++;onChanged()},onExternal={openSharedFile(context,root,file,false)})
+        SlateFileViewer(root,file,onClose={viewer=null;revision++;onChanged()},onExternal={openSharedFile(context,root,file,false)},initialApkTab=viewerTab)
         return
     }
     val config=androidx.compose.ui.platform.LocalConfiguration.current
@@ -267,7 +266,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 onFolder={key->val (volume,dir)=tabFiles(key);if(!busy&&((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null))){go(dir,volume);showHome=false};closeDrawer()},
                 onCategory={page->closeDrawer();home(page)},onAddStorage={closeDrawer();addStorage.launch(null)},
                 onSource={closeDrawer();safSource=it},onFavorites={closeDrawer();editFavorites=true},
-                onDocuments={closeDrawer();toolsScreen=true},onAddons={closeDrawer();addonsScreen=true},onSettings={closeDrawer();onSettings()}
+                onDocuments={closeDrawer();toolsScreen=true},onSettings={closeDrawer();onSettings()}
             )
     }
     val browserContent:@Composable ()->Unit={
@@ -364,7 +363,6 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                     DropdownMenuItem(text={Text(stringResource(if(tabKey(root,folder) in bookmarks)R.string.file_unbookmark else R.string.file_bookmark))},onClick={saveBookmark();menu=false})
                     DropdownMenuItem(text={Text(tr("Refresh"))},onClick={revision++;menu=false})
                     DropdownMenuItem(text={Text(stringResource(R.string.slate_documents))},onClick={menu=false;toolsScreen=true})
-                    DropdownMenuItem(text={Text(stringResource(R.string.slate_addons))},onClick={menu=false;addonsScreen=true})
                 }
             }
         }
@@ -422,8 +420,8 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         fun tap(row:FileRow){
             if(marked.isNotEmpty())marked=if(row.file.path in marked)marked-row.file.path else marked+row.file.path
             else if(row.directory)go(row.file)
-            else if(canViewSlateFile(root,row.file))viewer=row.file
-            else if(isAddonArchive(row.file.name)&&!protectedAppPath(row.file.toPath()))openSlateAddon(context,root,row.file)
+            else if(row.file.extension.equals("apk",true)&&canViewSlateFile(root,row.file))handler=row.file
+            else if(canViewSlateFile(root,row.file)){viewerTab=0;viewer=row.file}
             else if(!openSharedFile(context,root,row.file,false))message=context.getString(R.string.file_failed)
         }
         val wide=topTools||config.screenWidthDp>=if(expanded)1100 else 700
@@ -511,11 +509,11 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         },confirmButton={TextButton(onClick={properties=null}){Text(tr("Close"))}})
     }
     handler?.let{file->
-        AlertDialog(onDismissRequest={handler=null},title={Text(stringResource(R.string.browser_open_with))},text={
+        if(file.extension.equals("apk",true)&&canViewSlateFile(root,file)){
+            SlateApkActions(root,file,onClose={handler=null},onInspect={tabIndex->handler=null;viewerTab=tabIndex;viewer=file})
+        }else AlertDialog(onDismissRequest={handler=null},title={Text(stringResource(R.string.browser_open_with))},text={
             Column{
-                Text(file.name,style=MaterialTheme.typography.bodySmall,maxLines=2,overflow=TextOverflow.Ellipsis)
-                if(canViewSlateFile(root,file))TextButton(onClick={handler=null;viewer=file}){Text(stringResource(R.string.browser_internal))}
-                if((isAddonArchive(file.name)||file.extension.equals("apk",true))&&!protectedAppPath(file.toPath()))TextButton(onClick={handler=null;openSlateAddon(context,root,file)}){Text(stringResource(R.string.slate_addon_advanced))}
+                if(canViewSlateFile(root,file))TextButton(onClick={handler=null;viewerTab=0;viewer=file}){Text(stringResource(R.string.browser_internal))}
                 TextButton(onClick={handler=null;openSharedFile(context,root,file,false)}){Text(stringResource(R.string.browser_external))}
             }
         },confirmButton={TextButton(onClick={handler=null}){Text(tr("Close"))}})

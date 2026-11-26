@@ -49,7 +49,7 @@ private fun DrawerEntry(label:String,icon:Int,description:String?=null,usage:Flo
     }
 }
 @Composable
-internal fun SlateBrowserDrawer(volumes:List<Volume>,bookmarks:List<String>,history:List<String>,sources:List<String>,shizuku:Boolean,onHome:()->Unit,onDashboard:()->Unit,onFolder:(String)->Unit,onCategory:(String)->Unit,onAddStorage:()->Unit,onSource:(String)->Unit,onFavorites:()->Unit,onDocuments:()->Unit,onAddons:()->Unit,onSettings:()->Unit){
+internal fun SlateBrowserDrawer(volumes:List<Volume>,bookmarks:List<String>,history:List<String>,sources:List<String>,shizuku:Boolean,onHome:()->Unit,onDashboard:()->Unit,onFolder:(String)->Unit,onCategory:(String)->Unit,onAddStorage:()->Unit,onSource:(String)->Unit,onFavorites:()->Unit,onDocuments:()->Unit,onSettings:()->Unit){
     val context=LocalContext.current
     Column(Modifier.fillMaxHeight().widthIn(max=320.dp)){
         Row(Modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically){
@@ -96,7 +96,6 @@ internal fun SlateBrowserDrawer(volumes:List<Volume>,bookmarks:List<String>,hist
             }
             item{HorizontalDivider()}
             item{DrawerEntry(stringResource(R.string.slate_documents),R.drawable.ic_storage_folder,onClick=onDocuments)}
-            item{DrawerEntry(stringResource(R.string.slate_addons),R.drawable.ic_file_archive,onClick=onAddons)}
         }
     }
 }

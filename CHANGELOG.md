@@ -2,6 +2,14 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## Unreleased — Integrated file tools
+
+- Integrate advanced archive extraction, manifest metadata editing and hex inspection into Slate.apk.
+- Show APK actions before opening the inspector, with installation and installed-app launch.
+- Add ZIP-family file export, import, replacement, text editing, rename, delete and directory creation. APK contents edits create an unsigned copy.
+- Add opt-in, read-only Documents Provider injection for authorized APKs (external files only; outputs an unsigned copy).
+- Publish a single APK instead of an optional companion.
+
 ## Unreleased — Compact portrait and landscape layouts
 
 - Move main navigation and file browser actions into the top header in landscape.

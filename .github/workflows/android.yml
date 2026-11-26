@@ -51,13 +51,10 @@ jobs:
           printf '%s' "$SLATE_KEYSTORE_BASE64" | base64 --decode > "$SLATE_KEYSTORE_PATH"
           unset SLATE_KEYSTORE_BASE64
           export SLATE_VERSION_CODE="$((1000 + GITHUB_RUN_NUMBER))"
-          gradle --no-daemon :app:testReleaseUnitTest :app:assembleRelease :advanced:assembleRelease
+          gradle --no-daemon :app:testReleaseUnitTest :app:assembleRelease
           apk=app/build/outputs/apk/release/app-release.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk"
           cp "$apk" Slate.apk
-          addon=advanced/build/outputs/apk/release/advanced-release.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$addon"
-          cp "$addon" Slate-Advanced.apk
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -78,7 +75,7 @@ jobs:
             fi
           done < <(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft == false) | select(any(.assets[]; .name == "Slate.apk")) | .tag_name')
           if [[ -n "$previous" ]]; then
-            git log --no-merges --format='- %s' "$previous..$GITHUB_SHA" -- app advanced VERSION scripts .github/workflows/android.yml > changelog.txt
+            git log --no-merges --format='- %s' "$previous..$GITHUB_SHA" -- app VERSION scripts .github/workflows/android.yml > changelog.txt
           else
             awk '/^## /{if(seen++) exit; next} seen{print}' CHANGELOG.md > changelog.txt
           fi
@@ -86,11 +83,11 @@ jobs:
           printf 'Version code: %s\n\n' "$code" > release-notes.md
           cat changelog.txt >> release-notes.md
           if ! gh release view "$stable" >/dev/null 2>&1; then
-            gh release create "$stable" Slate.apk Slate-Advanced.apk changelog.txt \
+            gh release create "$stable" Slate.apk changelog.txt \
               --target "$GITHUB_SHA" --title "Slate $stable" --latest --notes-file release-notes.md
           else
             tag="dev-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
-            gh release create "$tag" Slate.apk Slate-Advanced.apk changelog.txt \
+            gh release create "$tag" Slate.apk changelog.txt \
               --target "$GITHUB_SHA" --title "Slate $version · Build ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
               --prerelease --latest=false --notes-file release-notes.md
           fi

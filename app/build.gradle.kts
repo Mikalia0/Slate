@@ -33,6 +33,7 @@ android {
         isDebuggable = false
         isMinifyEnabled = false
     }
+    packaging { resources.excludes += setOf("META-INF/DEPENDENCIES","META-INF/LICENSE","META-INF/LICENSE.txt","META-INF/NOTICE","META-INF/NOTICE.txt") }
     buildFeatures { compose = true; aidl = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -49,6 +50,11 @@ dependencies {
     implementation("androidx.core:core:1.15.0")
     implementation("androidx.documentfile:documentfile:1.0.1")
     implementation("com.android.tools.build:apksig:8.7.3")
+    implementation("io.github.reandroid:ARSCLib:1.4.0")
+    implementation("org.apache.commons:commons-compress:1.27.1")
+    implementation("org.tukaani:xz:1.10")
+    implementation("com.github.luben:zstd-jni:1.5.6-4@aar")
+    implementation("com.github.junrar:junrar:7.5.5")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
@@ -58,3 +64,33 @@ dependencies {
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
     testImplementation("junit:junit:4.13.2")
 }
+
+/* Compile the standalone Android-only provider payload at build time, not from an opaque binary. */
+val slateProviderClasses = layout.buildDirectory.dir("intermediates/slateProvider/classes")
+val slateProviderAssets = layout.buildDirectory.dir("generated/slateProviderAssets")
+val slateSdk = androidComponents.sdkComponents.sdkDirectory
+val compileSlateProvider by tasks.registering(JavaCompile::class) {
+    source(fileTree("src/provider/java") { include("**/*.java") })
+    classpath = files(slateSdk.map { it.file("platforms/android-35/android.jar") })
+    destinationDirectory.set(slateProviderClasses)
+    sourceCompatibility = "1.8"
+    targetCompatibility = "1.8"
+    options.encoding = "UTF-8"
+}
+val dexSlateProvider by tasks.registering(JavaExec::class) {
+    dependsOn(compileSlateProvider)
+    inputs.dir(slateProviderClasses)
+    outputs.dir(slateProviderAssets)
+    classpath = files(slateSdk.map { it.file("build-tools/35.0.0/lib/d8.jar") })
+    mainClass.set("com.android.tools.r8.D8")
+    doFirst {
+        val out = slateProviderAssets.get().dir("slate-provider").asFile
+        out.mkdirs()
+        val classes = slateProviderClasses.get().asFile.walkTopDown().filter { it.isFile && it.extension == "class" }.toList()
+        check(classes.isNotEmpty())
+        setArgs(listOf("--min-api", "26", "--lib", slateSdk.get().file("platforms/android-35/android.jar").asFile.absolutePath, "--output", out.absolutePath) + classes.map { it.absolutePath })
+    }
+}
+android.sourceSets.getByName("main").assets.srcDir(slateProviderAssets)
+tasks.named("preBuild") { dependsOn(dexSlateProvider) }
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach { dependsOn(dexSlateProvider) }

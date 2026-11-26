@@ -15,3 +15,9 @@ Additional manufacturer marks from Simple Icons: [samsung](https://github.com/si
 [AndroidHiddenApiBypass](https://github.com/LSPosed/AndroidHiddenApiBypass) by LSPosed (Apache-2.0) is used for access to the cache-only package-manager interfaces within the privileged Shizuku service.
 
 Adreno KGSL memstore utilization fallback adapted from Winlator-Ludashi commit [5cf4bac](https://github.com/Other-backup/Winlator-Ludashi/commit/5cf4bac607f17b673d1409be29da7c47d615cbd6), derived from The412Banner/Bannerlator commit 0ab047311ccc55b2911d984727d2d57ac6c0ebf7 and DroidDeck PRs #1969 and #1981 (GPL-3.0-only). Qualcomm KGSL minimal UAPI retains its GPL-2.0 WITH Linux-syscall-note notice.
+
+### Integrated advanced file tools
+
+- [ARSCLib](https://github.com/REAndroid/ARSCLib) — APK resources and binary manifest editing.
+- [Apache Commons Compress](https://commons.apache.org/proper/commons-compress/), [XZ for Java](https://tukaani.org/xz/java.html), [zstd-jni](https://github.com/luben/zstd-jni) and [Junrar](https://github.com/junrar/junrar) — archive extraction backends.
+- [MP Manager](https://github.com/AbdurazaaqMohammed/MP-Manager) — functional reference, no source copied.

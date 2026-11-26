@@ -25,7 +25,7 @@ internal fun openSharedFile(context:Context,root:File,file:File,share:Boolean):B
     val relative=com.slate.android.storage.protectedRelative(file)
     if(relative!=null&&com.slate.android.storage.shizukuGranted()){
         val uri=android.net.Uri.Builder().scheme("content").authority(context.packageName+".protected").apply{relative.split('/').forEach{appendPath(it)}}.build()
-        val mime=MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase())?:"application/octet-stream"
+        val mime=if(file.extension.equals("apk",true))"application/vnd.android.package-archive" else MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase())?:"application/octet-stream"
         val intent=if(share)Intent(Intent.ACTION_SEND).apply{type=mime;putExtra(Intent.EXTRA_STREAM,uri)}else Intent(Intent.ACTION_VIEW).apply{setDataAndType(uri,mime)}
         intent.clipData=ClipData.newRawUri(file.name,uri);intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(intent,if(share)"Share file" else "Open with"))
@@ -35,7 +35,7 @@ internal fun openSharedFile(context:Context,root:File,file:File,share:Boolean):B
     val target=file.canonicalFile
     require(target.toPath().startsWith(canonicalRoot.toPath()) && target!=canonicalRoot && target.isFile)
     val uri=FileProvider.getUriForFile(context,context.packageName+".files",target)
-    val mime=MimeTypeMap.getSingleton().getMimeTypeFromExtension(target.extension.lowercase()) ?: "application/octet-stream"
+    val mime=if(target.extension.equals("apk",true))"application/vnd.android.package-archive" else MimeTypeMap.getSingleton().getMimeTypeFromExtension(target.extension.lowercase()) ?: "application/octet-stream"
     val intent=if(share)Intent(Intent.ACTION_SEND).apply{type=mime;putExtra(Intent.EXTRA_STREAM,uri)}
     else Intent(Intent.ACTION_VIEW).apply{setDataAndType(uri,mime)}
     intent.clipData=ClipData.newRawUri(target.name,uri)

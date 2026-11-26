@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-package com.slate.advanced
+package com.slate.android
 
 import android.net.Uri
 import android.os.Bundle
@@ -29,26 +29,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-class AdvancedActivity:ComponentActivity(){
-    override fun onCreate(savedInstanceState:Bundle?){
-        super.onCreate(savedInstanceState)
-        val uri=intent.data?.takeIf{it.scheme=="content"}
-        setContent{
-            val dark=isSystemInDarkTheme()
-            MaterialTheme(colorScheme=if(dark)dynamicDarkColorSchemeOrDefault()else dynamicLightColorSchemeOrDefault()){
-                Surface(Modifier.fillMaxSize()){Box(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter){Box(Modifier.widthIn(max=1000.dp).fillMaxSize()){AdvancedScreen(uri){finish()}}}}
-            }
-        }
-    }
-}
-@Composable private fun dynamicDarkColorSchemeOrDefault()=if(android.os.Build.VERSION.SDK_INT>=31)dynamicDarkColorScheme(LocalContext.current)else darkColorScheme()
-@Composable private fun dynamicLightColorSchemeOrDefault()=if(android.os.Build.VERSION.SDK_INT>=31)dynamicLightColorScheme(LocalContext.current)else lightColorScheme()
-@Composable private fun AdvancedScreen(initial:Uri?,close:()->Unit){
+@Composable internal fun SlateAdvancedScreen(localFile:java.io.File,close:()->Unit){
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val pt=Locale.getDefault().language=="pt"
     fun tr(en:String,br:String)=if(pt)br else en
-    var input by remember{mutableStateOf<InputFile?>(null)}
+    var input by remember(localFile){mutableStateOf<InputFile?>(InputFile(localFile.name,localFile))}
     var busy by remember{mutableStateOf(false)}
     var status by remember{mutableStateOf<String?>(null)}
     var manifest by remember{mutableStateOf<ManifestInfo?>(null)}
@@ -62,7 +48,7 @@ class AdvancedActivity:ComponentActivity(){
             busy=true;status=null;manifest=null;hex=null;tab=0
             try{
                 val next=withContext(Dispatchers.IO){stageInput(context,uri)}
-                input?.file?.delete();input=next
+                input?.file?.takeIf{it!=localFile}?.delete();input=next
                 if(next.name.endsWith(".apk",true)){
                     manifest=withContext(Dispatchers.IO){readManifest(next)}
                     label="";version=manifest?.version.orEmpty();code=manifest?.code.orEmpty()
@@ -90,14 +76,21 @@ class AdvancedActivity:ComponentActivity(){
             finally{busy=false}
         }
     }
-    LaunchedEffect(initial){initial?.let{load(it)}}
+    LaunchedEffect(localFile){
+        if(localFile.extension.equals("apk",true)){
+            busy=true
+            try{manifest=withContext(Dispatchers.IO){readManifest(InputFile(localFile.name,localFile))};version=manifest?.version.orEmpty();code=manifest?.code.orEmpty()}
+            catch(e:CancellationException){throw e}catch(e:Exception){status=e.message?:tr("Unable to open file","Não foi possível abrir o arquivo")}
+            finally{busy=false}
+        }
+    }
     val current by rememberUpdatedState(input)
-    DisposableEffect(Unit){onDispose{current?.file?.delete()}}
+    DisposableEffect(Unit){onDispose{current?.file?.takeIf{it!=localFile}?.delete()}}
     androidx.activity.compose.BackHandler(busy){}
-    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)){
+    Column(Modifier.fillMaxSize()){
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick=close,enabled=!busy){Icon(Icons.Default.ArrowBack,tr("Back","Voltar"))}
-            Text("Slate Advanced",Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
+            Text(tr("Advanced tools","Ferramentas avançadas"),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
             TextButton(enabled=!busy,onClick={picker.launch(arrayOf("*/*"))}){Text(tr("Open","Abrir"))}
         }
         if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())

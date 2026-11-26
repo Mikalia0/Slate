@@ -3,4 +3,3 @@ dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_P
 rootProject.name = "Slate"
 include(":app")
 
-include(":advanced")

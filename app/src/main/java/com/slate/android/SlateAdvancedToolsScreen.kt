@@ -57,15 +57,18 @@ import java.util.zip.ZipFile
         SelectionContainer{Text(value,style=MaterialTheme.typography.bodyMedium)}
     }
 }
-@Composable internal fun SlateApkScreen(root:File,file:File,external:()->Unit){
+@Composable internal fun SlateApkScreen(root:File,file:File,external:()->Unit,initialTab:Int=0){
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val inspection by produceState<Result<ApkInspection>?>(null,file){
         value=withContext(Dispatchers.IO){runCatching{inspectSlateApk(context,file)}}
     }
     val details=inspection?.getOrNull()
-    var tab by remember{mutableIntStateOf(0)}
+    var tab by remember{mutableIntStateOf(initialTab.coerceIn(0,2))}
+    var advanced by remember{mutableStateOf(false)}
+    if(advanced){BackHandler{advanced=false};SlateAdvancedScreen(file){advanced=false};return}
     var signDialog by remember{mutableStateOf(false)}
+    var providerDialog by remember{mutableStateOf(false)}
     var signing by remember{mutableStateOf(false)}
     var status by remember{mutableStateOf<String?>(null)}
     var keyUri by remember{mutableStateOf<android.net.Uri?>(null)}
@@ -81,7 +84,7 @@ import java.util.zip.ZipFile
                 Text(details?.pkg?:Formatter.formatFileSize(context,file.length()),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 if(details!=null)Text(details.version,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
             }
-            FilledTonalButton(onClick=external,enabled=!signing){Text(stringResource(R.string.apk_install))}
+            FilledTonalButton(onClick=external,enabled=!signing){Text(stringResource(R.string.browser_open_with))}
         }
         val tabs=listOf(R.string.apk_overview,R.string.apk_contents,R.string.apk_tools)
         val wide=androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp>=840
@@ -125,7 +128,8 @@ import java.util.zip.ZipFile
             1->Box(Modifier.weight(1f)){SlateArchiveScreen(root,file,external)}
             else->LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
                 item{ToolHeading(stringResource(R.string.apk_tools),stringResource(R.string.apk_tools_description))}
-                item{ToolRow(stringResource(R.string.slate_addon_advanced),stringResource(R.string.slate_addon_apk_desc),R.drawable.ic_file_apk,enabled=!signing){openSlateAddon(context,root,file)}}
+                item{ToolRow(stringResource(R.string.apk_manifest_tools),stringResource(R.string.apk_manifest_tools_desc),R.drawable.ic_file_apk,enabled=!signing){advanced=true}}
+                item{ToolRow(stringResource(R.string.apk_inject_provider),stringResource(R.string.apk_inject_provider_desc),R.drawable.ic_storage_folder,enabled=!signing){providerDialog=true}}
                 item{ToolRow(stringResource(R.string.apk_sign),stringResource(R.string.apk_sign_desc),R.drawable.ic_file_apk,enabled=!signing){signDialog=true}}
                 item{ToolRow(stringResource(R.string.apk_certificates),stringResource(R.string.apk_cert_desc),R.drawable.ic_storage_file,enabled=!signing){tab=0}}
                 item{ToolRow(stringResource(R.string.apk_contents),stringResource(R.string.apk_contents_desc),R.drawable.ic_file_archive,enabled=!signing){tab=1}}
@@ -137,6 +141,20 @@ import java.util.zip.ZipFile
         }
         }
     }
+    if(providerDialog)AlertDialog(onDismissRequest={providerDialog=false},title={Text(stringResource(R.string.apk_inject_provider))},text={Text(stringResource(R.string.apk_inject_provider_confirm))},confirmButton={
+        TextButton(onClick={
+            providerDialog=false
+            scope.launch{
+                signing=true;status=null
+                try{
+                    val dest=withContext(Dispatchers.IO){injectExternalDocumentsProvider(context,root,file)}
+                    MediaScannerConnection.scanFile(context,arrayOf(dest.path),null,null)
+                    status=context.getString(R.string.apk_provider_created,dest.name)
+                }catch(e:CancellationException){throw e}catch(e:Exception){status=e.message?:context.getString(R.string.slate_tool_failed)}
+                finally{signing=false}
+            }
+        }){Text(stringResource(R.string.apk_inject_provider))}
+    },dismissButton={TextButton(onClick={providerDialog=false}){Text(tr("Cancel"))}})
     if(signDialog)AlertDialog(onDismissRequest={signDialog=false;password="";keyUri=null;alias=""},title={Text(stringResource(R.string.apk_sign))},text={
         Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
             Text(stringResource(R.string.apk_sign_desc),style=MaterialTheme.typography.bodySmall)
@@ -159,59 +177,6 @@ import java.util.zip.ZipFile
             }
         }){Text(stringResource(R.string.apk_sign))}
     })
-}
-
-private data class ArchiveItem(val name:String,val bytes:Long,val directory:Boolean)
-@Composable internal fun SlateArchiveScreen(root:File,file:File,external:()->Unit){
-    val context=LocalContext.current
-    val scope=rememberCoroutineScope()
-    val entries by produceState<Result<List<ArchiveItem>>?>(null,file){
-        value=withContext(Dispatchers.IO){runCatching{ZipFile(file).use{zip->zip.entries().asSequence().take(5001).map{ArchiveItem(it.name,it.size,it.isDirectory)}.toList()}}}
-    }
-    var extracting by remember{mutableStateOf(false)}
-    var status by remember{mutableStateOf<String?>(null)}
-    var path by remember{mutableStateOf("")}
-    val list=entries?.getOrNull()
-    BackHandler(extracting){}
-    BackHandler(path.isNotEmpty()&&!extracting){path=path.trimEnd('/').substringBeforeLast('/',"").let{if(it.isEmpty())""else "$it/"}}
-    Column(Modifier.fillMaxSize()){
-        Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically){
-            if(path.isNotEmpty())IconButton(onClick={path=path.trimEnd('/').substringBeforeLast('/',"").let{if(it.isEmpty())""else "$it/"}}){Icon(Icons.Default.ArrowBack,stringResource(R.string.browser_back))}
-            Text(path.ifEmpty{stringResource(R.string.browser_archive_contents)},Modifier.weight(1f),style=MaterialTheme.typography.titleSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
-            FilledTonalButton(enabled=!extracting&&list!=null,onClick={
-                scope.launch{
-                    extracting=true;status=null
-                    try{val dest=withContext(Dispatchers.IO){extractSlateZip(root,file)};status=context.getString(R.string.slate_created,dest.name)}
-                    catch(e:CancellationException){throw e}catch(_:Exception){status=context.getString(R.string.slate_tool_failed)}
-                    finally{extracting=false}
-                }
-            }){Text(stringResource(R.string.archive_extract))}
-        }
-        if(extracting||entries==null)LinearProgressIndicator(Modifier.fillMaxWidth())
-        status?.let{Text(it,Modifier.padding(12.dp),style=MaterialTheme.typography.bodySmall)}
-        if(entries!=null&&list==null)Text(stringResource(R.string.browser_preview_error),Modifier.padding(16.dp))
-        if(list!=null){
-            val children=remember(list,path){
-                list.asSequence().filter{it.name.startsWith(path)&&it.name.length>path.length}.map{entry->
-                    val rest=entry.name.removePrefix(path)
-                    if('/' in rest.trimEnd('/'))ArchiveItem(rest.substringBefore('/')+"/",0,true)
-                    else ArchiveItem(rest,entry.bytes,entry.directory)
-                }.distinctBy{it.name}.sortedWith(compareByDescending<ArchiveItem>{it.directory}.thenBy{it.name.lowercase()}).toList()
-            }
-            LazyColumn(Modifier.weight(1f)){
-                if(list.size>5000)item{Text(stringResource(R.string.browser_truncated),Modifier.padding(12.dp))}
-                items(children){entry->
-                    Surface(onClick={if(entry.directory)path+=entry.name.trimEnd('/')+"/"},enabled=entry.directory&&!extracting,color=MaterialTheme.colorScheme.surface){
-                        Row(Modifier.fillMaxWidth().padding(horizontal=14.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
-                            Icon(painterResource(if(entry.directory)R.drawable.ic_storage_folder else R.drawable.ic_storage_file),null,Modifier.size(26.dp),tint=MaterialTheme.colorScheme.primary)
-                            Text(entry.name.trimEnd('/'),Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
-                            if(!entry.directory&&entry.bytes>=0)Text(Formatter.formatFileSize(context,entry.bytes),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable internal fun SlateDocumentsScreen(onClose:()->Unit){

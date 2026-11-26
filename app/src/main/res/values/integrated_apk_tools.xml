@@ -1,0 +1,8 @@
+<resources>
+    <string name="apk_manifest_tools">Manifest and metadata</string>
+    <string name="apk_manifest_tools_desc">View binary XML, edit the app name and version, and inspect HEX.</string>
+    <string name="apk_inject_provider">Inject Documents Provider</string>
+    <string name="apk_inject_provider_desc">Add read-only access to the host app’s external files through Android’s file picker.</string>
+    <string name="apk_inject_provider_confirm">Only modify APKs you own or are authorized to modify. This creates an unsigned copy and requires Android 8.0+ as the minimum SDK. The provider exposes the host application’s external files directory only, not internal private data. Sign the new copy before installing.</string>
+    <string name="apk_provider_created">Created unsigned APK: %1$s</string>
+</resources>

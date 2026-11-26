@@ -37,7 +37,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.zip.ZipFile
 
-private enum class SlateViewer { IMAGE, AUDIO, VIDEO, TEXT, PDF, ZIP, APK }
+private enum class SlateViewer { IMAGE, AUDIO, VIDEO, TEXT, PDF, ZIP, APK, ADVANCED }
 private fun viewerType(file:File):SlateViewer?=when(file.extension.lowercase()){
     "jpg","jpeg","png","webp","bmp","gif","heic","heif","avif"->SlateViewer.IMAGE
     "mp3","wav","flac","ogg","opus","aac","m4a","amr"->SlateViewer.AUDIO
@@ -46,12 +46,12 @@ private fun viewerType(file:File):SlateViewer?=when(file.extension.lowercase()){
     "pdf"->SlateViewer.PDF
     "zip","jar","cbz"->SlateViewer.ZIP
     "apk"->SlateViewer.APK
-    else->null
+    else->if(isAddonArchive(file.name))SlateViewer.ADVANCED else null
 }
 internal fun canViewSlateFile(root:File,file:File):Boolean=viewerType(file)!=null&&safeFile(root,file)&&!com.slate.android.storage.protectedAppPath(file.toPath())&&file.isFile&&file.canRead()
 
 @Composable
-internal fun SlateFileViewer(root:File,file:File,onClose:()->Unit,onExternal:()->Unit){
+internal fun SlateFileViewer(root:File,file:File,onClose:()->Unit,onExternal:()->Unit,initialApkTab:Int=0){
     BackHandler(onBack=onClose)
     var menu by remember{mutableStateOf(false)}
     Column(Modifier.fillMaxSize()){
@@ -73,7 +73,8 @@ internal fun SlateFileViewer(root:File,file:File,onClose:()->Unit,onExternal:()-
             SlateViewer.TEXT->TextViewer(file,onExternal)
             SlateViewer.PDF->PdfViewer(file,onExternal)
             SlateViewer.ZIP->SlateArchiveScreen(root,file,onExternal)
-            SlateViewer.APK->SlateApkScreen(root,file,onExternal)
+            SlateViewer.APK->SlateApkScreen(root,file,onExternal,initialApkTab)
+            SlateViewer.ADVANCED->SlateAdvancedScreen(file,onClose)
             null->ViewerError(onExternal)
         }}
     }
