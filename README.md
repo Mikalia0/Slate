@@ -1,15 +1,20 @@
 <div align="center">
-  <img src="docs/slate.svg" width="96" alt="Slate">
+  <img src="docs/slate.svg" width="88" alt="Slate">
   <h1>Slate</h1>
-  <p><strong>Your Android, under control.</strong></p>
-  <p>An open-source storage manager, file explorer and device toolbox.</p>
+  <p><strong>Storage management, file exploration and device diagnostics for Android.</strong></p>
   <p>
-    <a href="https://github.com/stevenmx2/Slate/releases/latest"><img src="docs/badges/download.svg" width="140" height="32" alt="Download APK"></a>
-    <a href="https://github.com/stevenmx2/Slate/releases"><img src="docs/badges/releases.svg" width="104" height="32" alt="Releases"></a>
-    <a href="LICENSE"><img src="docs/badges/license.svg" width="100" height="32" alt="GPL-3.0"></a>
+    <a href="https://github.com/stevenmx2/Slate/releases/latest/download/Slate.apk"><img src="docs/badges/download.svg" height="20" alt="Download APK"></a>
+    <a href="https://github.com/stevenmx2/Slate/releases/latest"><img src="docs/badges/version.svg" height="20" alt="Version 0.1.0"></a>
+    <br>
+    <a href="#installation"><img src="docs/badges/android.svg" height="20" alt="Android 8.0+"></a>
+    <a href="LICENSE"><img src="docs/badges/license.svg" height="20" alt="GPL-3.0"></a>
+    <a href="#supported-languages"><img src="docs/badges/languages.svg" height="20" alt="6 languages"></a>
   </p>
-  <p>Android 8.0+ · Material 3 · <a href="README.pt-BR.md">README em português</a></p>
+  <p><a href="#explore-slate">Features</a> · <a href="#installation">Downloads</a> · <a href="#made-for-your-android">Privacy</a> · <a href="README.pt-BR.md">Português</a></p>
 </div>
+
+Slate combines storage analysis, file management, app tools and hardware diagnostics in a single customizable Material 3 interface.
+
 
 ## Explore Slate
 
