@@ -1,0 +1,14 @@
+<resources>
+    <string name="browser_properties">Properties</string>
+    <string name="browser_open_with">Open with</string>
+    <string name="browser_copy_path">Copy path</string>
+    <string name="browser_back">Back</string>
+    <string name="browser_counts">%1$d folders · %2$d files</string>
+    <string name="browser_internal">Open in Slate</string>
+    <string name="browser_external">Open with another app</string>
+    <string name="browser_preview_error">Unable to preview this file.</string>
+    <string name="browser_truncated">Preview limited for large files.</string>
+    <string name="browser_play">Play</string>
+    <string name="browser_pause">Pause</string>
+    <string name="browser_archive_contents">Archive contents</string>
+</resources>

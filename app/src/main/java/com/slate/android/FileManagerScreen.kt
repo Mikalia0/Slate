@@ -38,6 +38,10 @@ import com.slate.android.storage.protectedAppPath
 import com.slate.android.storage.shizukuGranted
 import com.slate.android.storage.withProtectedRead
 import androidx.compose.foundation.background
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.clickable
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.withPermit
@@ -120,6 +124,11 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     var menu by remember{mutableStateOf(false)}
     var volumeMenu by remember{mutableStateOf(false)}
     var selected by remember{mutableStateOf<FileRow?>(null)}
+    var viewer by remember{mutableStateOf<File?>(null)}
+    var properties by remember{mutableStateOf<FileRow?>(null)}
+    var handler by remember{mutableStateOf<File?>(null)}
+    var actionMenu by remember{mutableStateOf(false)}
+    val pathClipboard=LocalClipboardManager.current
     var clipboard by remember{mutableStateOf<ClipboardFile?>(null)}
     var operation by remember{mutableStateOf<String?>(null)}
     var name by remember{mutableStateOf("")}
@@ -171,13 +180,17 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         finally{loading=false}
     }
     BackHandler(!showHome){if(!busy){when{marked.isNotEmpty()->marked=emptySet();selected!=null->selected=null;searching->{searching=false;query=""};else->if(folder==root)showHome=true else go(folder.parentFile?.takeIf{safeFile(root,it)}?:root)}}}
+    viewer?.let{file->
+        SlateFileViewer(root,file,onClose={viewer=null},onExternal={openSharedFile(context,root,file,false)})
+        return
+    }
     if(showHome){
         FilesOverview(granted,availableVolumes,catalog,request,onRefresh={onChanged();revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()})
         return
     }
     Column(Modifier.fillMaxSize()){
         val rootLabel=tr(availableVolumes.firstOrNull{it.root.path==rootPath}?.label?:"Internal storage")
-        val title=if(folder==root)rootLabel else rootLabel+"/"+folder.path.removePrefix(root.path).trim('/')
+        val title=if(folder==root)rootLabel else folder.name
         val storage by produceState<Pair<Long,Long>?>(null,rootPath,revision,granted){
             value=withContext(Dispatchers.IO){runCatching{val total=root.totalSpace; if(total>0)(total-root.usableSpace).coerceIn(0,total) to total else null}.getOrNull()}
         }
@@ -187,11 +200,48 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
             val order=if(descending)comparator.reversed()else comparator
             filtered.sortedWith(if(sort==2)order.thenBy{it.file.name.lowercase()}else compareByDescending<FileRow>{it.directory}.then(order))
         }
-        Row(Modifier.fillMaxWidth().padding(start=8.dp,end=4.dp),verticalAlignment=Alignment.CenterVertically){
-            IconButton(onClick={volumeMenu=true},enabled=!busy){Icon(Icons.Default.Menu,stringResource(R.string.file_volumes))}
-            Column(Modifier.weight(1f)){
-                Text(title,style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
-                Text(stringResource(R.string.file_items,shown.size),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        val chosen=rows.filter{it.file.path in marked}
+        val single=chosen.singleOrNull()
+        val canModify=chosen.isNotEmpty()&&chosen.all{writable(it.file)}
+        if(marked.isNotEmpty()){
+            Row(Modifier.fillMaxWidth().heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically){
+                IconButton(onClick={marked=emptySet();actionMenu=false}){Icon(Icons.Default.Close,tr("Close"))}
+                Column(Modifier.weight(1f)){
+                    Text(marked.size.toString(),style=MaterialTheme.typography.titleMedium)
+                    Text(Formatter.formatFileSize(context,chosen.sumOf{it.size}),style=MaterialTheme.typography.bodySmall,maxLines=1,overflow=TextOverflow.Ellipsis)
+                }
+                IconButton(enabled=!busy&&canModify,onClick={operation="batch_delete"}){Icon(Icons.Default.Delete,tr("Delete"))}
+                IconButton(enabled=!busy&&canModify,onClick={clipboard=ClipboardFile(root,chosen,false);marked=emptySet()}){Icon(painterResource(R.drawable.ic_browser_copy),stringResource(R.string.file_copy))}
+                IconButton(enabled=!busy&&canModify,onClick={clipboard=ClipboardFile(root,chosen,true);marked=emptySet()}){Icon(painterResource(R.drawable.ic_browser_cut),stringResource(R.string.file_move))}
+                IconButton(enabled=!busy&&single!=null&&canModify,onClick={single?.let{selected=it;name=it.file.name;operation="rename"}}){Icon(Icons.Default.Edit,stringResource(R.string.file_rename))}
+                Box{
+                    IconButton(onClick={actionMenu=true},enabled=!busy){Icon(Icons.Default.MoreVert,tr("More"))}
+                    DropdownMenu(expanded=actionMenu,onDismissRequest={actionMenu=false}){
+                        DropdownMenuItem(text={Text(stringResource(R.string.cache_select_all))},onClick={marked=shown.map{it.file.path}.toSet();actionMenu=false})
+                        if(single!=null){
+                            DropdownMenuItem(text={Text(stringResource(R.string.browser_properties))},onClick={properties=single;actionMenu=false})
+                            if(!single.directory){
+                                DropdownMenuItem(text={Text(stringResource(R.string.browser_open_with))},onClick={handler=single.file;actionMenu=false})
+                                DropdownMenuItem(text={Text(tr("Share"))},onClick={openSharedFile(context,root,single.file,true);actionMenu=false})
+                            }
+                            DropdownMenuItem(text={Text(stringResource(R.string.browser_copy_path))},onClick={pathClipboard.setText(AnnotatedString(single.file.path));actionMenu=false})
+                            if(single.directory)DropdownMenuItem(text={Text(stringResource(R.string.file_bookmark))},onClick={
+                                bookmarks=bookmarks+tabKey(root,single.file);prefs.edit().putStringSet("bookmarks",bookmarks).apply();actionMenu=false
+                            })
+                        }
+                    }
+                }
+            }
+        }else Row(Modifier.fillMaxWidth().padding(end=4.dp).heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically){
+            IconButton(onClick={if(searching){searching=false;query=""}else volumeMenu=true},enabled=!busy){Icon(if(searching)Icons.Default.ArrowBack else Icons.Default.Menu,stringResource(if(searching)R.string.browser_back else R.string.file_volumes))}
+            if(searching){
+                val focus=remember{FocusRequester()}
+                LaunchedEffect(Unit){focus.requestFocus()}
+                TextField(value=query,onValueChange={query=it},modifier=Modifier.weight(1f).focusRequester(focus),singleLine=true,placeholder={Text(stringResource(R.string.file_search))},colors=TextFieldDefaults.colors(focusedContainerColor=MaterialTheme.colorScheme.surface,unfocusedContainerColor=MaterialTheme.colorScheme.surface))
+                IconButton(onClick={query="";searching=false}){Icon(Icons.Default.Close,tr("Close"))}
+            }else Column(Modifier.weight(1f)){
+                Text(title,style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text(stringResource(R.string.browser_counts,shown.count{it.directory},shown.count{!it.directory}),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box{
                 DropdownMenu(expanded=volumeMenu,onDismissRequest={volumeMenu=false}){
@@ -228,14 +278,17 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 val (volume,dir)=tabFiles(key)
                 val label=if(dir==volume)tr(availableVolumes.firstOrNull{it.root.path==volume.path}?.label?:"Internal storage")else dir.name
                 val active=index==tab
-                Text(label,Modifier.heightIn(min=40.dp).clickable(enabled=!busy){tab=index;selected=null;marked=emptySet();query=""}.background(if(active)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,MaterialTheme.shapes.small).padding(horizontal=12.dp,vertical=10.dp),style=MaterialTheme.typography.bodyMedium,color=if(active)MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Column(Modifier.widthIn(max=180.dp).clickable(enabled=!busy){tab=index;selected=null;marked=emptySet();query="";searching=false},horizontalAlignment=Alignment.CenterHorizontally){
+                    Text(label,Modifier.padding(horizontal=12.dp,vertical=8.dp),style=MaterialTheme.typography.bodyMedium,color=if(active)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    Box(Modifier.width(64.dp).height(2.dp).background(if(active)MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent))
+                }
             }
             IconButton(enabled=!busy&&tabs.size<12,onClick={tabs=ArrayList(tabs).apply{add(tabKey(root,folder))};tab=tabs.lastIndex;marked=emptySet()}){Icon(Icons.Default.Add,stringResource(R.string.file_new_tab))}
             if(tabs.size>1)IconButton(enabled=!busy,onClick={tabs=ArrayList(tabs).apply{removeAt(tab)};tab=tab.coerceAtMost(tabs.lastIndex);marked=emptySet()}){Icon(Icons.Default.Close,stringResource(R.string.file_close_tab))}
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick={if(folder==root)showHome=true else go(folder.parentFile?:root)},enabled=!busy){Icon(Icons.Default.ArrowBack,tr("Back"))}
-            TextButton(onClick={go(root)},enabled=!busy){Text(rootLabel)}
+            IconButton(onClick={go(root)},enabled=!busy){Icon(Icons.Default.Home,rootLabel,Modifier.size(19.dp))}
             if(folder==root)storage?.let{(used,total)->
                 Text(Formatter.formatFileSize(context,used)+" / "+Formatter.formatFileSize(context,total),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -244,26 +297,12 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 crumb=File(crumb,part)
                 val dest=crumb
                 Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(16.dp))
-                TextButton(onClick={go(dest)},enabled=!busy){Text(part,maxLines=1)}
+                Text(part,Modifier.clickable(enabled=!busy){go(dest)}.padding(horizontal=5.dp,vertical=10.dp),style=MaterialTheme.typography.bodyMedium,maxLines=1)
             }
         }
-        if(searching)OutlinedTextField(value=query,onValueChange={query=it},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp),singleLine=true,leadingIcon={Icon(Icons.Default.Search,null)},placeholder={Text(stringResource(R.string.file_search))})
+
         if(protected&&shizuku)Text(stringResource(R.string.protected_file_access),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)
         if(protected&&!shizuku)com.slate.android.storage.ShizukuAccessRow()
-        if(marked.isNotEmpty()){
-            Surface(color=MaterialTheme.colorScheme.secondaryContainer,shape=MaterialTheme.shapes.medium){
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),verticalAlignment=Alignment.CenterVertically){
-                    Text(stringResource(R.string.tool_selected,marked.size),Modifier.padding(horizontal=8.dp))
-                    TextButton(onClick={marked=rows.filter{it.file.name.contains(query,true)}.map{it.file.path}.toSet()},enabled=!busy){Text(stringResource(R.string.cache_select_all))}
-                    val chosen=rows.filter{it.file.path in marked}
-                    TextButton(enabled=!busy&&chosen.isNotEmpty()&&chosen.all{writable(it.file)},onClick={clipboard=ClipboardFile(root,chosen,false);marked=emptySet()}){Text(stringResource(R.string.file_copy))}
-                    TextButton(enabled=!busy&&chosen.isNotEmpty()&&chosen.all{writable(it.file)},onClick={clipboard=ClipboardFile(root,chosen,true);marked=emptySet()}){Text(stringResource(R.string.file_move))}
-                    TextButton(enabled=!busy&&chosen.isNotEmpty()&&chosen.all{writable(it.file)},onClick={operation="batch_delete"}){Text(tr("Delete"))}
-                    if(chosen.size==1)IconButton(enabled=!busy,onClick={selected=chosen.single()}){Icon(Icons.Default.MoreVert,tr("More"))}
-                    IconButton(onClick={marked=emptySet()}){Icon(Icons.Default.Close,null)}
-                }
-            }
-        }
         clipboard?.let{clip->
             Row(verticalAlignment=Alignment.CenterVertically){
                 Text(stringResource(R.string.tool_selected,clip.files.size),Modifier.weight(1f),maxLines=1,overflow=TextOverflow.Ellipsis)
@@ -288,6 +327,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         fun tap(row:FileRow){
             if(marked.isNotEmpty())marked=if(row.file.path in marked)marked-row.file.path else marked+row.file.path
             else if(row.directory)go(row.file)
+            else if(canViewSlateFile(root,row.file))viewer=row.file
             else if(!openSharedFile(context,root,row.file,false))message=context.getString(R.string.file_failed)
         }
         if(grid&&shown.isEmpty()&&!loading)Text(stringResource(R.string.file_empty),Modifier.padding(14.dp))
@@ -321,8 +361,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                         }
                         val active=row.file.path in marked
                         Row(Modifier.fillMaxWidth().combinedClickable(enabled=!busy,onClick={tap(row)},onLongClick={marked=marked+row.file.path}).background(if(active)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface).heightIn(min=51.dp).padding(horizontal=8.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                            if(active)Box(Modifier.size(40.dp),contentAlignment=Alignment.Center){Icon(Icons.Default.Check,null,Modifier.size(28.dp),tint=MaterialTheme.colorScheme.primary)}
-                            else BrowserFileIcon(row,summary?.preview)
+                            BrowserFileIcon(row,summary?.preview)
                             Column(Modifier.weight(1f)){
                                 Text(row.file.name,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodyLarge)
                                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)){
@@ -337,32 +376,37 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 if(shown.isEmpty()&&!loading)item{Text(stringResource(R.string.file_empty),Modifier.padding(14.dp))}
             }
         }
-        Surface(color=MaterialTheme.colorScheme.surfaceContainer){
+        Surface(color=MaterialTheme.colorScheme.surface){
             Row(Modifier.fillMaxWidth().padding(horizontal=4.dp),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically){
-                IconButton(onClick={searching=!searching;if(!searching)query=""},enabled=!busy){Icon(Icons.Default.Search,stringResource(R.string.file_search))}
-                IconButton(onClick={grid=!grid;prefs.edit().putBoolean("grid",grid).apply()},enabled=!busy){Icon(painterResource(if(grid)R.drawable.ic_storage_file else R.drawable.ic_storage_folder),stringResource(R.string.file_view),Modifier.size(23.dp))}
+                IconButton(onClick={marked=emptySet();searching=!searching;if(!searching)query=""},enabled=!busy){Icon(Icons.Default.Search,stringResource(R.string.file_search))}
+                IconButton(onClick={grid=!grid;prefs.edit().putBoolean("grid",grid).apply()},enabled=!busy){Icon(painterResource(if(grid)R.drawable.ic_browser_list else R.drawable.ic_browser_grid),stringResource(R.string.file_view),Modifier.size(23.dp))}
                 IconButton(onClick={name="";operation="mkdir"},enabled=!busy&&(!protected||shizuku)){Icon(Icons.Default.Add,stringResource(R.string.file_new_folder))}
                 IconButton(onClick={revision++},enabled=!busy){Icon(Icons.Default.Refresh,tr("Refresh"))}
                 TextButton(onClick={sorting=true},enabled=!busy,contentPadding=PaddingValues(horizontal=4.dp)){
-                    Text((when(sort){1->"KB";2->"◷";3->"Aa";else->"AZ"})+(if(descending)"↓"else"↑"),style=MaterialTheme.typography.labelLarge)
+                    Icon(painterResource(R.drawable.ic_browser_sort),stringResource(R.string.file_sort),Modifier.size(23.dp))
                 }
-                IconButton(onClick={val all=shown.map{it.file.path}.toSet();marked=if(marked==all)emptySet()else all},enabled=!busy&&shown.isNotEmpty()){Icon(Icons.Default.Check,stringResource(R.string.cache_select_all))}
+                IconButton(onClick={val all=shown.map{it.file.path}.toSet();marked=if(marked==all)emptySet()else all},enabled=!busy&&shown.isNotEmpty()){Icon(painterResource(R.drawable.ic_browser_select),stringResource(R.string.cache_select_all))}
             }
         }
     }
-    selected?.let{row->
-        if(operation==null)AlertDialog(onDismissRequest={selected=null},title={Text(row.file.name,maxLines=2,overflow=TextOverflow.Ellipsis)},text={
-            Column{
-                Text(row.file.parent.orEmpty(),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                if(!row.directory)Text(Formatter.formatFileSize(context,row.size),style=MaterialTheme.typography.labelMedium)
-                HorizontalDivider(Modifier.padding(vertical=8.dp))
-                TextButton(enabled=writable(row.file),onClick={clipboard=ClipboardFile(root,listOf(row),false);selected=null}){Text(stringResource(R.string.file_copy))}
-                TextButton(enabled=writable(row.file),onClick={clipboard=ClipboardFile(root,listOf(row),true);selected=null}){Text(stringResource(R.string.file_move))}
-                if(!row.directory)TextButton(onClick={openSharedFile(context,root,row.file,true);selected=null}){Text(tr("Share"))}
-                TextButton(enabled=writable(row.file),onClick={name=row.file.name;operation="rename"}){Text(stringResource(R.string.file_rename))}
-                TextButton(enabled=writable(row.file),onClick={operation="delete"}){Text(tr("Delete"),color=MaterialTheme.colorScheme.error)}
+    properties?.let{row->
+        AlertDialog(onDismissRequest={properties=null},title={Text(stringResource(R.string.browser_properties))},text={
+            Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
+                Text(row.file.name,style=MaterialTheme.typography.titleMedium)
+                Text(row.file.path,style=MaterialTheme.typography.bodySmall)
+                if(!row.directory)Text(Formatter.formatFileSize(context,row.size))
+                if(row.modified>0)Text(DateFormat.getDateTimeInstance().format(Date(row.modified)))
             }
-        },confirmButton={TextButton(onClick={selected=null}){Text(tr("Close"))}})
+        },confirmButton={TextButton(onClick={properties=null}){Text(tr("Close"))}})
+    }
+    handler?.let{file->
+        AlertDialog(onDismissRequest={handler=null},title={Text(stringResource(R.string.browser_open_with))},text={
+            Column{
+                Text(file.name,style=MaterialTheme.typography.bodySmall,maxLines=2,overflow=TextOverflow.Ellipsis)
+                if(canViewSlateFile(root,file))TextButton(onClick={handler=null;viewer=file}){Text(stringResource(R.string.browser_internal))}
+                TextButton(onClick={handler=null;openSharedFile(context,root,file,false)}){Text(stringResource(R.string.browser_external))}
+            }
+        },confirmButton={TextButton(onClick={handler=null}){Text(tr("Close"))}})
     }
     if(sorting)AlertDialog(onDismissRequest={sorting=false},title={Text(stringResource(R.string.file_sort))},text={
         Column{

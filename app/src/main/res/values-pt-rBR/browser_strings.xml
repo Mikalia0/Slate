@@ -1,0 +1,14 @@
+<resources>
+    <string name="browser_properties">Propriedades</string>
+    <string name="browser_open_with">Abrir com</string>
+    <string name="browser_copy_path">Copiar caminho</string>
+    <string name="browser_back">Voltar</string>
+    <string name="browser_counts">%1$d pastas · %2$d arquivos</string>
+    <string name="browser_internal">Abrir no Slate</string>
+    <string name="browser_external">Abrir com outro aplicativo</string>
+    <string name="browser_preview_error">Não foi possível visualizar este arquivo.</string>
+    <string name="browser_truncated">Visualização limitada para arquivos grandes.</string>
+    <string name="browser_play">Reproduzir</string>
+    <string name="browser_pause">Pausar</string>
+    <string name="browser_archive_contents">Conteúdo do arquivo</string>
+</resources>
