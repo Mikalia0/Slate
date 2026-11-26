@@ -68,7 +68,21 @@ jobs:
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           code="$((1000 + GITHUB_RUN_NUMBER))"
           stable="v$version"
-          awk '/^## /{if(seen++) exit; next} seen{print}' CHANGELOG.md > changelog.txt
+          # Pick the nearest ancestor with a published APK, not the first static changelog section.
+          previous=""
+          while IFS= read -r candidate; do
+            [[ -n "$candidate" ]] || continue
+            if git merge-base --is-ancestor "$candidate" "$GITHUB_SHA" && [[ "$(git rev-list -n 1 "$candidate")" != "$GITHUB_SHA" ]]; then
+              previous="$candidate"
+              break
+            fi
+          done < <(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft == false) | select(any(.assets[]; .name == "Slate.apk")) | .tag_name')
+          if [[ -n "$previous" ]]; then
+            git log --no-merges --format='- %s' "$previous..$GITHUB_SHA" -- app advanced VERSION scripts .github/workflows/android.yml > changelog.txt
+          else
+            awk '/^## /{if(seen++) exit; next} seen{print}' CHANGELOG.md > changelog.txt
+          fi
+          if [[ ! -s changelog.txt ]]; then printf '%s\n' '- Maintenance build; no application changes.' > changelog.txt; fi
           printf 'Version code: %s\n\n' "$code" > release-notes.md
           cat changelog.txt >> release-notes.md
           if ! gh release view "$stable" >/dev/null 2>&1; then

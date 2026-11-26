@@ -88,7 +88,7 @@ internal class FileOperations(private val remote:ProtectedReadClient?){
         return relative(file)?.let{ParcelFileDescriptor.AutoCloseOutputStream(remote!!.create(it))}
             ?:Files.newOutputStream(file.toPath(),java.nio.file.StandardOpenOption.CREATE_NEW,java.nio.file.StandardOpenOption.WRITE,NOFOLLOW_LINKS)
     }
-    suspend fun copy(sourceRoot:File,source:File,targetRoot:File,target:File,directory:Boolean,move:Boolean){
+    suspend fun copy(sourceRoot:File,source:File,targetRoot:File,target:File,directory:Boolean,move:Boolean,onBytes:suspend (Long)->Unit={}){
         checked(sourceRoot,source,move);checked(targetRoot,target)
         require(!target.absoluteFile.toPath().normalize().startsWith(source.absoluteFile.toPath().normalize()))
         if(move&&relative(source)!=null&&relative(target)!=null){
@@ -114,7 +114,7 @@ internal class FileOperations(private val remote:ProtectedReadClient?){
                         output(targetRoot,to).use{out->
                             created=true
                             val buf=ByteArray(128*1024)
-                            while(true){ctx.ensureActive();val n=ins.read(buf);if(n<0)break;out.write(buf,0,n)}
+                            while(true){ctx.ensureActive();val n=ins.read(buf);if(n<0)break;out.write(buf,0,n);onBytes(n.toLong())}
                             out.flush()
                         }
                     }

@@ -2,6 +2,14 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## Unreleased — File manager navigation
+
+- Replace the storage popup with a navigation drawer for home, storage, categories, bookmarks and recent folders.
+- Restore tabs across app restarts and remember sort order for each directory.
+- Add persistent Storage Access Framework connections for supported USB and document providers.
+- Add a second local destination pane and show copy progress and transfer speed with cancellation for copies.
+- Generate release notes from actual changes since the preceding published build.
+
 ## 0.1.0 — First public release
 
 - Storage analysis, duplicate detection, cleanup and app management.

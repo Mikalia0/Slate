@@ -1,0 +1,14 @@
+<resources>
+    <string name="browser_home">Home</string>
+    <string name="browser_dashboard">Slate dashboard</string>
+    <string name="browser_document_source">Document provider</string>
+    <string name="browser_add_storage">Add storage</string>
+    <string name="browser_all_files">All files</string>
+    <string name="browser_global_search">Search all storage</string>
+    <string name="browser_favorites">Favorites</string>
+    <string name="browser_manage">Manage</string>
+    <string name="browser_history">Recent folders</string>
+    <string name="browser_forget_source">Disconnect storage</string>
+    <string name="browser_forget_source_desc">Remove the saved connection and revoke Slate's access. No files will be deleted.</string>
+    <string name="browser_dual_pane">Destination pane</string>
+</resources>

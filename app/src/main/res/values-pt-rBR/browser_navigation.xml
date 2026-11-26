@@ -1,0 +1,14 @@
+<resources>
+    <string name="browser_home">Início</string>
+    <string name="browser_dashboard">Painel do Slate</string>
+    <string name="browser_document_source">Provedor de documentos</string>
+    <string name="browser_add_storage">Adicionar armazenamento</string>
+    <string name="browser_all_files">Todos os arquivos</string>
+    <string name="browser_global_search">Pesquisar no armazenamento</string>
+    <string name="browser_favorites">Favoritos</string>
+    <string name="browser_manage">Gerenciar</string>
+    <string name="browser_history">Pastas recentes</string>
+    <string name="browser_forget_source">Desconectar armazenamento</string>
+    <string name="browser_forget_source_desc">Remove a conexão salva e revoga o acesso do Slate. Nenhum arquivo será excluído.</string>
+    <string name="browser_dual_pane">Painel de destino</string>
+</resources>

@@ -81,8 +81,8 @@ internal suspend fun buildFileCatalog(volumes:List<Volume>,index:IndexedScan?):F
 }
 
 @Composable
-private fun categoryTitle(category:FileCategory)=if(category==FileCategory.INSTALLERS)stringResource(R.string.files_apks)else tr(category.label)
-private fun categoryIcon(category:FileCategory)=when(category){
+internal fun categoryTitle(category:FileCategory)=if(category==FileCategory.INSTALLERS)stringResource(R.string.files_apks)else tr(category.label)
+internal fun categoryIcon(category:FileCategory)=when(category){
     FileCategory.INSTALLERS->R.drawable.ic_file_apk
     FileCategory.IMAGES->R.drawable.ic_device_camera
     FileCategory.VIDEOS->R.drawable.ic_file_video
@@ -92,16 +92,19 @@ private fun categoryIcon(category:FileCategory)=when(category){
 }
 
 @Composable
-internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCatalog?,request:()->Unit,onRefresh:()->Unit,onOpenFolder:(File,File)->Unit,onChanged:()->Unit){
+internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCatalog?,request:()->Unit,onRefresh:()->Unit,onOpenFolder:(File,File)->Unit,onChanged:()->Unit,initialPage:String="",onMenu:()->Unit={},bookmarks:List<String> = emptyList(),onOpenBookmark:(String)->Unit={}){
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
-    var page by rememberSaveable{mutableStateOf("")}
+    var page by rememberSaveable{mutableStateOf(initialPage)}
     var query by rememberSaveable{mutableStateOf("")}
     var sort by rememberSaveable{mutableIntStateOf(0)}
     var selected by remember{mutableStateOf<CatalogFile?>(null)}
     var delete by remember{mutableStateOf(false)}
     var busy by remember{mutableStateOf(false)}
     var failed by remember{mutableStateOf(false)}
+    var viewer by remember{mutableStateOf<CatalogFile?>(null)}
+    fun open(item:CatalogFile){if(canViewSlateFile(item.root,item.entry.file))viewer=item else if(isAddonArchive(item.entry.file.name))openSlateAddon(context,item.root,item.entry.file)else if(!openSharedFile(context,item.root,item.entry.file,false))failed=true}
+    viewer?.let{item->SlateFileViewer(item.root,item.entry.file,onClose={viewer=null;onChanged()},onExternal={openSharedFile(context,item.root,item.entry.file,false)});return}
     val grouped by produceState<Map<FileCategory,List<CatalogFile>>>(emptyMap(),catalog){
         value=withContext(Dispatchers.Default){catalog?.files.orEmpty().groupBy{fileCategory(it.entry.file.extension)}}
     }
@@ -121,7 +124,8 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
     Column(Modifier.fillMaxSize()){
         Row(Modifier.fillMaxWidth().padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically){
             if(page.isNotEmpty())IconButton(onClick={leave()},enabled=!busy){Icon(Icons.Default.ArrowBack,tr("Back"))}
-            Text(if(chosen!=null)categoryTitle(chosen)else if(page=="search")stringResource(R.string.file_search)else if(page=="recent")stringResource(R.string.files_recent)else stringResource(R.string.tool_files),Modifier.weight(1f).padding(start=8.dp),style=MaterialTheme.typography.headlineSmall)
+            else IconButton(onClick=onMenu,enabled=!busy){Icon(Icons.Default.Menu,stringResource(R.string.file_volumes))}
+            Text(if(chosen!=null)categoryTitle(chosen)else if(page=="search")stringResource(R.string.file_search)else if(page=="recent")stringResource(R.string.files_recent)else if(page=="all")stringResource(R.string.browser_all_files)else stringResource(R.string.browser_home),Modifier.weight(1f).padding(start=8.dp),style=MaterialTheme.typography.headlineSmall)
             if(granted&&page.isEmpty())IconButton(onClick={page="search"}){Icon(Icons.Default.Search,stringResource(R.string.file_search))}
             IconButton(onClick=onRefresh,enabled=granted&&!busy){Icon(Icons.Default.Refresh,tr("Refresh"))}
         }
@@ -137,6 +141,13 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
         if(failed)Text(stringResource(R.string.file_failed),Modifier.padding(12.dp),color=MaterialTheme.colorScheme.error)
         if(page.isEmpty()){
             LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                item{Text(tr("Storage"),style=MaterialTheme.typography.titleMedium)}
+                items(volumes,key={it.root.path}){volume->
+                    val space by produceState<Pair<Long,Long>?>(null,volume.root){value=withContext(Dispatchers.IO){runCatching{val stat=android.os.StatFs(volume.root.path);(stat.totalBytes-stat.availableBytes).coerceAtLeast(0L) to stat.totalBytes}.getOrNull()}}
+                    ListItem(headlineContent={Text(tr(volume.label))},leadingContent={Icon(painterResource(R.drawable.ic_device_storage),null)},supportingContent={
+                        space?.let{(used,total)->Text(Formatter.formatFileSize(context,used)+" / "+Formatter.formatFileSize(context,total))}
+                    },trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},modifier=Modifier.clickable{onOpenFolder(volume.root,volume.root)})
+                }
                 item{Text(stringResource(R.string.files_categories),style=MaterialTheme.typography.titleMedium)}
                 val categories=listOf(FileCategory.INSTALLERS,FileCategory.DOCUMENTS,FileCategory.IMAGES,FileCategory.VIDEOS,FileCategory.AUDIO,FileCategory.ARCHIVES,FileCategory.OTHER)
                 items(categories.chunked(2)){pair->
@@ -160,12 +171,9 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
                     }
                 }
                 if(catalog?.incomplete==true)item{Text(stringResource(R.string.files_partial),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-                item{Text(tr("Storage"),style=MaterialTheme.typography.titleMedium)}
-                items(volumes,key={it.root.path}){volume->
-                    val space by produceState<Pair<Long,Long>?>(null,volume.root){value=withContext(Dispatchers.IO){runCatching{val stat=android.os.StatFs(volume.root.path);(stat.totalBytes-stat.availableBytes).coerceAtLeast(0L) to stat.totalBytes}.getOrNull()}}
-                    ListItem(headlineContent={Text(tr(volume.label))},leadingContent={Icon(painterResource(R.drawable.ic_device_storage),null)},supportingContent={
-                        space?.let{(used,total)->Text(Formatter.formatFileSize(context,used)+" / "+Formatter.formatFileSize(context,total))}
-                    },trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},modifier=Modifier.clickable{onOpenFolder(volume.root,volume.root)})
+                if(bookmarks.isNotEmpty()){
+                    item{Text(stringResource(R.string.browser_favorites),style=MaterialTheme.typography.titleMedium)}
+                    items(bookmarks){key->ListItem(headlineContent={Text(File(key.substringAfter('\n')).name)},leadingContent={Icon(painterResource(R.drawable.ic_storage_folder),null)},modifier=Modifier.clickable{onOpenBookmark(key)})}
                 }
                 item{
                     Row(verticalAlignment=Alignment.CenterVertically){
@@ -173,7 +181,7 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
                         if(recent.isNotEmpty())TextButton(onClick={page="recent";sort=0}){Text(stringResource(R.string.files_view_all))}
                     }
                 }
-                items(recent,key={it.entry.file.path}){file->CatalogRow(file,{if(!openSharedFile(context,file.root,file.entry.file,false))failed=true},{selected=file})}
+                items(recent,key={it.entry.file.path}){file->CatalogRow(file,{open(file)},{selected=file})}
             }
         }else{
             OutlinedTextField(query,{query=it},Modifier.fillMaxWidth().padding(horizontal=16.dp),singleLine=true,leadingIcon={Icon(Icons.Default.Search,null)},placeholder={Text(stringResource(R.string.file_search))})
@@ -184,8 +192,7 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
             if(visible.isEmpty()&&catalog!=null)Text(stringResource(R.string.file_empty),Modifier.padding(16.dp))
             LazyColumn(Modifier.weight(1f)){
                 items(visible,key={it.entry.file.path}){file->
-                    CatalogRow(file,{if(!openSharedFile(context,file.root,file.entry.file,false))failed=true},{selected=file})
-                    HorizontalDivider(Modifier.padding(start=64.dp),thickness=.5.dp)
+                    CatalogRow(file,{open(file)},{selected=file})
                 }
             }
         }
