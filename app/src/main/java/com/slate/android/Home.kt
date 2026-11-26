@@ -47,9 +47,23 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
     val appCount=usage.rows.size
     val growing=history.insights.filter{(it.increase ?: 0)>=50L*1024*1024}.maxByOrNull{it.increase ?: 0}
     val suggestion=growing ?: history.insights.filter{it.bytes>=1024L*1024*1024}.maxByOrNull{it.bytes}
-    LazyVerticalGrid(columns=GridCells.Adaptive(155.dp),state=scrollState,modifier=Modifier.fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=16.dp)) {
+    BoxWithConstraints(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter){
+    val wide=maxWidth>=600.dp
+    val gap=if(wide)16.dp else 8.dp
+    LazyVerticalGrid(columns=if(wide)GridCells.Fixed(2)else GridCells.Adaptive(155.dp),state=scrollState,modifier=Modifier.widthIn(max=1080.dp).fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(gap),verticalArrangement=Arrangement.spacedBy(gap),contentPadding=PaddingValues(bottom=16.dp,start=if(wide)12.dp else 0.dp,end=if(wide)12.dp else 0.dp)) {
         item(key="storage",span={GridItemSpan(maxLineSpan)}) {
-            Card(onClick=openVolumes,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
+            if(wide){
+                Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+                    Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
+                            OverviewGauge(tr("Internal storage"),fraction,if(capacity>0)"${(fraction*100).toInt()}%" else "—",fmt(used)+" / "+fmt(capacity),Modifier.weight(1f),openVolumes)
+                            OverviewGauge("RAM",ram?.fraction?:0f,ram?.fraction?.let{"${(it*100).toInt()}%"}?:"—",memoryValue("Used RAM (estimate)")+" / "+memoryValue("Total RAM"),Modifier.weight(1f),{openDevicePage(1)})
+                            OverviewGauge(tr("Battery"),battery?.fraction?:0f,battery?.value?.takeUnless{it=="Unavailable"}?:"—",listOfNotNull(temperature,chargingPower).joinToString(" · "),Modifier.weight(1f),{openDevicePage(3)})
+                        }
+                        FilledTonalButton(onClick=openVolumes,modifier=Modifier.align(Alignment.CenterHorizontally)){Icon(Icons.Default.Search,null,Modifier.size(20.dp));Spacer(Modifier.width(8.dp));Text(tr("View storage"))}
+                    }
+                }
+            }else Card(onClick=openVolumes,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
                 Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         DeviceGlyph(R.drawable.ic_device_storage,modifier=Modifier.size(20.dp))
@@ -69,7 +83,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
             }
         }
         item(key="device"){
-            Card(onClick=device,modifier=Modifier.fillMaxWidth().heightIn(min=200.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+            Card(onClick=device,modifier=Modifier.fillMaxWidth().heightIn(min=if(wide)190.dp else 200.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                     Row(verticalAlignment=Alignment.CenterVertically){
                         ManufacturerIcon(size=24.dp)
@@ -79,7 +93,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
                     }
                     Text(Build.MODEL,style=MaterialTheme.typography.titleSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
                     Text("Android "+Build.VERSION.RELEASE,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){
+                    if(!wide)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){
                         Column(Modifier.weight(1f).clickable{openDevicePage(1)},horizontalAlignment=Alignment.CenterHorizontally){
                             CompactGauge(ram?.fraction ?: 0f,ram?.fraction?.let{"${(it*100).toInt()}%"} ?: "—")
                             Text("RAM",style=MaterialTheme.typography.labelSmall)
@@ -99,7 +113,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
             }
         }
         item(key="apps"){
-            Card(onClick=openApps,modifier=Modifier.fillMaxWidth().heightIn(min=176.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+            Card(onClick=openApps,modifier=Modifier.fillMaxWidth().heightIn(min=if(wide)190.dp else 176.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                     Row(verticalAlignment=Alignment.CenterVertically){
                         DeviceGlyph(R.drawable.ic_device_overview,modifier=Modifier.size(20.dp))
@@ -118,7 +132,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
             }
         }
         item(key="cleanup"){
-            Card(onClick=openCleanup,modifier=Modifier.fillMaxWidth().heightIn(min=116.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+            Card(onClick=openCleanup,modifier=Modifier.fillMaxWidth().heightIn(min=if(wide)190.dp else 116.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                     Row(verticalAlignment=Alignment.CenterVertically){
                         Icon(Icons.Default.Delete,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(20.dp))
@@ -135,7 +149,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
             val low=capacity>0 && free.toDouble()/capacity<0.10
             val recommendCache=usage.loaded && cache>=512L*1024*1024
             val action:()->Unit=when{low->{ {analyze(primary)} };recommendCache->{openCache};suggestion!=null->{ {review(File(primary,suggestion.name))} };else->{openHistory}}
-            Card(onClick=action,modifier=Modifier.fillMaxWidth().heightIn(min=116.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+            Card(onClick=action,modifier=Modifier.fillMaxWidth().heightIn(min=if(wide)190.dp else 116.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                     Row(verticalAlignment=Alignment.CenterVertically){
                         Icon(Icons.Default.Info,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(20.dp))
@@ -149,7 +163,9 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
             }
         }
         item(key="history",span={GridItemSpan(maxLineSpan)}) {
-            TextButton(onClick=openHistory,modifier=Modifier.fillMaxWidth()){Text(tr("History"))}
+            if(wide)Card(onClick=openHistory,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+                ListItem(headlineContent={Text(tr("History"))},supportingContent={Text(tr("Scan history"))},leadingContent={Icon(Icons.Default.Info,null)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
+            }else TextButton(onClick=openHistory,modifier=Modifier.fillMaxWidth()){Text(tr("History"))}
         }
         val removable=volumes.filter{it.root!=primary && "external" in dashboard.visible}
         items(removable,key={it.root.path},span={GridItemSpan(maxLineSpan)}){volume->
@@ -175,6 +191,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
                 }
             }
         }
+    }
     }
 }
 
@@ -212,5 +229,16 @@ internal fun ScanLoading(state: com.slate.android.storage.ScanState, cancel: ()-
         Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.scan_items_count,java.text.NumberFormat.getIntegerInstance().format(state.visited),state.elapsedMs/1000),style=MaterialTheme.typography.bodyMedium)
         Text(state.currentPath.ifBlank{state.directory?.path.orEmpty()},maxLines=2,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(onClick=cancel){Text(tr("Cancel"))}
+    }
+}
+
+@Composable private fun OverviewGauge(label:String,fraction:Float,value:String,detail:String,modifier:Modifier,onClick:()->Unit){
+    Column(modifier.clickable(onClick=onClick).padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)){
+        Text(label,style=MaterialTheme.typography.titleSmall,maxLines=2)
+        Box(Modifier.size(94.dp),contentAlignment=Alignment.Center){
+            CircularProgressIndicator(progress={fraction.coerceIn(0f,1f)},modifier=Modifier.fillMaxSize(),strokeWidth=6.dp,trackColor=MaterialTheme.colorScheme.surfaceContainerHigh)
+            Text(value,style=MaterialTheme.typography.titleLarge,maxLines=1)
+        }
+        Text(detail,style=MaterialTheme.typography.bodySmall,maxLines=2,overflow=TextOverflow.Ellipsis)
     }
 }

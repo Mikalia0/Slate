@@ -112,24 +112,18 @@ class MainActivity : AppCompatActivity() {
                     settings -> {
                         BackHandler { settings=false }
                         Scaffold(contentWindowInsets=WindowInsets.safeDrawing) { padding ->
-                            Column(Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                                Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick={settings=false}){Icon(Icons.Default.ArrowBack,"Back")};Text(tr("Settings"),style=MaterialTheme.typography.headlineSmall)}
-                                LanguageSettings()
-                                HorizontalDivider()
-                                Text(tr("Appearance"),style=MaterialTheme.typography.titleMedium)
-                                ThemeOptions(mode,palette,onMode,onPalette)
-                                HorizontalDivider()
-                                ListItem(headlineContent={Text(tr("Storage access"))},supportingContent={Text(tr(if(granted)"Granted" else "Not granted"))},trailingContent={TextButton(onClick=::requestStorage){Text(tr("Manage"))}})
-                                PrivilegeOptions(privilege,onPrivilege,rootAuthorized,onRootChanged={rootAuthorized=it})
-                                HorizontalDivider()
-                                DashboardSettings(dashboard)
-                                HorizontalDivider()
-                                ScheduledCleanupSettings()
-                                HorizontalDivider()
-                                ExclusionEditor(storageModel.exclusions,onChanged={storageModel.invalidate()})
-                                HorizontalDivider()
-                                UpdateSettings(onCheck={manualUpdateRequest++})
-                                Text("GPL-3.0-only")
+                            Box(Modifier.fillMaxSize().padding(padding)){
+                                AdaptiveSettings(
+                                    labels=listOf(tr("Appearance"),tr("Permissions"),tr("Settings"),tr("Cleanup"),tr("Updates")),
+                                    onBack={settings=false},
+                                    sections=listOf<@Composable ()->Unit>(
+                                        {LanguageSettings();HorizontalDivider();ThemeOptions(mode,palette,onMode,onPalette)},
+                                        {ListItem(headlineContent={Text(tr("Storage access"))},supportingContent={Text(tr(if(granted)"Granted" else "Not granted"))},trailingContent={TextButton(onClick=::requestStorage){Text(tr("Manage"))}});PrivilegeOptions(privilege,onPrivilege,rootAuthorized,onRootChanged={rootAuthorized=it})},
+                                        {DashboardSettings(dashboard)},
+                                        {ScheduledCleanupSettings();HorizontalDivider();ExclusionEditor(storageModel.exclusions,onChanged={storageModel.invalidate()})},
+                                        {UpdateSettings(onCheck={manualUpdateRequest++});Text("GPL-3.0-only")}
+                                    )
+                                )
                             }
                         }
                     }
@@ -209,7 +203,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     }
     BackHandler(analyzer || device || apps || cleanup || showHistory) { if(showHistory)showHistory=false else if(cleanup)cleanup=false else if(apps) {apps=false;appsState.removeState("apps")} else if (device) device = false else back() }
     val config=LocalConfiguration.current
-    val landscape=config.screenWidthDp>config.screenHeightDp && config.screenWidthDp>=600
+    val rail=useNavigationRail()
+    val landscape=config.screenWidthDp>=600
     val screenKey=when{about->"about";rootData->"root-data";showVolumes->"volumes";showHistory->"history";cleanup->"cleanup";apps->"apps";device->"device";analyzer->"storage";else->"tool-$destination"}
     val screenAlpha=remember{Animatable(1f)}
     var previousScreen by remember{mutableStateOf(screenKey)}
@@ -218,24 +213,25 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var fileBrowsing by remember{mutableStateOf(false)}
     BackHandler(mainDestination&&destination!=0){destination=0}
     Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing,bottomBar={
-        if(mainDestination&&!(destination==1&&fileBrowsing))SlateBottomNavigation(destination){destination=it}
+        if(!rail&&mainDestination&&!(destination==1&&fileBrowsing))SlateBottomNavigation(destination){destination=it}
     }){padding->
         Row(Modifier.fillMaxSize().padding(padding)){
+            if(rail&&mainDestination)SlateNavigationRail(destination,{destination=it},onSettings)
             Box(Modifier.weight(1f).fillMaxHeight().graphicsLayer{alpha=screenAlpha.value}){
         if(about) {
-            AboutScreen(onBack={about=false})
+            AdaptiveContent(760){AboutScreen(onBack={about=false})}
         } else if(rootData && rootAuthorized) {
             RootDataScreen(onBack={rootData=false;showVolumes=true},onRootRevoked={onRootRevoked();rootData=false;showVolumes=true})
         } else if(showVolumes || rootData) {
-            StorageVolumesScreen(primary,volumes,history,rootAuthorized=rootAuthorized,onRootRevoked=onRootRevoked,onBack={showVolumes=false;rootData=false},onRoot={showVolumes=false;rootData=true},onOpen={file->
+            AdaptiveContent(960){StorageVolumesScreen(primary,volumes,history,rootAuthorized=rootAuthorized,onRootRevoked=onRootRevoked,onBack={showVolumes=false;rootData=false},onRoot={showVolumes=false;rootData=true},onOpen={file->
                 showVolumes=false;rootData=false;personalOnly=false;selectedPath=file.absolutePath;analyzer=true
                 selection=emptySet();largeFiles=false;query="";search=false;expandedCategories=false
                 if(granted)model.open(file)
-            })
+            })}
         } else if(showHistory) {
-            Box(Modifier.fillMaxSize()){HistoryScreen(history,onBack={showHistory=false})}
+            AdaptiveContent(860){HistoryScreen(history,onBack={showHistory=false})}
         } else if(cleanup) {
-            Box(Modifier.fillMaxSize()){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()},review={folder->cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();largeFiles=false;query="";search=false;model.open(folder)})}
+            AdaptiveContent(1000){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()},review={folder->cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();largeFiles=false;query="";search=false;model.open(folder)})}
         } else if(apps) {
             appsState.SaveableStateProvider("apps"){Box(Modifier.fillMaxSize()){AppsStorageScreen(onBack={apps=false},reviewFolder={folder->returnToApps=true;apps=false;analyzer=true;personalOnly=false;selectedPath=folder.absolutePath;openFolder(folder)},initialCacheSort=appCacheSort,onCacheChanged={model.invalidate()})}}
         } else if(mainDestination&&destination!=0) {
@@ -342,10 +338,29 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                     if(deleting) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(tr("Deleting selected items…")) }
                     val scrollKey=directory.path+":"+largeFiles+":"+gridView+":"+personalOnly
                     val restored=scrollStates[scrollKey] ?: (0 to 0)
+                    Row(Modifier.weight(1f).fillMaxWidth()){
+                    if(config.screenWidthDp>=840){
+                        Column(Modifier.width(280.dp).fillMaxHeight().padding(14.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)){
+                            Text(tr("Storage"),style=MaterialTheme.typography.titleLarge)
+                            val total=remember(measuredEntries){measuredEntries.sumOf{it.bytes}}
+                            Text(fmt(total),style=MaterialTheme.typography.headlineMedium,color=MaterialTheme.colorScheme.primary)
+                            Text(directory.name.ifBlank{directory.path},style=MaterialTheme.typography.bodyMedium,maxLines=2,overflow=TextOverflow.Ellipsis)
+                            val top=remember(measuredEntries){measuredEntries.sortedByDescending{it.bytes}.take(6)}
+                            top.forEach{entry->
+                                val proportion=if(total>0)(entry.bytes.toDouble()/total).toFloat().coerceIn(0f,1f)else 0f
+                                Column(Modifier.fillMaxWidth().clickable(enabled=!deleting){if(selection.isNotEmpty())toggle(entry)else selectEntry(entry)},verticalArrangement=Arrangement.spacedBy(5.dp)){
+                                    Text(entry.file.name,style=MaterialTheme.typography.bodyMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+                                    LinearProgressIndicator(progress={proportion},modifier=Modifier.fillMaxWidth())
+                                    Text(fmt(entry.bytes),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                        VerticalDivider(Modifier.fillMaxHeight())
+                    }
                     key(scrollKey) {
                     val listState=rememberLazyGridState(restored.first,restored.second)
                     LaunchedEffect(listState) { snapshotFlow{listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset}.collect{scrollStates[scrollKey]=it} }
-                    LazyVerticalGrid(columns=GridCells.Fixed(if(gridView)if(landscape)3 else 2 else 1),state=listState,modifier=Modifier.weight(1f),contentPadding=PaddingValues(bottom=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    LazyVerticalGrid(columns=if(gridView&&landscape)GridCells.Adaptive(190.dp)else GridCells.Fixed(if(gridView)2 else 1),state=listState,modifier=Modifier.weight(1f),contentPadding=PaddingValues(bottom=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         item(span={GridItemSpan(maxLineSpan)}) {
                             Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                             if(expandedCategories && directory==primary && !returnToApps){
@@ -394,6 +409,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                                 AnalyzerListRow(entry=entry,fraction=fraction,checked=checked,selecting=selection.isNotEmpty(),enabled=!deleting,largestMode=largeFiles,directory=snapshot.directory,formattedSize=fmt(entry.bytes),onClick={if(selection.isNotEmpty())toggle(entry)else selectEntry(entry)},onLongClick={if(!returnToApps)toggle(entry)},onToggle={toggle(entry)})
                             }
                         }
+                    }
                     }
                     }
                     if(confirmDelete && !returnToApps && !state.saved && !state.partialRefresh) AlertDialog(onDismissRequest={confirmDelete=false},title={Text(androidx.compose.ui.res.stringResource(com.slate.android.R.string.confirm_delete_count,selected.size))},

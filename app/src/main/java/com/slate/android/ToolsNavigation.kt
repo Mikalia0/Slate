@@ -3,7 +3,9 @@ package com.slate.android
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -15,5 +17,20 @@ internal fun SlateBottomNavigation(selected:Int,onSelect:(Int)->Unit){
         labels.forEachIndexed{index,label->
             NavigationBarItem(selected=selected==index,onClick={onSelect(index)},icon={Icon(painterResource(icons[index]),null,Modifier.size(23.dp))},label={Text(stringResource(label),maxLines=1)})
         }
+    }
+}
+
+@Composable
+internal fun SlateNavigationRail(selected:Int,onSelect:(Int)->Unit,onSettings:()->Unit){
+    val labels=listOf(R.string.tool_home,R.string.tool_files,R.string.tool_gallery,R.string.tool_monitors)
+    val icons=listOf(R.drawable.ic_device_overview,R.drawable.ic_storage_folder,R.drawable.ic_device_camera,R.drawable.ic_device_cpu)
+    NavigationRail(modifier=Modifier.fillMaxHeight().width(80.dp),containerColor=MaterialTheme.colorScheme.surfaceContainer,header={
+        Icon(painterResource(R.drawable.ic_slate),null,Modifier.padding(vertical=12.dp).size(30.dp),tint=androidx.compose.ui.graphics.Color.Unspecified)
+    }){
+        labels.forEachIndexed{index,label->
+            NavigationRailItem(selected=selected==index,onClick={onSelect(index)},icon={Icon(painterResource(icons[index]),null,Modifier.size(23.dp))},label={Text(stringResource(label),maxLines=1,style=MaterialTheme.typography.labelSmall)})
+        }
+        Spacer(Modifier.weight(1f))
+        IconButton(onClick=onSettings){Icon(Icons.Default.Settings,tr("Settings"))}
     }
 }

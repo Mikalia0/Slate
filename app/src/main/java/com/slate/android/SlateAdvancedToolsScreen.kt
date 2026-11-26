@@ -84,9 +84,18 @@ import java.util.zip.ZipFile
             FilledTonalButton(onClick=external,enabled=!signing){Text(stringResource(R.string.apk_install))}
         }
         val tabs=listOf(R.string.apk_overview,R.string.apk_contents,R.string.apk_tools)
-        TabRow(selectedTabIndex=tab){tabs.forEachIndexed{index,label->Tab(selected=tab==index,onClick={tab=index},text={Text(stringResource(label),maxLines=1)})}}
+        val wide=androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp>=840
+        if(!wide)TabRow(selectedTabIndex=tab){tabs.forEachIndexed{index,label->Tab(selected=tab==index,onClick={tab=index},text={Text(stringResource(label),maxLines=1)})}}
         if(signing)LinearProgressIndicator(Modifier.fillMaxWidth())
         status?.let{Text(it,Modifier.padding(12.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.primary)}
+        Row(Modifier.weight(1f).fillMaxWidth()){
+        if(wide){
+            Column(Modifier.width(210.dp).fillMaxHeight().padding(10.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
+                tabs.forEachIndexed{index,label->NavigationDrawerItem(label={Text(stringResource(label))},selected=tab==index,onClick={tab=index})}
+            }
+            VerticalDivider(Modifier.fillMaxHeight())
+        }
+        Column(Modifier.weight(1f).fillMaxHeight()){
         when(tab){
             0->LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(16.dp)){
                 if(inspection==null)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
@@ -124,6 +133,8 @@ import java.util.zip.ZipFile
                     scope.launch{signing=true;try{withContext(Dispatchers.IO){exportSlateDocument(context,root,file)};status=context.getString(R.string.slate_export_done)}catch(e:CancellationException){throw e}catch(_:Exception){status=context.getString(R.string.slate_tool_failed)}finally{signing=false}}
                 }}
             }
+        }
+        }
         }
     }
     if(signDialog)AlertDialog(onDismissRequest={signDialog=false;password="";keyUri=null;alias=""},title={Text(stringResource(R.string.apk_sign))},text={

@@ -9,6 +9,6 @@
     <string name="browser_manage">Manage</string>
     <string name="browser_history">Recent folders</string>
     <string name="browser_forget_source">Disconnect storage</string>
-    <string name="browser_forget_source_desc">Remove the saved connection and revoke Slate's access. No files will be deleted.</string>
+    <string name="browser_forget_source_desc">Remove the saved connection and revoke Slate\'s access. No files will be deleted.</string>
     <string name="browser_dual_pane">Destination pane</string>
 </resources>

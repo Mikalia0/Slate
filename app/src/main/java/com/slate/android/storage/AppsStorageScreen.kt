@@ -132,11 +132,13 @@ internal fun AppsStorageScreen(onBack:()->Unit,reviewFolder:(File)->Unit,initial
     LaunchedEffect(loaded,selectedPackage,selected){if(loaded && selectedPackage!=null && selected==null)selectedPackage=null}
     val listState=androidx.compose.foundation.lazy.rememberLazyListState()
     BackHandler(selectedPackage!=null){selectedPackage=null}
-    if(selected!=null){
+    val wide=androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp>=800
+    if(selected!=null&&!wide){
         AppUsageDetails(selected,fmt,onBack={selectedPackage=null},reviewFolder=reviewFolder,onExternalAction={usage.invalidate()})
         return
     }
-    Column(Modifier.fillMaxSize().padding(horizontal=14.dp)) {
+    Row(Modifier.fillMaxSize()){
+    Column(Modifier.weight(1f).fillMaxHeight().padding(horizontal=14.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")}
             Text(tr("App storage"),modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
@@ -192,6 +194,11 @@ internal fun AppsStorageScreen(onBack:()->Unit,reviewFolder:(File)->Unit,initial
                 }
             }
         }
+    }
+    if(wide&&selected!=null){
+        VerticalDivider(Modifier.fillMaxHeight())
+        Box(Modifier.weight(1f).fillMaxHeight()){AppUsageDetails(selected,fmt,onBack={selectedPackage=null},reviewFolder=reviewFolder,onExternalAction={usage.invalidate()})}
+    }
     }
 }
 

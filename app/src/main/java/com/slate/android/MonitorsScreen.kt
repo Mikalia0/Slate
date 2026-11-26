@@ -50,7 +50,8 @@ internal fun MonitorsScreen(){
             if(mask.shows(HudMetric.BATTERY))add(HudRow("BAT","19%","3.1 W","37°C"))
         },if(style==HudStyle.CLASSIC&&mask.shows(HudMetric.CPU))(0..7).map{HudCore(it,listOf(14,9,11,12,17,20,1,2)[it],if(it<4)1300 else if(it<7)1800 else 2400,if(it<4)"0,1,2,3" else if(it<7)"4,5,6" else "7")}else emptyList())
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+    val previewPanel:@Composable ()->Unit={
+        Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)){
         Text(stringResource(R.string.tool_monitors),style=MaterialTheme.typography.headlineSmall)
         Text(stringResource(R.string.hud_style),style=MaterialTheme.typography.titleSmall,color=MaterialTheme.colorScheme.primary)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
@@ -76,6 +77,10 @@ internal fun MonitorsScreen(){
         },modifier=Modifier.fillMaxWidth()){Text(stringResource(if(running)R.string.monitor_stop else R.string.monitor_start))}
         if(failed)Text(stringResource(R.string.monitor_failed),color=MaterialTheme.colorScheme.error)
         if(running&&fps==null&&mask.shows(HudMetric.FPS))Text(stringResource(R.string.monitor_waiting),style=MaterialTheme.typography.bodySmall)
+        }
+    }
+    val controls:@Composable ()->Unit={
+        Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)){
         Text(stringResource(R.string.hud_presets),style=MaterialTheme.typography.titleSmall,color=MaterialTheme.colorScheme.primary)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){
             listOf(HUD_MINIMAL to R.string.hud_only_fps,HUD_COMPACT to R.string.hud_compact,HUD_DEFAULT to R.string.hud_detailed,HUD_ALL to R.string.hud_all).forEach{(value,label)->FilterChip(selected=mask==value,onClick={change(value)},label={Text(stringResource(label))})}
@@ -92,5 +97,16 @@ internal fun MonitorsScreen(){
         Slider(value=scale,onValueChange={scale=it;prefs.edit().putFloat("scale",it).apply()},valueRange=.7f..1.4f)
         Text(stringResource(R.string.hud_opacity)+" · "+(opacity*100).toInt()+"%",style=MaterialTheme.typography.titleSmall)
         Slider(value=opacity,onValueChange={opacity=it;prefs.edit().putFloat("opacity",it).apply()},valueRange=.35f..1f)
+        }
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()){
+        if(maxWidth>=720.dp){
+            Row(Modifier.fillMaxSize().padding(16.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)){
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())){previewPanel()}
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())){controls()}
+            }
+        }else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=16.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+            previewPanel();controls()
+        }
     }
 }

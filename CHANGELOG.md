@@ -2,6 +2,13 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## Unreleased — Adaptive layouts
+
+- Add width-aware dashboard, navigation rail and tablet settings navigation.
+- Add side-by-side analyzer summary, APK and device navigation, app master/detail, adaptive gallery grids, monitor preview/controls and a permanent file sidebar on expanded windows.
+- Constrain secondary screens to readable widths while preserving compact phone navigation.
+- Fix invalid Android string resource in the document browser.
+
 ## Unreleased — File manager navigation
 
 - Replace the storage popup with a navigation drawer for home, storage, categories, bookmarks and recent folders.

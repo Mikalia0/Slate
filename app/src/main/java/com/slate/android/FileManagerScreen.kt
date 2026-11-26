@@ -257,20 +257,20 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         SlateFileViewer(root,file,onClose={viewer=null;revision++;onChanged()},onExternal={openSharedFile(context,root,file,false)})
         return
     }
-    ModalNavigationDrawer(drawerState=drawer,gesturesEnabled=!busy,drawerContent={
-        ModalDrawerSheet(Modifier.widthIn(max=320.dp)){
+    val expanded=androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp>=1100
+    val drawerBody:@Composable ()->Unit={
             SlateBrowserDrawer(
                 volumes=availableVolumes,bookmarks=bookmarks.toList().sorted(),history=history,sources=sources.toList().sorted(),shizuku=shizuku,
-                onHome={closeDrawer();home()},onDashboard={closeDrawer();onDashboard()},
-                onFolder={key->val (volume,dir)=tabFiles(key);if((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null)){go(dir,volume);showHome=false};closeDrawer()},
+                onHome={if(!busy){closeDrawer();home()}},onDashboard={if(!busy){closeDrawer();onDashboard()}},
+                onFolder={key->val (volume,dir)=tabFiles(key);if(!busy&&((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null))){go(dir,volume);showHome=false};closeDrawer()},
                 onCategory={page->closeDrawer();home(page)},onAddStorage={closeDrawer();addStorage.launch(null)},
                 onSource={closeDrawer();safSource=it},onFavorites={closeDrawer();editFavorites=true},
                 onDocuments={closeDrawer();toolsScreen=true},onAddons={closeDrawer();addonsScreen=true},onSettings={closeDrawer();onSettings()}
             )
-        }
-    }){
+    }
+    val browserContent:@Composable ()->Unit={
     if(showHome){
-        key(overviewEpoch){FilesOverview(granted,availableVolumes,catalog,request,onRefresh={onChanged();revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()},initialPage=overviewPage,onMenu={scope.launch{drawer.open()}},bookmarks=bookmarks.toList().sorted(),onOpenBookmark={key->val(volume,dir)=tabFiles(key);if((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null)){go(dir,volume);showHome=false}})}
+        key(overviewEpoch){FilesOverview(granted,availableVolumes,catalog,request,onRefresh={onChanged();revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()},initialPage=overviewPage,onMenu={if(!expanded)scope.launch{drawer.open()}},bookmarks=bookmarks.toList().sorted(),onOpenBookmark={key->val(volume,dir)=tabFiles(key);if((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null)){go(dir,volume);showHome=false}})}
     }else Column(Modifier.fillMaxSize()){
         val rootLabel=tr(availableVolumes.firstOrNull{it.root.path==rootPath}?.label?:"Internal storage")
         val title=if(folder==root)rootLabel else folder.name
@@ -320,7 +320,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 }
             }
         }else Row(Modifier.fillMaxWidth().padding(end=4.dp).heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically){
-            IconButton(onClick={if(searching){searching=false;query=""}else scope.launch{drawer.open()}},enabled=!busy){Icon(if(searching)Icons.Default.ArrowBack else Icons.Default.Menu,stringResource(if(searching)R.string.browser_back else R.string.file_volumes))}
+            IconButton(onClick={if(searching){searching=false;query=""}else if(!expanded)scope.launch{drawer.open()}},enabled=!busy){Icon(if(searching)Icons.Default.ArrowBack else Icons.Default.Menu,stringResource(if(searching)R.string.browser_back else R.string.file_volumes))}
             if(searching){
                 val focus=remember{FocusRequester()}
                 LaunchedEffect(Unit){focus.requestFocus()}
@@ -402,7 +402,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
             else if(isAddonArchive(row.file.name)&&!protectedAppPath(row.file.toPath()))openSlateAddon(context,root,row.file)
             else if(!openSharedFile(context,root,row.file,false))message=context.getString(R.string.file_failed)
         }
-        val wide=androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp>=600
+        val wide=androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp>=if(expanded)1100 else 700
         Row(Modifier.weight(1f).fillMaxWidth()){
         Column(Modifier.weight(1f).fillMaxHeight()){
         if(grid&&shown.isEmpty()&&!loading)Text(stringResource(R.string.file_empty),Modifier.padding(14.dp))
@@ -472,6 +472,13 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         }
     }
     }
+    if(expanded)Row(Modifier.fillMaxSize()){
+        Surface(Modifier.width(270.dp).fillMaxHeight(),color=MaterialTheme.colorScheme.surfaceContainerLow){drawerBody()}
+        VerticalDivider(Modifier.fillMaxHeight())
+        Box(Modifier.weight(1f).fillMaxHeight()){browserContent()}
+    }else ModalNavigationDrawer(drawerState=drawer,gesturesEnabled=!busy,drawerContent={
+        ModalDrawerSheet(Modifier.widthIn(max=320.dp)){drawerBody()}
+    }){browserContent()}
     if(editFavorites)SlateFavoritesDialog(bookmarks.toList().sorted(),onClose={editFavorites=false},onRemove={key->bookmarks=bookmarks-key;prefs.edit().putStringSet("bookmarks",bookmarks).apply()})
     properties?.let{row->
         AlertDialog(onDismissRequest={properties=null},title={Text(stringResource(R.string.browser_properties))},text={

@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
@@ -99,16 +101,27 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
             Text(tr("Device information"),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
             TextButton(onClick={testMode=true}){Text(tr("Tests"))}
         }
-        ScrollableTabRow(selectedTabIndex=pager.currentPage,edgePadding=0.dp,containerColor=MaterialTheme.colorScheme.background) {
+        val wide=androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp>=760
+        if(!wide)ScrollableTabRow(selectedTabIndex=pager.currentPage,edgePadding=0.dp,containerColor=MaterialTheme.colorScheme.background) {
             tabNames.forEachIndexed { i,name ->
                 Tab(selected=pager.currentPage==i,onClick={select(i)},text={Text(tr(name),style=MaterialTheme.typography.labelMedium,maxLines=1,softWrap=false)},
                     icon={Icon(painterResource(tabIcons[i]),null,Modifier.size(20.dp))},
                     selectedContentColor=MaterialTheme.colorScheme.primary,unselectedContentColor=MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        HorizontalPager(state=pager,modifier=Modifier.weight(1f),beyondViewportPageCount=1,verticalAlignment=Alignment.Top) { page ->
+        Row(Modifier.weight(1f).fillMaxWidth()){
+        if(wide){
+            Column(Modifier.width(200.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(end=8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){
+                tabNames.forEachIndexed{i,name->
+                    NavigationDrawerItem(label={Text(tr(name),maxLines=2)},selected=pager.currentPage==i,onClick={select(i)},icon={Icon(painterResource(tabIcons[i]),null,Modifier.size(22.dp))})
+                }
+            }
+            VerticalDivider(Modifier.fillMaxHeight())
+        }
+        HorizontalPager(state=pager,modifier=Modifier.weight(1f).fillMaxHeight(),userScrollEnabled=!wide,beyondViewportPageCount=1,verticalAlignment=Alignment.Top) { page ->
             pageState.SaveableStateProvider(page) {
-            LazyColumn(Modifier.fillMaxSize(),state=rememberLazyListState(),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=12.dp)) {
+            Box(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter){
+            LazyColumn(Modifier.widthIn(max=860.dp).fillMaxSize().padding(horizontal=if(wide)16.dp else 0.dp),state=rememberLazyListState(),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=12.dp)) {
                 if(page==0) deviceOverview(live,fixed,::select)
                 else {
                     val processor=fixed?.hardware?.firstOrNull()
@@ -162,6 +175,8 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
                 }
             }
             }
+        }
+        }
         }
     }
 }

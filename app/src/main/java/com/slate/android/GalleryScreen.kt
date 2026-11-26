@@ -245,15 +245,20 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
     var bucket by rememberSaveable{mutableStateOf<String?>(null)}
     var filter by rememberSaveable{mutableIntStateOf(0)}
     var columns by rememberSaveable{mutableIntStateOf(prefs.getInt("columns",3).coerceIn(1,6))}
-    val width=LocalConfiguration.current.screenWidthDp
+    val width=(LocalConfiguration.current.screenWidthDp-if(useNavigationRail())80 else 0).coerceAtLeast(320)
+    val densityFactor=(width/420f).coerceIn(1f,3.5f)
     var albumColumns by rememberSaveable{mutableIntStateOf(prefs.getInt("album_columns",0).coerceIn(0,5))}
     val albumGrid=albums&&bucket==null
-    val currentColumns=if(albumGrid)albumColumns.takeIf{it>0}?:((width-28+12)/164).coerceIn(1,5) else columns
-    val maxColumns=if(albumGrid)5 else 6
+    val maxColumns=if(albumGrid)(5*densityFactor).toInt().coerceAtMost(12)else (6*densityFactor).toInt().coerceAtMost(18)
+    var widePhotoColumns by rememberSaveable{mutableIntStateOf(prefs.getInt("wide_photo_columns",0))}
+    var wideAlbumColumns by rememberSaveable{mutableIntStateOf(prefs.getInt("wide_album_columns",0))}
+    val wide=width>=600
+    val currentColumns=(if(albumGrid){if(wide&&wideAlbumColumns>0)wideAlbumColumns else albumColumns.takeIf{it>0}?.let{(it*densityFactor).toInt()}?:((width-16)/164)}else if(wide&&widePhotoColumns>0)widePhotoColumns else (columns*densityFactor).toInt()).coerceIn(1,maxColumns)
     val photoGridState=rememberLazyGridState()
     val albumGridState=rememberLazyGridState()
     fun setColumns(count:Int){
-        val next=count.coerceIn(1,maxColumns)
+        if(wide){val next=count.coerceIn(1,maxColumns);if(albumGrid){wideAlbumColumns=next;prefs.edit().putInt("wide_album_columns",next).apply()}else{widePhotoColumns=next;prefs.edit().putInt("wide_photo_columns",next).apply()};return}
+        val next=count.coerceIn(1,if(albumGrid)5 else 6)
         if(albumGrid){
             albumColumns=next;prefs.edit().putInt("album_columns",next).apply()
         }else{

@@ -36,7 +36,7 @@ class AdvancedActivity:ComponentActivity(){
         setContent{
             val dark=isSystemInDarkTheme()
             MaterialTheme(colorScheme=if(dark)dynamicDarkColorSchemeOrDefault()else dynamicLightColorSchemeOrDefault()){
-                Surface(Modifier.fillMaxSize()){AdvancedScreen(uri){finish()}}
+                Surface(Modifier.fillMaxSize()){Box(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter){Box(Modifier.widthIn(max=1000.dp).fillMaxSize()){AdvancedScreen(uri){finish()}}}}
             }
         }
     }
