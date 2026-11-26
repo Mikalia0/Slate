@@ -1,0 +1,13 @@
+<resources>
+    <string name="slate_addons">Complementos</string>
+    <string name="slate_addon_advanced">Ferramentas avançadas</string>
+    <string name="slate_addon_apk_desc">Inspeção de manifesto e edição de versão no Slate Advanced.</string>
+    <string name="slate_addon_included">Integrados</string>
+    <string name="slate_basic_media">Visualizadores de imagem, áudio e vídeo</string>
+    <string name="slate_basic_files">Texto, PDF e ZIP</string>
+    <string name="slate_basic_apk">Inspeção e assinatura de APK</string>
+    <string name="slate_installed">Instalado</string>
+    <string name="slate_addon_optional">Opcionais</string>
+    <string name="slate_addon_desc">Arquivos compactados avançados e recursos APK. Instalação separada.</string>
+    <string name="slate_addon_download">Baixar complemento</string>
+</resources>

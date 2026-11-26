@@ -128,6 +128,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     var properties by remember{mutableStateOf<FileRow?>(null)}
     var handler by remember{mutableStateOf<File?>(null)}
     var toolsScreen by remember{mutableStateOf(false)}
+    var addonsScreen by remember{mutableStateOf(false)}
     var actionMenu by remember{mutableStateOf(false)}
     val pathClipboard=LocalClipboardManager.current
     var clipboard by remember{mutableStateOf<ClipboardFile?>(null)}
@@ -181,6 +182,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         finally{loading=false}
     }
     BackHandler(!showHome){if(!busy){when{marked.isNotEmpty()->marked=emptySet();selected!=null->selected=null;searching->{searching=false;query=""};else->if(folder==root)showHome=true else go(folder.parentFile?.takeIf{safeFile(root,it)}?:root)}}}
+    if(addonsScreen){SlateAddonsScreen(onClose={addonsScreen=false});return}
     if(toolsScreen){SlateDocumentsScreen(onClose={toolsScreen=false});return}
     viewer?.let{file->
         SlateFileViewer(root,file,onClose={viewer=null;revision++;onChanged()},onExternal={openSharedFile(context,root,file,false)})
@@ -276,6 +278,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                     DropdownMenuItem(text={Text(stringResource(if(tabKey(root,folder) in bookmarks)R.string.file_unbookmark else R.string.file_bookmark))},onClick={saveBookmark();menu=false})
                     DropdownMenuItem(text={Text(tr("Refresh"))},onClick={revision++;menu=false})
                     DropdownMenuItem(text={Text(stringResource(R.string.slate_documents))},onClick={menu=false;toolsScreen=true})
+                    DropdownMenuItem(text={Text(stringResource(R.string.slate_addons))},onClick={menu=false;addonsScreen=true})
                 }
             }
         }
@@ -335,6 +338,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
             if(marked.isNotEmpty())marked=if(row.file.path in marked)marked-row.file.path else marked+row.file.path
             else if(row.directory)go(row.file)
             else if(canViewSlateFile(root,row.file))viewer=row.file
+            else if(isAddonArchive(row.file.name)&&!protectedAppPath(row.file.toPath()))openSlateAddon(context,root,row.file)
             else if(!openSharedFile(context,root,row.file,false))message=context.getString(R.string.file_failed)
         }
         if(grid&&shown.isEmpty()&&!loading)Text(stringResource(R.string.file_empty),Modifier.padding(14.dp))
@@ -411,6 +415,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
             Column{
                 Text(file.name,style=MaterialTheme.typography.bodySmall,maxLines=2,overflow=TextOverflow.Ellipsis)
                 if(canViewSlateFile(root,file))TextButton(onClick={handler=null;viewer=file}){Text(stringResource(R.string.browser_internal))}
+                if((isAddonArchive(file.name)||file.extension.equals("apk",true))&&!protectedAppPath(file.toPath()))TextButton(onClick={handler=null;openSlateAddon(context,root,file)}){Text(stringResource(R.string.slate_addon_advanced))}
                 TextButton(onClick={handler=null;openSharedFile(context,root,file,false)}){Text(stringResource(R.string.browser_external))}
             }
         },confirmButton={TextButton(onClick={handler=null}){Text(tr("Close"))}})

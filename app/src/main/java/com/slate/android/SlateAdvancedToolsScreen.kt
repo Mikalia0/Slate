@@ -116,6 +116,7 @@ import java.util.zip.ZipFile
             1->Box(Modifier.weight(1f)){SlateArchiveScreen(root,file,external)}
             else->LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
                 item{ToolHeading(stringResource(R.string.apk_tools),stringResource(R.string.apk_tools_description))}
+                item{ToolRow(stringResource(R.string.slate_addon_advanced),stringResource(R.string.slate_addon_apk_desc),R.drawable.ic_file_apk,enabled=!signing){openSlateAddon(context,root,file)}}
                 item{ToolRow(stringResource(R.string.apk_sign),stringResource(R.string.apk_sign_desc),R.drawable.ic_file_apk,enabled=!signing){signDialog=true}}
                 item{ToolRow(stringResource(R.string.apk_certificates),stringResource(R.string.apk_cert_desc),R.drawable.ic_storage_file,enabled=!signing){tab=0}}
                 item{ToolRow(stringResource(R.string.apk_contents),stringResource(R.string.apk_contents_desc),R.drawable.ic_file_archive,enabled=!signing){tab=1}}

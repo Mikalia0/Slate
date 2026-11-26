@@ -51,10 +51,13 @@ jobs:
           printf '%s' "$SLATE_KEYSTORE_BASE64" | base64 --decode > "$SLATE_KEYSTORE_PATH"
           unset SLATE_KEYSTORE_BASE64
           export SLATE_VERSION_CODE="$((1000 + GITHUB_RUN_NUMBER))"
-          gradle --no-daemon :app:testReleaseUnitTest :app:assembleRelease
+          gradle --no-daemon :app:testReleaseUnitTest :app:assembleRelease :advanced:assembleRelease
           apk=app/build/outputs/apk/release/app-release.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk"
           cp "$apk" Slate.apk
+          addon=advanced/build/outputs/apk/release/advanced-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$addon"
+          cp "$addon" Slate-Advanced.apk
       - name: Publish signed development release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -63,7 +66,7 @@ jobs:
           set -euo pipefail
           tag="dev-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
           awk '/^## /{if(seen++) exit; next} seen{print}' CHANGELOG.md > changelog.txt
-          gh release create "$tag" Slate.apk changelog.txt \
+          gh release create "$tag" Slate.apk Slate-Advanced.apk changelog.txt \
             --target "$GITHUB_SHA" \
             --title "Slate development build ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
             --latest \
