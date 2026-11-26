@@ -237,14 +237,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
              toolState.SaveableStateProvider(destination){
                  when(destination){
                      1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()},model=model,onBrowsingChanged={fileBrowsing=it},onSettings=onSettings,onDashboard={destination=0},onDestination={destination=it})
-                     2,3 -> Column(Modifier.fillMaxSize()){
-                         if(topNavigation)Row(Modifier.fillMaxWidth().padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically){
-                             Spacer(Modifier.weight(1f))
-                             SlateTopNavigation(destination){destination=it}
-                             IconButton(onClick=onSettings){Icon(Icons.Default.Settings,tr("Settings"))}
-                         }
-                         Box(Modifier.weight(1f)){if(destination==2)GalleryScreen(granted,request)else MonitorsScreen()}
-                     }
+                     2 -> GalleryScreen(granted,request,topActions={if(topNavigation)SlateTopNavigation(destination){destination=it}})
+                     3 -> MonitorsScreen(topActions={if(topNavigation)SlateTopNavigation(destination){destination=it}})
                  }
              }
          } else if (device) {

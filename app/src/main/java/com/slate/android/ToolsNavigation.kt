@@ -26,7 +26,7 @@ internal fun SlateTopNavigation(selected:Int,onSelect:(Int)->Unit){
     val icons=listOf(R.drawable.ic_device_overview,R.drawable.ic_storage_folder,R.drawable.ic_device_camera,R.drawable.ic_device_cpu)
     Row(horizontalArrangement=Arrangement.spacedBy(0.dp)){
         labels.forEachIndexed{index,label->
-            IconToggleButton(checked=selected==index,onCheckedChange={onSelect(index)},colors=IconButtonDefaults.iconToggleButtonColors(checkedContainerColor=MaterialTheme.colorScheme.secondaryContainer,checkedContentColor=MaterialTheme.colorScheme.onSecondaryContainer)){
+            IconToggleButton(checked=selected==index,onCheckedChange={onSelect(index)},modifier=Modifier.size(44.dp),colors=IconButtonDefaults.iconToggleButtonColors(checkedContainerColor=MaterialTheme.colorScheme.secondaryContainer,checkedContentColor=MaterialTheme.colorScheme.onSecondaryContainer)){
                 Icon(painterResource(icons[index]),stringResource(label),Modifier.size(21.dp))
             }
         }

@@ -231,7 +231,7 @@ private fun MediaViewer(items:List<MediaItem>,initial:Int,favorites:Set<String>,
 }
 
 @Composable
-internal fun GalleryScreen(granted:Boolean,request:()->Unit){
+internal fun GalleryScreen(granted:Boolean,request:()->Unit,topActions:@Composable ()->Unit={}){
     val context=LocalContext.current
     val lifecycle=LocalLifecycleOwner.current.lifecycle
     val scope=rememberCoroutineScope()
@@ -253,6 +253,7 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
     var widePhotoColumns by rememberSaveable{mutableIntStateOf(prefs.getInt("wide_photo_columns",0))}
     var wideAlbumColumns by rememberSaveable{mutableIntStateOf(prefs.getInt("wide_album_columns",0))}
     val wide=width>=600
+    val compact=useTopNavigation()
     val currentColumns=(if(albumGrid){if(wide&&wideAlbumColumns>0)wideAlbumColumns else albumColumns.takeIf{it>0}?.let{(it*densityFactor).toInt()}?:((width-16)/164)}else if(wide&&widePhotoColumns>0)widePhotoColumns else (columns*densityFactor).toInt()).coerceIn(1,maxColumns)
     val photoGridState=rememberLazyGridState()
     val albumGridState=rememberLazyGridState()
@@ -310,7 +311,8 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
     Column(Modifier.fillMaxSize()){
         Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){
             if(bucket!=null||selected.isNotEmpty())IconButton(onClick={if(selected.isNotEmpty())selected=emptySet()else bucket=null}){Icon(Icons.Default.ArrowBack,null)}
-            Text(if(selected.isNotEmpty())stringResource(R.string.tool_selected,selected.size)else if(bucket!=null)media.firstOrNull{it.bucket==bucket}?.folder.orEmpty()else stringResource(R.string.tool_gallery),Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall,maxLines=1)
+            Text(if(selected.isNotEmpty())stringResource(R.string.tool_selected,selected.size)else if(bucket!=null)media.firstOrNull{it.bucket==bucket}?.folder.orEmpty()else stringResource(R.string.tool_gallery),Modifier.weight(1f),style=if(compact)MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
+            if(compact&&selected.isEmpty())topActions()
             if(selected.isNotEmpty()){
                 IconButton(onClick={selected=visible.map{it.uri.toString()}.toSet()}){Icon(Icons.Default.Check,stringResource(R.string.cache_select_all))}
                 IconButton(onClick={shareMedia(context,media.filter{it.uri.toString() in selected})}){Icon(Icons.Default.Share,null)}
@@ -335,6 +337,17 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
             }
             return@Column
         }
+        if(compact){
+            if(search)OutlinedTextField(query,{query=it},Modifier.fillMaxWidth().padding(horizontal=8.dp),singleLine=true,placeholder={Text(tr("Search"))})
+            if(selected.isEmpty())Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)){
+                if(bucket==null){
+                    FilterChip(selected=!albums,onClick={albums=false;filter=0},label={Text(stringResource(R.string.gallery_photos))})
+                    FilterChip(selected=albums,onClick={albums=true;filter=0},label={Text(stringResource(R.string.gallery_folders))})
+                    if(!albums)Spacer(Modifier.width(8.dp))
+                }
+                if(!albums||bucket!=null)listOf(R.string.gallery_all,R.string.gallery_images,R.string.gallery_videos,R.string.gallery_favorites).forEachIndexed{index,id->FilterChip(selected=filter==index,onClick={filter=index},label={Text(stringResource(id))})}
+            }
+        }else{
         if(bucket==null&&selected.isEmpty()){
             TabRow(selectedTabIndex=if(albums)1 else 0,containerColor=MaterialTheme.colorScheme.surface){
                 Tab(selected=!albums,onClick={albums=false;filter=0},text={Text(stringResource(R.string.gallery_photos))})
@@ -344,6 +357,8 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
         if(search)OutlinedTextField(value=query,onValueChange={query=it},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=6.dp),singleLine=true,leadingIcon={Icon(Icons.Default.Search,null)},placeholder={Text(tr("Search"))},trailingIcon={if(query.isNotEmpty())IconButton(onClick={query=""}){Icon(Icons.Default.Close,null)}})
         if((!albums||bucket!=null)&&selected.isEmpty())Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)){
             listOf(R.string.gallery_all,R.string.gallery_images,R.string.gallery_videos,R.string.gallery_favorites).forEachIndexed{index,id->FilterChip(selected=filter==index,onClick={filter=index},label={Text(stringResource(id))})}
+        }
+
         }
         if(loading)LinearProgressIndicator(Modifier.fillMaxWidth())
         message?.let{Text(it,Modifier.padding(8.dp),color=MaterialTheme.colorScheme.error)}
@@ -397,7 +412,7 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
                         val groupState=when(selectedCount){0->ToggleableState.Off;keys.size->ToggleableState.On;else->ToggleableState.Indeterminate}
                         fun toggleDay(){selected=if(groupState==ToggleableState.On)selected-keys else selected+keys}
                         Row(Modifier.fillMaxWidth().padding(start=10.dp,end=4.dp,top=2.dp,bottom=2.dp),verticalAlignment=Alignment.CenterVertically){
-                            Column(Modifier.weight(1f).clickable(enabled=!deleting){toggleDay()}.padding(vertical=8.dp)){
+                            Column(Modifier.weight(1f).clickable(enabled=!deleting){toggleDay()}.padding(vertical=if(compact)2.dp else 8.dp)){
                                 Text(day,style=MaterialTheme.typography.titleSmall)
                                 Text(stringResource(R.string.file_items,photos.size),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                             }

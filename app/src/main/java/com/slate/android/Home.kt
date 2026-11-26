@@ -50,9 +50,17 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
     val appCount=usage.rows.size
     val growing=history.insights.filter{(it.increase ?: 0)>=50L*1024*1024}.maxByOrNull{it.increase ?: 0}
     val suggestion=growing ?: history.insights.filter{it.bytes>=1024L*1024*1024}.maxByOrNull{it.bytes}
-    val cpu=status.fixed?.hardware?.firstOrNull().reading("SoC").takeUnless{it=="—"}
+    val displayResolution=live?.display.reading("Resolution").takeUnless{it=="—"}?:status.fixed?.hardware?.getOrNull(2).reading("Physical mode").takeUnless{it=="—"}
+    val displayRefresh=live?.display.reading("Refresh rate").takeUnless{it=="—"}?:status.fixed?.hardware?.getOrNull(2).reading("Refresh rate").takeUnless{it=="—"}
+    val rawCpu=status.fixed?.hardware?.firstOrNull().reading("SoC").takeUnless{it=="—"}
         ?:status.fixed?.hardware?.firstOrNull().reading("Hardware").takeUnless{it=="—"}
         ?:(if(Build.VERSION.SDK_INT>=31)Build.SOC_MODEL.takeUnless{it.isBlank()||it.equals("unknown",true)}else null)
+    val cpu=when(rawCpu?.uppercase(java.util.Locale.ROOT)){
+        "SM4350"->"Snapdragon 480"
+        "SM4350-AC","SM4350AC"->"Snapdragon 480+"
+        else->rawCpu
+    }
+    val processor=if(rawCpu.equals("SM4350",true)&&Build.MODEL.equals("moto g53 5G",true))"Snapdragon 480+"else cpu
     val removable=volumes.filter{it.root!=primary&&"external" in dashboard.visible}
     val low=capacity>0&&free.toDouble()/capacity<0.10
     val recommendCache=usage.loaded&&cache>=512L*1024*1024
@@ -69,7 +77,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
         Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
             Column(Modifier.padding(if(compact)10.dp else 14.dp),verticalArrangement=Arrangement.spacedBy(if(compact)5.dp else 10.dp)){
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(3.dp)){
-                    OverviewGauge(tr("Internal storage"),fraction,if(capacity>0)"${(fraction*100).toInt()}%"else "—",if(capacity>0)fmt(used)+" / "+fmt(capacity)else "—",Modifier.weight(1f),openVolumes,compact)
+                    OverviewGauge(tr("Storage"),fraction,if(capacity>0)"${(fraction*100).toInt()}%"else "—",if(capacity>0)fmt(used)+" / "+fmt(capacity)else "—",Modifier.weight(1f),openVolumes,compact)
                     OverviewGauge("RAM",ram?.fraction?:0f,ram?.fraction?.let{"${(it*100).toInt()}%"}?:"—",memoryValue("Used RAM (estimate)")+" / "+memoryValue("Total RAM"),Modifier.weight(1f),{openDevicePage(1)},compact)
                     OverviewGauge(tr("Battery"),battery?.fraction?:0f,battery?.value?.takeUnless{it=="Unavailable"}?:"—",listOfNotNull(temperature,chargingPower).joinToString(" · "),Modifier.weight(1f),{openDevicePage(3)},compact)
                 }
@@ -78,10 +86,16 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
                     ManufacturerIcon(size=if(compact)32.dp else 42.dp)
                     Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)){
                         Text(Build.MODEL,style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        if(cpu!=null)Text(cpu,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.primary,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        if(processor!=null)Text(processor,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.primary,maxLines=1,overflow=TextOverflow.Ellipsis)
                         Text("Android "+Build.VERSION.RELEASE,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(Icons.Default.KeyboardArrowRight,null)
+                }
+                Row(Modifier.fillMaxWidth().clickable{openDevicePage(1)}.padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                    DeviceGlyph(R.drawable.ic_device_display,modifier=Modifier.size(20.dp))
+                    Text(tr("Display"),Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
+                    Text(listOfNotNull(displayResolution,displayRefresh).joinToString(" · ").ifBlank{"—"},style=MaterialTheme.typography.bodyMedium,maxLines=2)
+                    Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(18.dp))
                 }
                 if(compact)removable.forEach{volume->
                     val total=volume.root.totalSpace
@@ -102,9 +116,9 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
                 DashboardShortcut(R.drawable.ic_device_overview,tr("Apps"),appsDetail,openApps)
                 HorizontalDivider()
                 DashboardShortcut(null,tr("Cleanup"),if(usage.loaded)fmt(cache)else tr("Temporary files"),openCleanup)
-                if("insights" in dashboard.visible){HorizontalDivider();DashboardShortcut(R.drawable.ic_device_storage,tr("Storage insights"),insightTitle+" · "+insightDetail,insightAction)}
+                if("insights" in dashboard.visible){HorizontalDivider();DashboardShortcut(R.drawable.ic_slate_insights,tr("Storage insights"),insightTitle+" · "+insightDetail,insightAction)}
                 HorizontalDivider()
-                DashboardShortcut(R.drawable.ic_device_overview,tr("History"),tr("Scan history"),openHistory)
+                DashboardShortcut(R.drawable.ic_slate_history,tr("History"),tr("Scan history"),openHistory)
             }
         }
     }
@@ -123,13 +137,13 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
                     DashboardTile(R.drawable.ic_device_overview,tr("Apps"),if(usage.loaded)fmt(appsTotal)else "—",appsDetail,openApps)
                 }
                 item(key="cleanup"){
-                    DashboardTile(null,tr("Cleanup"),if(usage.loaded)fmt(cache)else tr("Find"),tr(if(usage.loaded)"Reported app cache"else "Temporary files"),openCleanup)
+                    DashboardTile(null,tr("Cleanup"),if(usage.loaded)fmt(cache)else tr("Find"),tr(if(usage.loaded)"Cache"else "Temporary files"),openCleanup)
                 }
                 if("insights" in dashboard.visible)item(key="insights"){
-                    DashboardTile(R.drawable.ic_device_storage,tr("Storage insights"),insightTitle,insightDetail,insightAction)
+                    DashboardTile(R.drawable.ic_slate_insights,tr("Storage insights"),insightTitle,insightDetail,insightAction)
                 }
                 item(key="history"){
-                    DashboardTile(R.drawable.ic_device_overview,tr("History"),tr("History"),tr("Scan history"),openHistory)
+                    DashboardTile(R.drawable.ic_slate_history,tr("History"),"",tr("Scan history"),openHistory)
                 }
                 items(removable,key={it.root.path},span={GridItemSpan(maxLineSpan)}){volume->
                     val total=volume.root.totalSpace
@@ -168,11 +182,10 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
         Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
             Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)){
                 if(icon!=null)DeviceGlyph(icon,modifier=Modifier.size(20.dp))else Icon(Icons.Default.Delete,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(20.dp))
-                Text(title,Modifier.weight(1f),style=MaterialTheme.typography.titleSmall,maxLines=2,overflow=TextOverflow.Ellipsis)
-                Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(16.dp))
+                Text(title,Modifier.weight(1f),style=MaterialTheme.typography.labelLarge,maxLines=2)
             }
-            Text(value,style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.primary,maxLines=1,overflow=TextOverflow.Ellipsis)
-            Text(detail,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+            if(value.isNotBlank())Text(value,style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.primary,maxLines=2)
+            Text(detail,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=2)
         }
     }
 }
@@ -182,7 +195,7 @@ private fun HomeAction(label:String,icon:Int?,modifier:Modifier,onClick:()->Unit
     Column(modifier.clickable(onClick=onClick).padding(vertical=10.dp,horizontal=4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)){
         if(icon!=null)DeviceGlyph(icon,modifier=Modifier.size(22.dp))
         else Icon(Icons.Default.Delete,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(22.dp))
-        Text(label,style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+        Text(label,style=MaterialTheme.typography.labelMedium,maxLines=2,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 
@@ -221,6 +234,6 @@ internal fun ScanLoading(state: com.slate.android.storage.ScanState, cancel: ()-
             Text(value,style=MaterialTheme.typography.titleMedium,maxLines=1)
         }
         Text(label,style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
-        Text(detail,style=MaterialTheme.typography.bodySmall,maxLines=2,overflow=TextOverflow.Ellipsis)
+        Text(detail,style=MaterialTheme.typography.bodySmall,maxLines=2,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
     }
 }

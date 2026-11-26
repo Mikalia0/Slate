@@ -94,6 +94,7 @@ internal fun categoryIcon(category:FileCategory)=when(category){
 @Composable
 internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCatalog?,request:()->Unit,onRefresh:()->Unit,onOpenFolder:(File,File)->Unit,onChanged:()->Unit,initialPage:String="",onMenu:()->Unit={},topActions:@Composable ()->Unit={},bookmarks:List<String> = emptyList(),onOpenBookmark:(String)->Unit={}){
     val context=LocalContext.current
+    val compact=useTopNavigation()
     val scope=rememberCoroutineScope()
     var page by rememberSaveable{mutableStateOf(initialPage)}
     var query by rememberSaveable{mutableStateOf("")}
@@ -143,7 +144,29 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
         }
         if(catalog==null||busy)LinearProgressIndicator(Modifier.fillMaxWidth())
         if(failed)Text(stringResource(R.string.file_failed),Modifier.padding(12.dp),color=MaterialTheme.colorScheme.error)
-        if(page.isEmpty()){
+        if(page.isEmpty()&&compact){
+            Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)){
+                LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)){
+                    item{Text(tr("Storage"),Modifier.padding(vertical=6.dp),style=MaterialTheme.typography.titleSmall)}
+                    items(volumes,key={it.root.path}){volume->
+                        val space by produceState<Pair<Long,Long>?>(null,volume.root){value=withContext(Dispatchers.IO){runCatching{val stat=android.os.StatFs(volume.root.path);(stat.totalBytes-stat.availableBytes).coerceAtLeast(0L) to stat.totalBytes}.getOrNull()}}
+                        Row(Modifier.fillMaxWidth().clickable{onOpenFolder(volume.root,volume.root)}.heightIn(min=44.dp).padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                            Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(22.dp));Column(Modifier.weight(1f)){Text(tr(volume.label),style=MaterialTheme.typography.bodyMedium);space?.let{Text(Formatter.formatFileSize(context,it.first)+" / "+Formatter.formatFileSize(context,it.second),style=MaterialTheme.typography.bodySmall)}};Icon(Icons.Default.KeyboardArrowRight,null)
+                        }
+                    }
+                    if(bookmarks.isNotEmpty()){item{Text(stringResource(R.string.browser_favorites),Modifier.padding(vertical=6.dp),style=MaterialTheme.typography.titleSmall)};items(bookmarks){key->Text(File(key.substringAfter('\n')).name,Modifier.fillMaxWidth().clickable{onOpenBookmark(key)}.padding(vertical=8.dp))}}
+                }
+                LazyColumn(Modifier.weight(1.5f),verticalArrangement=Arrangement.spacedBy(3.dp)){
+                    item{Text(stringResource(R.string.files_categories),Modifier.padding(vertical=6.dp),style=MaterialTheme.typography.titleSmall)}
+                    items(listOf(FileCategory.INSTALLERS,FileCategory.DOCUMENTS,FileCategory.IMAGES,FileCategory.VIDEOS,FileCategory.AUDIO,FileCategory.ARCHIVES,FileCategory.OTHER).chunked(2)){pair->Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+                        pair.forEach{category->Surface(Modifier.weight(1f).clickable{page=category.name;query=""},shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.surfaceContainerLow){Row(Modifier.padding(8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)){Icon(painterResource(categoryIcon(category)),null,Modifier.size(20.dp),tint=MaterialTheme.colorScheme.primary);Column(Modifier.weight(1f)){Text(categoryTitle(category),style=MaterialTheme.typography.labelLarge,maxLines=2);Text(if(catalog==null)"—"else stringResource(R.string.file_items,grouped[category].orEmpty().size),style=MaterialTheme.typography.labelSmall)}}}}
+                        if(pair.size==1)Spacer(Modifier.weight(1f))
+                    }}
+                    item{TextButton(onClick={page="recent";sort=0}){Text(stringResource(R.string.files_recent))}}
+                    items(recent,key={it.entry.file.path}){file->CatalogRow(file,{open(file)},{selected=file})}
+                }
+            }
+        }else if(page.isEmpty()){
             LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                 item{Text(tr("Storage"),style=MaterialTheme.typography.titleMedium)}
                 items(volumes,key={it.root.path}){volume->

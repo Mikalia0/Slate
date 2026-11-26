@@ -127,7 +127,9 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     var hidden by rememberSaveable{mutableStateOf(false)}
     var sort by rememberSaveable{mutableIntStateOf(0)}
     var menu by remember{mutableStateOf(false)}
-    val drawer=rememberDrawerState(DrawerValue.Closed)
+    val useTopNavigationValue=useTopNavigation()
+    val drawer=key(useTopNavigationValue){rememberDrawerState(DrawerValue.Closed)}
+    var landscapeDrawer by remember(useTopNavigationValue){mutableStateOf(false)}
     var overviewPage by rememberSaveable{mutableStateOf("")}
     var overviewEpoch by remember{mutableIntStateOf(0)}
     var history by remember{mutableStateOf(readBrowserHistory(prefs))}
@@ -181,7 +183,8 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         query="";searching=false;selected=null;marked=emptySet();message=null
     }
     fun home(page:String=""){overviewPage=page;overviewEpoch++;showHome=true;query="";searching=false;marked=emptySet()}
-    fun closeDrawer(){scope.launch{drawer.close()}}
+    fun closeDrawer(){if(useTopNavigationValue)landscapeDrawer=false else scope.launch{drawer.close()}}
+    fun openDrawer(){if(useTopNavigationValue)landscapeDrawer=true else scope.launch{drawer.open()}}
     val sortKey="sort:"+tabKey(root,folder)
     LaunchedEffect(sortKey){val saved=prefs.getInt(sortKey,0);sort=saved and 3;descending=saved and 4!=0}
     fun persistSort(){prefs.edit().putInt(sortKey,sort or (if(descending)4 else 0)).apply()}
@@ -271,7 +274,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     }
     val browserContent:@Composable ()->Unit={
     if(showHome){
-        key(overviewEpoch){FilesOverview(granted,availableVolumes,catalog,request,onRefresh={onChanged();revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()},initialPage=overviewPage,onMenu={if(!expanded)scope.launch{drawer.open()}},topActions={if(topTools)SlateTopNavigation(1,onDestination)},bookmarks=bookmarks.toList().sorted(),onOpenBookmark={key->val(volume,dir)=tabFiles(key);if((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null)){go(dir,volume);showHome=false}})}
+        key(overviewEpoch){FilesOverview(granted,availableVolumes,catalog,request,onRefresh={onChanged();revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()},initialPage=overviewPage,onMenu={if(!expanded)openDrawer()},topActions={if(topTools)SlateTopNavigation(1,onDestination)},bookmarks=bookmarks.toList().sorted(),onOpenBookmark={key->val(volume,dir)=tabFiles(key);if((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null)){go(dir,volume);showHome=false}})}
     }else Column(Modifier.fillMaxSize()){
         val rootLabel=tr(availableVolumes.firstOrNull{it.root.path==rootPath}?.label?:"Internal storage")
         val title=if(folder==root)rootLabel else folder.name
@@ -331,7 +334,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 }
             }
         }else Row(Modifier.fillMaxWidth().padding(end=4.dp).heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically){
-            IconButton(onClick={if(searching){searching=false;query=""}else if(!expanded)scope.launch{drawer.open()}},enabled=!busy){Icon(if(searching)Icons.Default.ArrowBack else Icons.Default.Menu,stringResource(if(searching)R.string.browser_back else R.string.file_volumes))}
+            IconButton(onClick={if(searching){searching=false;query=""}else if(!expanded)openDrawer()},enabled=!busy){Icon(if(searching)Icons.Default.ArrowBack else Icons.Default.Menu,stringResource(if(searching)R.string.browser_back else R.string.file_volumes))}
             if(searching){
                 val focus=remember{FocusRequester()}
                 LaunchedEffect(Unit){focus.requestFocus()}
@@ -494,6 +497,14 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         Surface(Modifier.width(270.dp).fillMaxHeight(),color=MaterialTheme.colorScheme.surfaceContainerLow){drawerBody()}
         VerticalDivider(Modifier.fillMaxHeight())
         Box(Modifier.weight(1f).fillMaxHeight()){browserContent()}
+    }else if(topTools){
+        Box(Modifier.fillMaxSize()){browserContent()}
+        if(landscapeDrawer)androidx.compose.ui.window.Dialog(onDismissRequest={closeDrawer()},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)){
+            Box(Modifier.fillMaxSize(),contentAlignment=Alignment.CenterStart){
+                Box(Modifier.fillMaxSize().clickable{closeDrawer()})
+                Surface(Modifier.widthIn(max=320.dp).fillMaxHeight().padding(8.dp),shape=MaterialTheme.shapes.large,color=MaterialTheme.colorScheme.surfaceContainer){drawerBody()}
+            }
+        }
     }else ModalNavigationDrawer(drawerState=drawer,gesturesEnabled=!busy,drawerContent={
         ModalDrawerSheet(Modifier.widthIn(max=320.dp)){drawerBody()}
     }){browserContent()}

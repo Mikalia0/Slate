@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## Unreleased — Display and landscape fixes
+
+- Show screen resolution and current refresh rate on the dashboard; improve processor naming and dashboard text layout.
+- Merge landscape gallery and monitor navigation into their actual headers and wrap monitor presets.
+- Fix the landscape file drawer and give the file home a two-column layout.
+
 ## Unreleased — Integrated file tools
 
 - Integrate advanced archive extraction, manifest metadata editing and hex inspection into Slate.apk.

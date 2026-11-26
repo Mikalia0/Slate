@@ -21,7 +21,7 @@ import com.slate.android.storage.shizukuGranted
 import kotlinx.coroutines.delay
 
 @Composable
-internal fun MonitorsScreen(){
+internal fun MonitorsScreen(topActions:@Composable ()->Unit={}){
     val context=LocalContext.current
     var running by remember{mutableStateOf(PerformanceOverlayService.running)}
     var authorized by remember{mutableStateOf(shizukuGranted())}
@@ -50,9 +50,10 @@ internal fun MonitorsScreen(){
             if(mask.shows(HudMetric.BATTERY))add(HudRow("BAT","19%","3.1 W","37°C"))
         },if(style==HudStyle.CLASSIC&&mask.shows(HudMetric.CPU))(0..7).map{HudCore(it,listOf(14,9,11,12,17,20,1,2)[it],if(it<4)1300 else if(it<7)1800 else 2400,if(it<4)"0,1,2,3" else if(it<7)"4,5,6" else "7")}else emptyList())
     }
+    val compact=useTopNavigation()
     val previewPanel:@Composable ()->Unit={
-        Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)){
-        Text(stringResource(R.string.tool_monitors),style=MaterialTheme.typography.headlineSmall)
+        Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(if(compact)4.dp else 12.dp)){
+        if(!compact)Text(stringResource(R.string.tool_monitors),style=MaterialTheme.typography.headlineSmall)
         Text(stringResource(R.string.hud_style),style=MaterialTheme.typography.titleSmall,color=MaterialTheme.colorScheme.primary)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
             HudStyle.entries.forEach{option->FilterChip(selected=style==option,onClick={style=option;prefs.edit().putString("style",option.name).apply()},label={Text(stringResource(option.label))},modifier=Modifier.weight(1f))}
@@ -80,14 +81,17 @@ internal fun MonitorsScreen(){
         }
     }
     val controls:@Composable ()->Unit={
-        Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)){
+        Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(if(compact)4.dp else 12.dp)){
         Text(stringResource(R.string.hud_presets),style=MaterialTheme.typography.titleSmall,color=MaterialTheme.colorScheme.primary)
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){
-            listOf(HUD_MINIMAL to R.string.hud_only_fps,HUD_COMPACT to R.string.hud_compact,HUD_DEFAULT to R.string.hud_detailed,HUD_ALL to R.string.hud_all).forEach{(value,label)->FilterChip(selected=mask==value,onClick={change(value)},label={Text(stringResource(label))})}
+        val presets=listOf(HUD_MINIMAL to R.string.hud_only_fps,HUD_COMPACT to R.string.hud_compact,HUD_DEFAULT to R.string.hud_detailed,HUD_ALL to R.string.hud_all)
+        Column(verticalArrangement=Arrangement.spacedBy(0.dp)){
+            presets.chunked(2).forEach{pair->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){
+                pair.forEach{(value,label)->FilterChip(selected=mask==value,onClick={change(value)},label={Text(stringResource(label),maxLines=2)},modifier=Modifier.weight(1f))}
+            }}
         }
         Text(stringResource(R.string.hud_metrics),style=MaterialTheme.typography.titleSmall,color=MaterialTheme.colorScheme.primary)
         HudMetric.entries.forEach{metric->
-            Row(Modifier.fillMaxWidth().padding(vertical=3.dp),verticalAlignment=Alignment.CenterVertically){
+            Row(Modifier.fillMaxWidth().padding(vertical=if(compact)0.dp else 3.dp),verticalAlignment=Alignment.CenterVertically){
                 Text(stringResource(metric.label),Modifier.weight(1f))
                 Switch(checked=mask.shows(metric),enabled=mask!=metric.bit,onCheckedChange={value->change(if(value)mask or metric.bit else mask and metric.bit.inv())})
             }
@@ -99,9 +103,11 @@ internal fun MonitorsScreen(){
         Slider(value=opacity,onValueChange={opacity=it;prefs.edit().putFloat("opacity",it).apply()},valueRange=.35f..1f)
         }
     }
-    BoxWithConstraints(Modifier.fillMaxSize()){
-        if(maxWidth>=720.dp){
-            Row(Modifier.fillMaxSize().padding(16.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)){
+    Column(Modifier.fillMaxSize()){
+    if(compact)Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){Text(stringResource(R.string.tool_monitors),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);topActions()}
+    BoxWithConstraints(Modifier.weight(1f)){
+        if(maxWidth>=720.dp||compact){
+            Row(Modifier.fillMaxSize().padding(horizontal=12.dp,vertical=if(compact)2.dp else 12.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)){
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())){previewPanel()}
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())){controls()}
             }
@@ -109,4 +115,5 @@ internal fun MonitorsScreen(){
             previewPanel();controls()
         }
     }
+}
 }
