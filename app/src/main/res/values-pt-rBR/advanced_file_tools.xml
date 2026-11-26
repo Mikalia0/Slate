@@ -1,0 +1,32 @@
+<resources>
+    <string name="slate_documents">Provedor de documentos</string>
+    <string name="slate_export_documents">Exportar para Documentos</string>
+    <string name="slate_export_desc">Disponibiliza uma cópia separada no seletor de arquivos do Android.</string>
+    <string name="slate_export_done">Documento exportado.</string>
+    <string name="slate_tool_failed">A operação falhou. O arquivo original não foi alterado.</string>
+    <string name="slate_created">Criado: %1$s</string>
+    <string name="slate_documents_title">Documentos compartilhados</string>
+    <string name="slate_documents_desc">Somente cópias exportadas aparecem em Slate no seletor do Android. Dados de outros apps não são expostos.</string>
+    <string name="slate_documents_empty">Selecione um arquivo e escolha Exportar para Documentos.</string>
+    <string name="apk_install">Abrir</string>
+    <string name="apk_overview">Visão geral</string>
+    <string name="apk_contents">Conteúdo</string>
+    <string name="apk_tools">Ferramentas</string>
+    <string name="apk_verified">Assinatura APK válida</string>
+    <string name="apk_unverified">Assinatura não verificada</string>
+    <string name="apk_dex">Arquivos DEX</string>
+    <string name="apk_native">Arquiteturas nativas</string>
+    <string name="apk_certificates">Certificados</string>
+    <string name="apk_permissions">Permissões</string>
+    <string name="apk_components">Componentes</string>
+    <string name="apk_tools_description">Inspecione ou trabalhe em uma cópia separada do APK.</string>
+    <string name="apk_sign">Assinar APK</string>
+    <string name="apk_sign_desc">Escolha seu keystore PKCS#12. Cria uma cópia assinada sem alterar o original.</string>
+    <string name="apk_cert_desc">Verifique a assinatura e consulte as impressões SHA-256.</string>
+    <string name="apk_contents_desc">Explore recursos, arquivos DEX e bibliotecas nativas.</string>
+    <string name="apk_choose_key">Escolher keystore</string>
+    <string name="apk_key_selected">Keystore selecionado</string>
+    <string name="apk_password">Senha</string>
+    <string name="apk_alias">Alias (opcional se houver uma chave)</string>
+    <string name="archive_extract">Extrair</string>
+</resources>

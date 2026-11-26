@@ -1,0 +1,32 @@
+<resources>
+    <string name="slate_documents">Documents provider</string>
+    <string name="slate_export_documents">Export to Documents</string>
+    <string name="slate_export_desc">Make a separate copy available in Android’s file picker.</string>
+    <string name="slate_export_done">Document exported.</string>
+    <string name="slate_tool_failed">Operation failed. Original file was not changed.</string>
+    <string name="slate_created">Created: %1$s</string>
+    <string name="slate_documents_title">Shared documents</string>
+    <string name="slate_documents_desc">Only exported copies appear under Slate in Android’s system file picker. Other app data is not exposed.</string>
+    <string name="slate_documents_empty">Select a file and choose Export to Documents to get started.</string>
+    <string name="apk_install">Open</string>
+    <string name="apk_overview">Overview</string>
+    <string name="apk_contents">Contents</string>
+    <string name="apk_tools">Tools</string>
+    <string name="apk_verified">Valid APK signature</string>
+    <string name="apk_unverified">Signature not verified</string>
+    <string name="apk_dex">DEX files</string>
+    <string name="apk_native">Native architectures</string>
+    <string name="apk_certificates">Certificates</string>
+    <string name="apk_permissions">Permissions</string>
+    <string name="apk_components">Components</string>
+    <string name="apk_tools_description">Inspect or work on a separate copy of your APK.</string>
+    <string name="apk_sign">Sign APK</string>
+    <string name="apk_sign_desc">Choose your PKCS#12 keystore. Creates a signed copy without modifying the original.</string>
+    <string name="apk_cert_desc">Verify the signature and view SHA-256 fingerprints.</string>
+    <string name="apk_contents_desc">Browse resources, DEX files and native libraries.</string>
+    <string name="apk_choose_key">Choose keystore</string>
+    <string name="apk_key_selected">Keystore selected</string>
+    <string name="apk_password">Password</string>
+    <string name="apk_alias">Alias (optional if only one key)</string>
+    <string name="archive_extract">Extract</string>
+</resources>

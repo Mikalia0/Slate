@@ -72,8 +72,8 @@ internal fun SlateFileViewer(root:File,file:File,onClose:()->Unit,onExternal:()-
             SlateViewer.VIDEO->VideoViewer(file,onExternal)
             SlateViewer.TEXT->TextViewer(file,onExternal)
             SlateViewer.PDF->PdfViewer(file,onExternal)
-            SlateViewer.ZIP->ArchiveViewer(file,onExternal)
-            SlateViewer.APK->ApkViewer(file,onExternal)
+            SlateViewer.ZIP->SlateArchiveScreen(root,file,onExternal)
+            SlateViewer.APK->SlateApkScreen(root,file,onExternal)
             null->ViewerError(onExternal)
         }}
     }
@@ -187,30 +187,4 @@ private data class PdfPreview(val bitmap:Bitmap,val count:Int)
             TextButton(enabled=page+1<preview.count,onClick={page++}){Text("›")}
         }
     }else if(result==null)LinearProgressIndicator(Modifier.fillMaxWidth())else ViewerError(external)
-}
-@Composable private fun ArchiveViewer(file:File,external:()->Unit){
-    val result by produceState<Result<List<String>>?>(null,file){
-        value=withContext(Dispatchers.IO){runCatching{
-            ZipFile(file).use{zip->zip.entries().asSequence().take(5000).map{it.name}.toList()}
-        }}
-    }
-    val entries=result?.getOrNull()
-    if(entries!=null)LazyColumn(Modifier.fillMaxSize()){
-        if(entries.size==5000)item{Text(stringResource(R.string.browser_truncated),Modifier.padding(12.dp))}
-        items(entries){name->Text(name,Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp),style=MaterialTheme.typography.bodyMedium)}
-    }else if(result==null)LinearProgressIndicator(Modifier.fillMaxWidth())else ViewerError(external)
-}
-@Composable private fun ApkViewer(file:File,external:()->Unit){
-    val context=LocalContext.current
-    val result by produceState<ApkDetails?>(null,file){value=readApkDetails(context,file)}
-    Column(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-        result?.let{info->
-            Text(info.label,style=MaterialTheme.typography.titleLarge)
-            Text(info.packageName)
-            Text("${info.version} (${info.code})")
-        }
-        Button(onClick=external){Text(stringResource(R.string.browser_external))}
-        Text(stringResource(R.string.browser_archive_contents),style=MaterialTheme.typography.titleMedium)
-        ArchiveViewer(file,external)
-    }
 }

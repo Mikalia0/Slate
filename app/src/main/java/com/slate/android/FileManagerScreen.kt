@@ -127,6 +127,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     var viewer by remember{mutableStateOf<File?>(null)}
     var properties by remember{mutableStateOf<FileRow?>(null)}
     var handler by remember{mutableStateOf<File?>(null)}
+    var toolsScreen by remember{mutableStateOf(false)}
     var actionMenu by remember{mutableStateOf(false)}
     val pathClipboard=LocalClipboardManager.current
     var clipboard by remember{mutableStateOf<ClipboardFile?>(null)}
@@ -180,8 +181,9 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         finally{loading=false}
     }
     BackHandler(!showHome){if(!busy){when{marked.isNotEmpty()->marked=emptySet();selected!=null->selected=null;searching->{searching=false;query=""};else->if(folder==root)showHome=true else go(folder.parentFile?.takeIf{safeFile(root,it)}?:root)}}}
+    if(toolsScreen){SlateDocumentsScreen(onClose={toolsScreen=false});return}
     viewer?.let{file->
-        SlateFileViewer(root,file,onClose={viewer=null},onExternal={openSharedFile(context,root,file,false)})
+        SlateFileViewer(root,file,onClose={viewer=null;revision++;onChanged()},onExternal={openSharedFile(context,root,file,false)})
         return
     }
     if(showHome){
@@ -223,6 +225,10 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                             if(!single.directory){
                                 DropdownMenuItem(text={Text(stringResource(R.string.browser_open_with))},onClick={handler=single.file;actionMenu=false})
                                 DropdownMenuItem(text={Text(tr("Share"))},onClick={openSharedFile(context,root,single.file,true);actionMenu=false})
+                                if(!protectedAppPath(single.file.toPath()))DropdownMenuItem(text={Text(stringResource(R.string.slate_export_documents))},onClick={
+                                    actionMenu=false
+                                    runOperation{exportSlateDocument(context,root,single.file)}
+                                })
                             }
                             DropdownMenuItem(text={Text(stringResource(R.string.browser_copy_path))},onClick={pathClipboard.setText(AnnotatedString(single.file.path));actionMenu=false})
                             if(single.directory)DropdownMenuItem(text={Text(stringResource(R.string.file_bookmark))},onClick={
@@ -269,6 +275,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                     DropdownMenuItem(text={Text(stringResource(R.string.file_sort))},onClick={sorting=true;menu=false})
                     DropdownMenuItem(text={Text(stringResource(if(tabKey(root,folder) in bookmarks)R.string.file_unbookmark else R.string.file_bookmark))},onClick={saveBookmark();menu=false})
                     DropdownMenuItem(text={Text(tr("Refresh"))},onClick={revision++;menu=false})
+                    DropdownMenuItem(text={Text(stringResource(R.string.slate_documents))},onClick={menu=false;toolsScreen=true})
                 }
             }
         }
