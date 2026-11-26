@@ -11,9 +11,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 
-@Composable internal fun useNavigationRail():Boolean {
+internal fun useCompactTopNavigation(width:Int,height:Int)=width>height&&width>=480
+@Composable internal fun useTopNavigation():Boolean {
     val c=LocalConfiguration.current
-    return c.screenWidthDp>=840 || (c.screenWidthDp>=600 && c.screenHeightDp>=480 && c.screenWidthDp>c.screenHeightDp)
+    return useCompactTopNavigation(c.screenWidthDp,c.screenHeightDp)
 }
 @Composable internal fun AdaptiveContent(maxWidth:Int=900,content:@Composable ()->Unit){
     Box(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter){

@@ -4,6 +4,9 @@ package com.slate.android
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.slate.android.device.reading
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -47,151 +50,130 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
     val appCount=usage.rows.size
     val growing=history.insights.filter{(it.increase ?: 0)>=50L*1024*1024}.maxByOrNull{it.increase ?: 0}
     val suggestion=growing ?: history.insights.filter{it.bytes>=1024L*1024*1024}.maxByOrNull{it.bytes}
-    BoxWithConstraints(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter){
-    val wide=maxWidth>=600.dp
-    val gap=if(wide)16.dp else 8.dp
-    LazyVerticalGrid(columns=if(wide)GridCells.Fixed(2)else GridCells.Adaptive(155.dp),state=scrollState,modifier=Modifier.widthIn(max=1080.dp).fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(gap),verticalArrangement=Arrangement.spacedBy(gap),contentPadding=PaddingValues(bottom=16.dp,start=if(wide)12.dp else 0.dp,end=if(wide)12.dp else 0.dp)) {
-        item(key="storage",span={GridItemSpan(maxLineSpan)}) {
-            if(wide){
-                Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
-                    Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
-                            OverviewGauge(tr("Internal storage"),fraction,if(capacity>0)"${(fraction*100).toInt()}%" else "—",fmt(used)+" / "+fmt(capacity),Modifier.weight(1f),openVolumes)
-                            OverviewGauge("RAM",ram?.fraction?:0f,ram?.fraction?.let{"${(it*100).toInt()}%"}?:"—",memoryValue("Used RAM (estimate)")+" / "+memoryValue("Total RAM"),Modifier.weight(1f),{openDevicePage(1)})
-                            OverviewGauge(tr("Battery"),battery?.fraction?:0f,battery?.value?.takeUnless{it=="Unavailable"}?:"—",listOfNotNull(temperature,chargingPower).joinToString(" · "),Modifier.weight(1f),{openDevicePage(3)})
-                        }
-                        FilledTonalButton(onClick=openVolumes,modifier=Modifier.align(Alignment.CenterHorizontally)){Icon(Icons.Default.Search,null,Modifier.size(20.dp));Spacer(Modifier.width(8.dp));Text(tr("View storage"))}
-                    }
+    val cpu=status.fixed?.hardware?.firstOrNull().reading("SoC").takeUnless{it=="—"}
+        ?:status.fixed?.hardware?.firstOrNull().reading("Hardware").takeUnless{it=="—"}
+        ?:(if(Build.VERSION.SDK_INT>=31)Build.SOC_MODEL.takeUnless{it.isBlank()||it.equals("unknown",true)}else null)
+    val removable=volumes.filter{it.root!=primary&&"external" in dashboard.visible}
+    val low=capacity>0&&free.toDouble()/capacity<0.10
+    val recommendCache=usage.loaded&&cache>=512L*1024*1024
+    val insightAction:()->Unit=when{
+        low->{ {analyze(primary)} }
+        recommendCache->openCache
+        suggestion!=null->{ {review(File(primary,suggestion.name))} }
+        else->openHistory
+    }
+    val insightTitle=when{low->tr("Low storage");recommendCache->tr("Review app cache");suggestion!=null->suggestion.name;else->tr("History")}
+    val insightDetail=when{low->fmt(free);recommendCache->fmt(cache);suggestion!=null->fmt(suggestion.bytes);else->tr("Scan history")}
+    val appsDetail=if(usage.loaded)androidx.compose.ui.res.stringResource(R.string.apps_count,appCount)else tr(if(usage.allowed)"Loading…" else "Usage access")
+    val summary:@Composable (Boolean)->Unit={compact->
+        Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+            Column(Modifier.padding(if(compact)10.dp else 14.dp),verticalArrangement=Arrangement.spacedBy(if(compact)5.dp else 10.dp)){
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(3.dp)){
+                    OverviewGauge(tr("Internal storage"),fraction,if(capacity>0)"${(fraction*100).toInt()}%"else "—",if(capacity>0)fmt(used)+" / "+fmt(capacity)else "—",Modifier.weight(1f),openVolumes,compact)
+                    OverviewGauge("RAM",ram?.fraction?:0f,ram?.fraction?.let{"${(it*100).toInt()}%"}?:"—",memoryValue("Used RAM (estimate)")+" / "+memoryValue("Total RAM"),Modifier.weight(1f),{openDevicePage(1)},compact)
+                    OverviewGauge(tr("Battery"),battery?.fraction?:0f,battery?.value?.takeUnless{it=="Unavailable"}?:"—",listOfNotNull(temperature,chargingPower).joinToString(" · "),Modifier.weight(1f),{openDevicePage(3)},compact)
                 }
-            }else Card(onClick=openVolumes,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)) {
-                Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        DeviceGlyph(R.drawable.ic_device_storage,modifier=Modifier.size(20.dp))
-                        Text(tr("Internal storage"),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
-                        Text(if(capacity>0)"${(fraction*100).toInt()}%" else "—",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.titleLarge)
+                HorizontalDivider()
+                Row(Modifier.fillMaxWidth().clickable(onClick=device).padding(vertical=if(compact)2.dp else 6.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
+                    ManufacturerIcon(size=if(compact)32.dp else 42.dp)
+                    Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)){
+                        Text(Build.MODEL,style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        if(cpu!=null)Text(cpu,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.primary,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        Text("Android "+Build.VERSION.RELEASE,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    LinearProgressIndicator(progress={fraction},modifier=Modifier.fillMaxWidth())
-                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                        StorageValue("Used",if(capacity>0)fmt(used)else "—",Modifier.weight(1f))
-                        StorageValue("Available",if(capacity>0)fmt(free)else "—",Modifier.weight(1f))
-                        StorageValue("Total",if(capacity>0)fmt(capacity)else "—",Modifier.weight(1f))
-                    }
-                    FilledTonalButton(onClick=openVolumes,modifier=Modifier.fillMaxWidth()){
-                        Icon(Icons.Default.Search,null,Modifier.size(20.dp));Spacer(Modifier.width(8.dp));Text(tr("View storage"))
-                    }
+                    Icon(Icons.Default.KeyboardArrowRight,null)
                 }
-            }
-        }
-        item(key="device"){
-            Card(onClick=device,modifier=Modifier.fillMaxWidth().heightIn(min=if(wide)190.dp else 200.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
-                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                    Row(verticalAlignment=Alignment.CenterVertically){
-                        ManufacturerIcon(size=24.dp)
-                        Spacer(Modifier.width(6.dp))
-                        Text(tr("Device"),Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
+                if(compact)removable.forEach{volume->
+                    val total=volume.root.totalSpace
+                    val occupied=(total-volume.root.usableSpace).coerceAtLeast(0)
+                    Row(Modifier.fillMaxWidth().clickable{analyze(volume.root)}.padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                        DeviceGlyph(R.drawable.ic_device_storage,modifier=Modifier.size(18.dp))
+                        Text(tr(volume.label),Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        if(total>0)Text(fmt(occupied)+" / "+fmt(total),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
                         Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(18.dp))
                     }
-                    Text(Build.MODEL,style=MaterialTheme.typography.titleSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
-                    Text("Android "+Build.VERSION.RELEASE,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    if(!wide)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){
-                        Column(Modifier.weight(1f).clickable{openDevicePage(1)},horizontalAlignment=Alignment.CenterHorizontally){
-                            CompactGauge(ram?.fraction ?: 0f,ram?.fraction?.let{"${(it*100).toInt()}%"} ?: "—")
-                            Text("RAM",style=MaterialTheme.typography.labelSmall)
-                        }
-                        Column(Modifier.weight(1f).clickable{openDevicePage(3)},horizontalAlignment=Alignment.CenterHorizontally){
-                            CompactGauge(battery?.fraction ?: 0f,battery?.value?.takeUnless{it=="Unavailable"} ?: "—")
-                            Text(tr("Battery"),style=MaterialTheme.typography.labelSmall,maxLines=1)
-                        }
-                    }
-                    Text(memoryValue("Used RAM (estimate)")+" / "+memoryValue("Total RAM"),style=MaterialTheme.typography.labelSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
-                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(4.dp)){
-                        DeviceGlyph(R.drawable.ic_device_thermal,modifier=Modifier.size(16.dp))
-                        Text(temperature,style=MaterialTheme.typography.labelMedium)
-                        if(chargingPower!=null)Text("· "+chargingPower,style=MaterialTheme.typography.labelSmall,maxLines=1)
-                    }
                 }
             }
         }
-        item(key="apps"){
-            Card(onClick=openApps,modifier=Modifier.fillMaxWidth().heightIn(min=if(wide)190.dp else 176.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
-                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                    Row(verticalAlignment=Alignment.CenterVertically){
-                        DeviceGlyph(R.drawable.ic_device_overview,modifier=Modifier.size(20.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(tr("Apps"),Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
-                        Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(18.dp))
-                    }
-                    Text(if(usage.loaded)fmt(appsTotal)else "—",style=MaterialTheme.typography.headlineSmall,color=MaterialTheme.colorScheme.primary,maxLines=1)
-                    Text(if(usage.loaded)androidx.compose.ui.res.stringResource(R.string.apps_count,appCount)else tr(if(usage.allowed)"Loading…" else "Usage access"),style=MaterialTheme.typography.bodySmall)
-                    if(usage.loaded){
-                        HorizontalDivider()
-                        Text(tr("Cache"),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(fmt(cache),style=MaterialTheme.typography.titleMedium)
-                    }
-                }
+    }
+    val shortcuts:@Composable ()->Unit={
+        Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+            Column(Modifier.padding(horizontal=10.dp,vertical=4.dp)){
+                DashboardShortcut(R.drawable.ic_device_overview,tr("Apps"),appsDetail,openApps)
+                HorizontalDivider()
+                DashboardShortcut(null,tr("Cleanup"),if(usage.loaded)fmt(cache)else tr("Temporary files"),openCleanup)
+                if("insights" in dashboard.visible){HorizontalDivider();DashboardShortcut(R.drawable.ic_device_storage,tr("Storage insights"),insightTitle+" · "+insightDetail,insightAction)}
+                HorizontalDivider()
+                DashboardShortcut(R.drawable.ic_device_overview,tr("History"),tr("Scan history"),openHistory)
             }
         }
-        item(key="cleanup"){
-            Card(onClick=openCleanup,modifier=Modifier.fillMaxWidth().heightIn(min=if(wide)190.dp else 116.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
-                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                    Row(verticalAlignment=Alignment.CenterVertically){
-                        Icon(Icons.Default.Delete,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(20.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(tr("Cleanup"),Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
-                        Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(18.dp))
-                    }
-                    Text(if(usage.loaded)fmt(cache)else tr("Find"),style=MaterialTheme.typography.titleLarge,color=MaterialTheme.colorScheme.primary)
-                    Text(tr(if(usage.loaded)"Reported app cache" else "Temporary files"),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()){
+        val horizontal=useTopNavigation()&&maxWidth>=480.dp
+        if(horizontal){
+            Row(Modifier.fillMaxSize().padding(bottom=4.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                Column(Modifier.weight(1.35f).fillMaxHeight().verticalScroll(rememberScrollState())){summary(true)}
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())){shortcuts()}
             }
-        }
-        if("insights" in dashboard.visible) item(key="insights"){
-            val low=capacity>0 && free.toDouble()/capacity<0.10
-            val recommendCache=usage.loaded && cache>=512L*1024*1024
-            val action:()->Unit=when{low->{ {analyze(primary)} };recommendCache->{openCache};suggestion!=null->{ {review(File(primary,suggestion.name))} };else->{openHistory}}
-            Card(onClick=action,modifier=Modifier.fillMaxWidth().heightIn(min=if(wide)190.dp else 116.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
-                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                    Row(verticalAlignment=Alignment.CenterVertically){
-                        Icon(Icons.Default.Info,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(20.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(tr("Storage insights"),Modifier.weight(1f),style=MaterialTheme.typography.titleSmall,maxLines=2)
-                        Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(16.dp))
-                    }
-                    Text(when{low->tr("Low storage");recommendCache->tr("Review app cache");suggestion!=null->suggestion.name;else->tr("History")},style=MaterialTheme.typography.titleSmall,maxLines=2,overflow=TextOverflow.Ellipsis)
-                    Text(when{low->fmt(free);recommendCache->fmt(cache);suggestion!=null->fmt(suggestion.bytes);else->tr("Scan history")},style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
+        }else{
+            val columns=if(maxWidth>=1000.dp)4 else if(maxWidth>=600.dp)3 else 2
+            LazyVerticalGrid(columns=GridCells.Fixed(columns),state=scrollState,modifier=Modifier.fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=10.dp)){
+                item(key="storage",span={GridItemSpan(maxLineSpan)}){summary(false)}
+                item(key="apps"){
+                    DashboardTile(R.drawable.ic_device_overview,tr("Apps"),if(usage.loaded)fmt(appsTotal)else "—",appsDetail,openApps)
                 }
-            }
-        }
-        item(key="history",span={GridItemSpan(maxLineSpan)}) {
-            if(wide)Card(onClick=openHistory,modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
-                ListItem(headlineContent={Text(tr("History"))},supportingContent={Text(tr("Scan history"))},leadingContent={Icon(Icons.Default.Info,null)},trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-            }else TextButton(onClick=openHistory,modifier=Modifier.fillMaxWidth()){Text(tr("History"))}
-        }
-        val removable=volumes.filter{it.root!=primary && "external" in dashboard.visible}
-        items(removable,key={it.root.path},span={GridItemSpan(maxLineSpan)}){volume->
-            val total=volume.root.totalSpace
-            val available=volume.root.usableSpace
-            val occupied=(total-available).coerceAtLeast(0)
-            Card(onClick={analyze(volume.root)},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
-                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
-                    Row(verticalAlignment=Alignment.CenterVertically){
-                        DeviceGlyph(R.drawable.ic_device_storage)
-                        Spacer(Modifier.width(8.dp))
-                        Text(volume.label,Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
-                        Icon(Icons.Default.KeyboardArrowRight,null)
-                    }
-                    if(total>0){
-                        LinearProgressIndicator(progress={(occupied.toDouble()/total).toFloat().coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())
-                        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                            StorageValue("Used",fmt(occupied),Modifier.weight(1f))
-                            StorageValue("Available",fmt(available),Modifier.weight(1f))
-                            StorageValue("Total",fmt(total),Modifier.weight(1f))
+                item(key="cleanup"){
+                    DashboardTile(null,tr("Cleanup"),if(usage.loaded)fmt(cache)else tr("Find"),tr(if(usage.loaded)"Reported app cache"else "Temporary files"),openCleanup)
+                }
+                if("insights" in dashboard.visible)item(key="insights"){
+                    DashboardTile(R.drawable.ic_device_storage,tr("Storage insights"),insightTitle,insightDetail,insightAction)
+                }
+                item(key="history"){
+                    DashboardTile(R.drawable.ic_device_overview,tr("History"),tr("History"),tr("Scan history"),openHistory)
+                }
+                items(removable,key={it.root.path},span={GridItemSpan(maxLineSpan)}){volume->
+                    val total=volume.root.totalSpace
+                    val available=volume.root.usableSpace
+                    val occupied=(total-available).coerceAtLeast(0)
+                    Card(onClick={analyze(volume.root)},modifier=Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+                        Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
+                            Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                                DeviceGlyph(R.drawable.ic_device_storage,modifier=Modifier.size(20.dp))
+                                Text(tr(volume.label),Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
+                                if(total>0)Text(fmt(occupied)+" / "+fmt(total),style=MaterialTheme.typography.bodySmall)
+                                Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(18.dp))
+                            }
+                            if(total>0)LinearProgressIndicator(progress={(occupied.toDouble()/total).toFloat().coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable private fun DashboardShortcut(icon:Int?,title:String,detail:String,onClick:()->Unit){
+    Row(Modifier.fillMaxWidth().clickable(onClick=onClick).heightIn(min=48.dp).padding(horizontal=4.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(9.dp)){
+        if(icon!=null)DeviceGlyph(icon,modifier=Modifier.size(22.dp))else Icon(Icons.Default.Delete,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(22.dp))
+        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)){
+            Text(title,style=MaterialTheme.typography.titleSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
+            Text(detail,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+        }
+        Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(18.dp))
+    }
+}
+
+@Composable private fun DashboardTile(icon:Int?,title:String,value:String,detail:String,onClick:()->Unit){
+    Card(onClick=onClick,modifier=Modifier.fillMaxWidth().heightIn(min=112.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+        Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+            Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)){
+                if(icon!=null)DeviceGlyph(icon,modifier=Modifier.size(20.dp))else Icon(Icons.Default.Delete,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(20.dp))
+                Text(title,Modifier.weight(1f),style=MaterialTheme.typography.titleSmall,maxLines=2,overflow=TextOverflow.Ellipsis)
+                Icon(Icons.Default.KeyboardArrowRight,null,Modifier.size(16.dp))
+            }
+            Text(value,style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.primary,maxLines=1,overflow=TextOverflow.Ellipsis)
+            Text(detail,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -232,13 +214,13 @@ internal fun ScanLoading(state: com.slate.android.storage.ScanState, cancel: ()-
     }
 }
 
-@Composable private fun OverviewGauge(label:String,fraction:Float,value:String,detail:String,modifier:Modifier,onClick:()->Unit){
-    Column(modifier.clickable(onClick=onClick).padding(vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)){
-        Text(label,style=MaterialTheme.typography.titleSmall,maxLines=2)
-        Box(Modifier.size(94.dp),contentAlignment=Alignment.Center){
-            CircularProgressIndicator(progress={fraction.coerceIn(0f,1f)},modifier=Modifier.fillMaxSize(),strokeWidth=6.dp,trackColor=MaterialTheme.colorScheme.surfaceContainerHigh)
-            Text(value,style=MaterialTheme.typography.titleLarge,maxLines=1)
+@Composable private fun OverviewGauge(label:String,fraction:Float,value:String,detail:String,modifier:Modifier,onClick:()->Unit,compact:Boolean){
+    Column(modifier.clickable(onClick=onClick).padding(vertical=if(compact)2.dp else 4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)){
+        Box(Modifier.size(if(compact)56.dp else 70.dp),contentAlignment=Alignment.Center){
+            CircularProgressIndicator(progress={fraction.coerceIn(0f,1f)},modifier=Modifier.fillMaxSize(),strokeWidth=4.dp,trackColor=MaterialTheme.colorScheme.surfaceContainerHigh)
+            Text(value,style=MaterialTheme.typography.titleMedium,maxLines=1)
         }
+        Text(label,style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
         Text(detail,style=MaterialTheme.typography.bodySmall,maxLines=2,overflow=TextOverflow.Ellipsis)
     }
 }

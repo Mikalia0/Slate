@@ -21,16 +21,14 @@ internal fun SlateBottomNavigation(selected:Int,onSelect:(Int)->Unit){
 }
 
 @Composable
-internal fun SlateNavigationRail(selected:Int,onSelect:(Int)->Unit,onSettings:()->Unit){
+internal fun SlateTopNavigation(selected:Int,onSelect:(Int)->Unit){
     val labels=listOf(R.string.tool_home,R.string.tool_files,R.string.tool_gallery,R.string.tool_monitors)
     val icons=listOf(R.drawable.ic_device_overview,R.drawable.ic_storage_folder,R.drawable.ic_device_camera,R.drawable.ic_device_cpu)
-    NavigationRail(modifier=Modifier.fillMaxHeight().width(80.dp),containerColor=MaterialTheme.colorScheme.surfaceContainer,header={
-        Icon(painterResource(R.drawable.ic_slate),null,Modifier.padding(vertical=12.dp).size(30.dp),tint=androidx.compose.ui.graphics.Color.Unspecified)
-    }){
+    Row(horizontalArrangement=Arrangement.spacedBy(0.dp)){
         labels.forEachIndexed{index,label->
-            NavigationRailItem(selected=selected==index,onClick={onSelect(index)},icon={Icon(painterResource(icons[index]),null,Modifier.size(23.dp))},label={Text(stringResource(label),maxLines=1,style=MaterialTheme.typography.labelSmall)})
+            IconToggleButton(checked=selected==index,onCheckedChange={onSelect(index)},colors=IconButtonDefaults.iconToggleButtonColors(checkedContainerColor=MaterialTheme.colorScheme.secondaryContainer,checkedContentColor=MaterialTheme.colorScheme.onSecondaryContainer)){
+                Icon(painterResource(icons[index]),stringResource(label),Modifier.size(21.dp))
+            }
         }
-        Spacer(Modifier.weight(1f))
-        IconButton(onClick=onSettings){Icon(Icons.Default.Settings,tr("Settings"))}
     }
 }

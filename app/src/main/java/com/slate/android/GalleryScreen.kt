@@ -245,7 +245,7 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit){
     var bucket by rememberSaveable{mutableStateOf<String?>(null)}
     var filter by rememberSaveable{mutableIntStateOf(0)}
     var columns by rememberSaveable{mutableIntStateOf(prefs.getInt("columns",3).coerceIn(1,6))}
-    val width=(LocalConfiguration.current.screenWidthDp-if(useNavigationRail())80 else 0).coerceAtLeast(320)
+    val width=(LocalConfiguration.current.screenWidthDp).coerceAtLeast(320)
     val densityFactor=(width/420f).coerceIn(1f,3.5f)
     var albumColumns by rememberSaveable{mutableIntStateOf(prefs.getInt("album_columns",0).coerceIn(0,5))}
     val albumGrid=albums&&bucket==null

@@ -2,6 +2,13 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## Unreleased — Compact portrait and landscape layouts
+
+- Move main navigation and file browser actions into the top header in landscape.
+- Show storage, RAM, battery and the manufacturer icon with the detected processor in a compact overview.
+- Use full available width and reduce file row height in landscape.
+- Keep portrait navigation and file actions at the bottom.
+
 ## Unreleased — Adaptive layouts
 
 - Add width-aware dashboard, navigation rail and tablet settings navigation.

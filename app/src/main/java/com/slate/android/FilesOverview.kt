@@ -92,7 +92,7 @@ internal fun categoryIcon(category:FileCategory)=when(category){
 }
 
 @Composable
-internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCatalog?,request:()->Unit,onRefresh:()->Unit,onOpenFolder:(File,File)->Unit,onChanged:()->Unit,initialPage:String="",onMenu:()->Unit={},bookmarks:List<String> = emptyList(),onOpenBookmark:(String)->Unit={}){
+internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCatalog?,request:()->Unit,onRefresh:()->Unit,onOpenFolder:(File,File)->Unit,onChanged:()->Unit,initialPage:String="",onMenu:()->Unit={},topActions:@Composable ()->Unit={},bookmarks:List<String> = emptyList(),onOpenBookmark:(String)->Unit={}){
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     var page by rememberSaveable{mutableStateOf(initialPage)}
@@ -125,7 +125,8 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
         Row(Modifier.fillMaxWidth().padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically){
             if(page.isNotEmpty())IconButton(onClick={leave()},enabled=!busy){Icon(Icons.Default.ArrowBack,tr("Back"))}
             else IconButton(onClick=onMenu,enabled=!busy){Icon(Icons.Default.Menu,stringResource(R.string.file_volumes))}
-            Text(if(chosen!=null)categoryTitle(chosen)else if(page=="search")stringResource(R.string.file_search)else if(page=="recent")stringResource(R.string.files_recent)else if(page=="all")stringResource(R.string.browser_all_files)else stringResource(R.string.browser_home),Modifier.weight(1f).padding(start=8.dp),style=MaterialTheme.typography.headlineSmall)
+            Text(if(chosen!=null)categoryTitle(chosen)else if(page=="search")stringResource(R.string.file_search)else if(page=="recent")stringResource(R.string.files_recent)else if(page=="all")stringResource(R.string.browser_all_files)else stringResource(R.string.browser_home),Modifier.weight(1f).padding(start=8.dp),style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+            topActions()
             if(granted&&page.isEmpty())IconButton(onClick={page="search"}){Icon(Icons.Default.Search,stringResource(R.string.file_search))}
             IconButton(onClick=onRefresh,enabled=granted&&!busy){Icon(Icons.Default.Refresh,tr("Refresh"))}
         }
