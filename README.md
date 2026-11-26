@@ -4,52 +4,39 @@
   <p><strong>Your Android, under control.</strong></p>
   <p>An open-source storage manager, file explorer and device toolbox.</p>
   <p>
-    <a href="https://github.com/stevenmx2/Slate/releases/latest"><img alt="Download APK" src="https://img.shields.io/badge/Download-APK-A7E8CF?style=flat-square&amp;logo=android&amp;logoColor=15191D"></a>
-    <a href="https://github.com/stevenmx2/Slate/releases"><img alt="Releases" src="https://img.shields.io/github/v/release/stevenmx2/Slate?style=flat-square&amp;color=667786&amp;label=release"></a>
-    <a href="LICENSE"><img alt="GPL-3.0-only" src="https://img.shields.io/badge/License-GPL--3.0--only-586069?style=flat-square"></a>
-    <a href="https://github.com/stevenmx2/Slate/actions/workflows/android.yml"><img alt="Build" src="https://github.com/stevenmx2/Slate/actions/workflows/android.yml/badge.svg?branch=main"></a>
+    <a href="https://github.com/stevenmx2/Slate/releases/latest"><img src="docs/badges/download.svg" width="140" height="32" alt="Download APK"></a>
+    <a href="https://github.com/stevenmx2/Slate/releases"><img src="docs/badges/releases.svg" width="104" height="32" alt="Releases"></a>
+    <a href="LICENSE"><img src="docs/badges/license.svg" width="100" height="32" alt="GPL-3.0"></a>
   </p>
-  <p>Android 8.0+ · Material 3 · <a href="README.pt-BR.md">Português (Brasil)</a></p>
+  <p>Android 8.0+ · Material 3 · <a href="README.pt-BR.md">README em português</a></p>
 </div>
 
 ## Explore Slate
 
 <table>
   <tr>
-    <td width="50%" valign="top">
-      <img src="docs/icons/storage.svg" width="42" alt=""><br>
-      <strong>Storage & cleanup</strong><br>
-      Find what takes up space, compare scan history, and review duplicates, cache and leftover files.
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/icons/files.svg" width="42" alt=""><br>
-      <strong>File manager</strong><br>
-      Tabs, bookmarks, batch actions, previews, ZIP extraction and built-in image, audio, video, text and PDF viewers.
-    </td>
+    <td align="center" valign="middle"><img src="docs/icons/storage.svg" width="40" alt=""></td>
+    <td valign="middle"><strong>Storage & cleanup</strong><br>Analyze space, duplicates, cache and scan history.</td>
   </tr>
   <tr>
-    <td width="50%" valign="top">
-      <img src="docs/icons/device.svg" width="42" alt=""><br>
-      <strong>Device information</strong><br>
-      Inspect CPU, GPU, RAM, display, battery, charging power, sensors and thermal readings.
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/icons/monitor.svg" width="42" alt=""><br>
-      <strong>Performance monitor</strong><br>
-      Customizable floating FPS, CPU, GPU and memory metrics with supported advanced access.
-    </td>
+    <td align="center" valign="middle"><img src="docs/icons/files.svg" width="40" alt=""></td>
+    <td valign="middle"><strong>File manager</strong><br>Tabs, previews, batch actions, ZIP extraction and built-in viewers.</td>
   </tr>
   <tr>
-    <td width="50%" valign="top">
-      <img src="docs/icons/apps.svg" width="42" alt=""><br>
-      <strong>App manager</strong><br>
-      Inspect installed apps, storage and cache usage; launch, review and uninstall apps.
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/icons/apk.svg" width="42" alt=""><br>
-      <strong>APK tools</strong><br>
-      Explore APK contents, inspect permissions and certificates, verify signatures and sign a new copy.
-    </td>
+    <td align="center" valign="middle"><img src="docs/icons/device.svg" width="40" alt=""></td>
+    <td valign="middle"><strong>Device information</strong><br>CPU, GPU, RAM, battery, display and sensors.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="middle"><img src="docs/icons/monitor.svg" width="40" alt=""></td>
+    <td valign="middle"><strong>Performance monitor</strong><br>Customizable FPS, CPU, GPU and memory overlay.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="middle"><img src="docs/icons/apps.svg" width="40" alt=""></td>
+    <td valign="middle"><strong>App manager</strong><br>Inspect installed apps, storage and cache.</td>
+  </tr>
+  <tr>
+    <td align="center" valign="middle"><img src="docs/icons/apk.svg" width="40" alt=""></td>
+    <td valign="middle"><strong>APK tools</strong><br>Inspect packages, verify certificates and sign APKs.</td>
   </tr>
 </table>
 
@@ -58,6 +45,12 @@
 - **Customizable interface:** Material 3, light, dark and AMOLED themes, dynamic colors and an offline gallery.
 - **Privacy:** storage scans and device information are processed locally.
 - **Optional advanced access:** Root and Shizuku integration for supported operations.
+
+## Supported languages
+
+English · Português (Brasil) · Español · Français · Italiano · Русский
+
+Choose a language in Slate settings or follow the system default.
 
 ## Add-ons
 
