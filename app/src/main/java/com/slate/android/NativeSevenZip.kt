@@ -44,7 +44,6 @@ internal object NativeSevenZip {
         try{
             val code=ParcelFileDescriptor.open(file,ParcelFileDescriptor.MODE_READ_ONLY).use{extractNative(it.fd,sink,limit)}
             if(code==0)return true
-            if(!sink.started&&code in setOf(2,4))return false
             // Unsupported methods or limited memory can be retried by the caller in a clean staging area.
             if(code in setOf(2,4))return false
             throw IOException("7-Zip extraction failed ($code)")
