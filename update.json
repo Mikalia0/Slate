@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "tag": "dev-95-1",
-  "versionCode": 1095,
+  "tag": "dev-96-1",
+  "versionCode": 1096,
   "attempt": 1,
-  "url": "https://github.com/stevenmx2/Slate/releases/download/dev-95-1/Slate.apk",
-  "size": 15937781,
-  "sha256": "3852e28dfd4919a842666ecf2a1aab5c9c7528cb42f895a4a7e3a05e6d9becf5",
-  "notes": "- Refine onboarding and default to system AMOLED appearance\n",
-  "versionNotes": "Version code: 1095"
+  "url": "https://github.com/stevenmx2/Slate/releases/download/dev-96-1/Slate.apk",
+  "size": 15959221,
+  "sha256": "335fa503c336660e389125eb57a14eb7f960f110190c1bfbaffbd5cb7b9c9073",
+  "notes": "- Unify APK signing and enable automatic signing for edits\n",
+  "versionNotes": "Version code: 1096"
 }
