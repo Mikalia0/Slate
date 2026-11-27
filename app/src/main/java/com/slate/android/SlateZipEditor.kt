@@ -39,7 +39,7 @@ internal suspend fun rewriteSlateZip(context:Context,root:File,archive:File,chan
     }
     try{
         RawZipFile(archive).use{input->
-            val entries=input.entries().asSequence().toList()
+            val entries=input.getEntries().asSequence().toList()
             require(entries.size<=100000&&entries.map{it.name}.toSet().size==entries.size)
             val from=change.from;val to=change.to
             fun matches(name:String)=from!=null&&(name==from||(from.endsWith("/")&&name.startsWith(from)))

@@ -1,0 +1,10 @@
+HSPLcom/slate/android/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/slate/android/MainActivity;->onResume()V
+HSLcom/slate/android/MainActivityKt;->**
+HSLcom/slate/android/HomeKt;->**
+HSLcom/slate/android/AppearanceKt;->**
+HPLcom/slate/android/FileManagerScreenKt;->**
+HPLcom/slate/android/BrowserEntryUiKt;->**
+HPLcom/slate/android/FilesOverviewKt;->**
+HPLcom/slate/android/GalleryScreenKt;->**
+HPLcom/slate/android/storage/NativeDirectory;->**

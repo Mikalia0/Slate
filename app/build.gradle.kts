@@ -31,7 +31,14 @@ android {
     }
     buildTypes.getByName("release") {
         isDebuggable = false
-        isMinifyEnabled = false
+        isMinifyEnabled = true
+        isShrinkResources = true
+        proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"),"proguard-rules.pro")
+    }
+    buildTypes.create("benchmark") {
+        initWith(buildTypes.getByName("release"))
+        signingConfig = signingConfigs.getByName("debug")
+        matchingFallbacks += listOf("release")
     }
     packaging { resources.excludes += setOf("META-INF/DEPENDENCIES","META-INF/LICENSE","META-INF/LICENSE.txt","META-INF/NOTICE","META-INF/NOTICE.txt") }
     // The upstream 7zz PIE is executed from the installed, read-only native library directory.
@@ -50,6 +57,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.core:core:1.15.0")
     implementation("androidx.documentfile:documentfile:1.0.1")

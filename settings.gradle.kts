@@ -3,3 +3,6 @@ dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_P
 rootProject.name = "Slate"
 include(":app")
 
+
+// Optional instrumentation module; normal APK releases do not require a device.
+include(":benchmark")
