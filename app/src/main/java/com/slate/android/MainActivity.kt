@@ -112,7 +112,7 @@ class MainActivity : AppCompatActivity() {
             val onAmoled:(Boolean)->Unit={amoled=it;prefs.edit().putBoolean("amoled",it).apply()}
             SlateAppearance(mode,palette,amoled,this@MainActivity) {
                 when {
-                    !setup -> Onboarding(granted,::requestStorage,mode,amoled,onMode,onAmoled,privilege,onPrivilege,rootAuthorized,{rootAuthorized=it}) { setup=true; prefs.edit().putBoolean("setup",true).putString("theme",mode.name).putString("palette",palette.name).apply() }
+                    !setup -> Onboarding(granted,::requestStorage,mode,palette,amoled,onMode,onPalette,onAmoled,privilege,onPrivilege,rootAuthorized,{rootAuthorized=it}) { setup=true; prefs.edit().putBoolean("setup",true).putString("theme",mode.name).putString("palette",palette.name).apply() }
                     settings -> {
                         BackHandler { settings=false }
                         Scaffold(contentWindowInsets=WindowInsets.safeDrawing) { padding ->

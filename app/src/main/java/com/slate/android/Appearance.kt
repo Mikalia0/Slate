@@ -209,10 +209,9 @@ private fun AmoledOption(enabled:Boolean,onChange:(Boolean)->Unit){
 }
 
 @Composable
-internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,amoled:Boolean,onMode:(SlateTheme)->Unit,onAmoled:(Boolean)->Unit,privilege:PrivilegeMode,onPrivilege:(PrivilegeMode)->Unit,rootAuthorized:Boolean,onRootChanged:(Boolean)->Unit,finish:()->Unit){
+internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,palette:SlatePalette,amoled:Boolean,onMode:(SlateTheme)->Unit,onPalette:(SlatePalette)->Unit,onAmoled:(Boolean)->Unit,privilege:PrivilegeMode,onPrivilege:(PrivilegeMode)->Unit,rootAuthorized:Boolean,onRootChanged:(Boolean)->Unit,finish:()->Unit){
     var page by androidx.compose.runtime.saveable.rememberSaveable{mutableIntStateOf(0)}
-    var privilegeDialog by remember{mutableStateOf(false)}
-    BackHandler(page>0){page=0}
+    BackHandler(page>0){page--}
     val welcome=page==0
     val hero:@Composable ()->Unit={
         Column(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(8.dp)){
@@ -245,28 +244,17 @@ internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,amoled:
                         }
                         if(granted)Icon(Icons.Default.Check,tr("Granted"),tint=MaterialTheme.colorScheme.primary)else TextButton(onClick=request){Text(tr("Allow"))}
                     }
-                    HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
-                    Row(Modifier.fillMaxWidth().clickable{privilegeDialog=true}.padding(vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
-                        Icon(Icons.Default.Build,null,Modifier.size(24.dp),tint=MaterialTheme.colorScheme.primary)
-                        Column(Modifier.weight(1f)){
-                            Text("Shizuku / Root",style=MaterialTheme.typography.titleSmall)
-                            Text(if(privilege==PrivilegeMode.NONE)stringResource(R.string.setup_optional)else stringResource(privilege.title),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Icon(Icons.Default.KeyboardArrowRight,null)
-                    }
                 }
             }
         }
     }
+    val access:@Composable ()->Unit={
+        PrivilegeOptions(privilege,onPrivilege,rootAuthorized,onRootChanged)
+    }
     val appearance:@Composable ()->Unit={
         Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)){
-            Text(tr("Appearance"),style=MaterialTheme.typography.titleMedium)
-            Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
-                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
-                    DisplayModeSelector(mode,onMode)
-                    AmoledOption(amoled,onAmoled)
-                }
-            }
+            Text(tr("Appearance"),style=MaterialTheme.typography.headlineMedium)
+            ThemeOptions(mode,palette,amoled,onMode,onPalette,onAmoled)
         }
     }
     Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing){padding->
@@ -274,27 +262,22 @@ internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,amoled:
             val wide=maxWidth>=600.dp&&maxWidth>maxHeight
             Column(Modifier.widthIn(max=if(wide)920.dp else 500.dp).fillMaxSize().padding(horizontal=20.dp,vertical=8.dp)){
                 Row(Modifier.fillMaxWidth().height(40.dp),verticalAlignment=Alignment.CenterVertically){
-                    if(!welcome)IconButton(onClick={page=0},modifier=Modifier.size(40.dp)){Icon(Icons.Default.ArrowBack,tr("Back"))}
+                    if(!welcome)IconButton(onClick={page--},modifier=Modifier.size(40.dp)){Icon(Icons.Default.ArrowBack,tr("Back"))}
                     Spacer(Modifier.weight(1f))
-                    Text(stringResource(R.string.setup_step,if(welcome)1 else 2,2),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.setup_step,page+1,3),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                key(welcome,wide){
-                    if(wide)Row(Modifier.weight(1f).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(18.dp),verticalAlignment=Alignment.CenterVertically){
+                key(page,wide){
+                    if(wide&&page<2)Row(Modifier.weight(1f).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(18.dp),verticalAlignment=Alignment.CenterVertically){
                         Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.Center){if(welcome)hero()else permissions()}
-                        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.Center){if(welcome)features()else appearance()}
+                        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),verticalArrangement=if(welcome)Arrangement.Center else Arrangement.Top){if(welcome)features()else access()}
                     }else Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical=8.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
-                        if(welcome){hero();features()}else{permissions();appearance()}
+                        when(page){0->{hero();features()};1->{permissions();access()};else->appearance()}
                     }
                 }
-                Button(onClick={if(welcome)page=1 else finish()},modifier=Modifier.fillMaxWidth().padding(top=6.dp).height(48.dp)){
-                    Text(if(welcome)stringResource(R.string.setup_start)else tr("Finish setup"))
+                Button(onClick={if(page<2)page++ else finish()},modifier=Modifier.fillMaxWidth().padding(top=6.dp).height(48.dp)){
+                    Text(when(page){0->stringResource(R.string.setup_start);1->tr("Continue");else->tr("Finish setup")})
                 }
             }
         }
     }
-    if(privilegeDialog)AlertDialog(onDismissRequest={privilegeDialog=false},title={Text("Shizuku / Root")},text={
-        Column(Modifier.verticalScroll(rememberScrollState())){
-            PrivilegeOptions(privilege,onPrivilege,rootAuthorized,onRootChanged)
-        }
-    },confirmButton={TextButton(onClick={privilegeDialog=false}){Text(tr("Close"))}})
 }

@@ -64,11 +64,11 @@ private fun safList(context:Context,tree:Uri,current:Uri):SafListing{
     val children=DocumentsContract.buildChildDocumentsUriUsingTree(tree,parentId)
     val columns=arrayOf(Document.COLUMN_DOCUMENT_ID,Document.COLUMN_DISPLAY_NAME,Document.COLUMN_MIME_TYPE,Document.COLUMN_SIZE,Document.COLUMN_LAST_MODIFIED,Document.COLUMN_FLAGS)
     val rows=resolver.query(children,columns,null,null,null)?.use{cursor->
-        buildList{
+        buildList<SafEntry>{
             while(cursor.moveToNext()){
                 val uri=DocumentsContract.buildDocumentUriUsingTree(tree,cursor.getString(0))
                 val mime=cursor.getString(2)?:"application/octet-stream"
-                add(SafEntry(uri,cursor.getString(1)?:"—",mime==Document.MIME_TYPE_DIR,if(cursor.isNull(3))null else cursor.getLong(3),if(cursor.isNull(4))0L else cursor.getLong(4),cursor.getInt(5)))
+                add(SafEntry(uri,cursor.getString(1)?:"—",mime==Document.MIME_TYPE_DIR,if(cursor.isNull(3))null else cursor.getLong(3),if(cursor.isNull(4))0L else cursor.getLong(4),mime,cursor.getInt(5)))
                 require(size<=100000){"Too many documents"}
             }
         }
