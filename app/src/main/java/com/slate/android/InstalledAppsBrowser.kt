@@ -90,9 +90,9 @@ private suspend fun writeInstalled(context:Context,app:InstalledApk,target:java.
     }
     LaunchedEffect(revision){
         try{rows=InstalledCatalog.read(context);chosen=chosen.intersect(rows.map{it.id}.toSet());loaded=true}
-        catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:tr("Could not read installed apps")}
+        catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"Could not read installed apps"}
     }
-    fun runTask(action:suspend ()->Unit){scope.launch{busy=true;try{action()}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:tr("Operation failed")}finally{busy=false}}}
+    fun runTask(action:suspend ()->Unit){scope.launch{busy=true;try{action()}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"Operation failed"}finally{busy=false}}}
     val exporter=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")){uri->
         val app=pending;pending=null
         if(uri!=null&&app!=null)runTask{withContext(Dispatchers.IO){checkNotNull(context.contentResolver.openOutputStream(uri,"wt")).use{writeInstalled(context,app,it)}}}
@@ -110,7 +110,7 @@ private suspend fun writeInstalled(context:Context,app:InstalledApk,target:java.
             clipData=ClipData.newRawUri("APK",uris.first()).apply{uris.drop(1).forEach{addItem(ClipData.Item(it))}}
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent,tr("Share")))
+        context.startActivity(Intent.createChooser(intent,"Share"))
     }}
     BackHandler{if(!busy){if(chosen.isNotEmpty())chosen=emptySet()else onBack()}}
     val visible=remember(rows,filter,query){rows.filter{(filter==0||filter==1&&!it.system||filter==2&&it.system)&&(it.label.contains(query,true)||it.id.contains(query,true))}}

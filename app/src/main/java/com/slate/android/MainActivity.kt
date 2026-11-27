@@ -148,7 +148,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     val root = remember(selectedPath) { File(selectedPath) }
     val selectedVolume = volumes.firstOrNull { it.root.absolutePath == selectedPath }
     val state by model.state.collectAsState()
-    LaunchedEffect(granted) { if(granted)model.checkSession() }
+    LaunchedEffect(granted) { if(granted){kotlinx.coroutines.delay(4500);model.checkSession()} }
     var destination by rememberSaveable { mutableIntStateOf(0) }
     var galleryFolder by rememberSaveable{mutableStateOf<String?>(null)}
     val toolState=rememberSaveableStateHolder()

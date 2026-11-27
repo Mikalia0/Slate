@@ -69,10 +69,10 @@ internal suspend fun readAppUsage(context:Context):Pair<List<AppUsage>,Int> = wi
         currentCoroutineContext().ensureActive()
         try {
             val stats=manager.queryStatsForPackage(app.storageUuid ?: StorageManager.UUID_DEFAULT,app.packageName,Process.myUserHandle())
+            val info=runCatching{pm.getPackageInfo(app.packageName,0)}.getOrNull()
             entries.add(AppUsage(app.packageName,pm.getApplicationLabel(app).toString(),app.flags and ApplicationInfo.FLAG_SYSTEM !=0,
                 stats.appBytes.coerceAtLeast(0),stats.dataBytes.coerceAtLeast(0),stats.cacheBytes.coerceAtLeast(0),
-                runCatching{pm.getPackageInfo(app.packageName,0).versionName.orEmpty()}.getOrDefault(""),
-                runCatching{pm.getPackageInfo(app.packageName,0).firstInstallTime}.getOrDefault(0)))
+                info?.versionName.orEmpty(),info?.firstInstallTime?:0L))
         } catch(e:kotlinx.coroutines.CancellationException){throw e}
         catch(_:Exception){skipped++}
     }
@@ -105,10 +105,10 @@ internal class AppsUsageModel(app:Application):AndroidViewModel(app){
     fun invalidate(){lastRead=0}
 }
 @Composable
-internal fun rememberAppUsage():AppsUsageModel{
+internal fun rememberAppUsage(defer:Boolean=false):AppsUsageModel{
     val model:AppsUsageModel=viewModel()
     val lifecycle=LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(model,lifecycle){lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED){model.refresh()}}
+    LaunchedEffect(model,lifecycle,defer){lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED){if(defer)kotlinx.coroutines.delay(1800);model.refresh()}}
     return model
 }
 @Composable
@@ -268,11 +268,12 @@ private fun AppUsageDetails(row:AppUsage,fmt:(Long)->String,onBack:()->Unit,revi
     }
 }
 
+private val appIconCache=object:android.util.LruCache<String,androidx.compose.ui.graphics.ImageBitmap>(8*1024*1024){override fun sizeOf(key:String,value:androidx.compose.ui.graphics.ImageBitmap)=value.width*value.height*4}
 @Composable
 internal fun AppIcon(packageName:String) {
     val context=LocalContext.current
     val image by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null,packageName){
-        value=withContext(Dispatchers.IO){runCatching{context.packageManager.getApplicationIcon(packageName).toBitmap(96,96).asImageBitmap()}.getOrNull()}
+        value=withContext(Dispatchers.IO){runCatching{val updated=context.packageManager.getPackageInfo(packageName,0).lastUpdateTime;val key="$packageName:$updated";appIconCache.get(key)?:context.packageManager.getApplicationIcon(packageName).toBitmap(96,96).asImageBitmap().also{appIconCache.put(key,it)}}.getOrNull()}
     }
     val bitmap=image
     if(bitmap!=null)Image(bitmap,null,Modifier.size(40.dp))

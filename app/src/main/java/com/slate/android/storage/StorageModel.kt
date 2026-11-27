@@ -61,7 +61,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     internal suspend fun fileCatalog(volumes:List<Volume>):com.slate.android.FileCatalog = catalogMutex.withLock {
         val roots=volumes.map{it.root.path}.sorted()
         val now=android.os.SystemClock.elapsedRealtime()
-        cachedFileCatalog(volumes)?.takeIf{catalogVersion==catalogEpoch&&now-catalogTime<60000}?.let{return@withLock it}
+        cachedFileCatalog(volumes)?.takeIf{catalogVersion==catalogEpoch&&now-catalogTime<300000}?.let{return@withLock it}
         val epoch=catalogEpoch
         // A complete in-memory index can supply personal files without another disk walk.
         // Cleanup exclusions and partial indexes must not hide files in the manager.

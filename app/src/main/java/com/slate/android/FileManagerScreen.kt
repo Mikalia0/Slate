@@ -186,10 +186,11 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     LaunchedEffect(showHome){browsingCallback(!showHome)}
     DisposableEffect(Unit){onDispose{browsingCallback(false)}}
     val availableVolumes=volumes.ifEmpty{listOf(Volume(primary,"Internal storage"))}
-    val catalog by produceState<FileCatalog?>(null,granted,availableVolumes,catalogRevision,showHome){
+    val catalog by produceState<FileCatalog?>(model.cachedFileCatalog(availableVolumes),granted,availableVolumes,catalogRevision,showHome,overviewPage){
         if(!granted)value=null
-        else if(showHome){
+        else if(showHome&&overviewPage!="installed_apps"){
             value=model.cachedFileCatalog(availableVolumes)
+            if(value!=null)delay(700)
             value=model.fileCatalog(availableVolumes)
         }
     }
@@ -283,7 +284,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
             }else withContext(Dispatchers.IO){
                 check(safeFile(root,folder))
                 val list=folder.listFiles()?:error("unreadable")
-                list.asSequence().filter{hidden||!it.name.startsWith(".")}.filter{safeFile(root,it)}.map{FileRow(it,it.isDirectory,if(it.isFile)it.length()else 0L,it.lastModified())}.toList()
+                list.asSequence().filter{hidden||!it.name.startsWith(".")}.filter{safeFile(root,it)}.mapNotNull{file->runCatching{val attr=Files.readAttributes(file.toPath(),java.nio.file.attribute.BasicFileAttributes::class.java,java.nio.file.LinkOption.NOFOLLOW_LINKS);FileRow(file,attr.isDirectory,if(attr.isRegularFile)attr.size()else 0L,attr.lastModifiedTime().toMillis())}.getOrNull()}.toList()
             }
             rows=result
             if(cacheable)folderListings.put(folderKey,result)
@@ -321,12 +322,15 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         val storage by produceState<Pair<Long,Long>?>(null,rootPath,revision,granted){
             value=withContext(Dispatchers.IO){runCatching{val total=root.totalSpace; if(total>0)(total-root.usableSpace).coerceIn(0,total) to total else null}.getOrNull()}
         }
-        val shown=remember(rows,query,sort,descending,loadedKey,folderKey,granted,protected,shizuku){
+        val shown by key(folderKey,granted,shizuku){produceState<List<FileRow>>(emptyList(),rows,query,sort,descending,loadedKey,folderKey,granted,protected,shizuku){
+            val source=(if(loadedKey==folderKey&&(if(protected)shizuku else granted))rows else if(cacheable)folderListings.get(folderKey).orEmpty()else emptyList())
+            value=withContext(Dispatchers.Default){
             val comparator=when(sort){1->compareBy<FileRow>{it.size};2->compareBy<FileRow>{it.modified};3->compareBy<FileRow>{it.file.extension.lowercase()};else->compareBy<FileRow>{it.file.name.lowercase()}}
-            val filtered=(if(loadedKey==folderKey&&(if(protected)shizuku else granted))rows else if(cacheable)folderListings.get(folderKey).orEmpty()else emptyList()).filter{it.file.name.contains(query,true)}
+            val filtered=source.filter{it.file.name.contains(query,true)}
             val order=if(descending)comparator.reversed()else comparator
             filtered.sortedWith(if(sort==2)order.thenBy{it.file.name.lowercase()}else compareByDescending<FileRow>{it.directory}.then(order))
-        }
+            }
+        }}
         val tools:@Composable ()->Unit={
                 IconButton(onClick={marked=emptySet();searching=!searching;if(!searching)query=""},enabled=!busy){Icon(Icons.Default.Search,stringResource(R.string.file_search))}
                 IconButton(onClick={grid=!grid;prefs.edit().putBoolean("grid",grid).apply()},enabled=!busy){Icon(painterResource(if(grid)R.drawable.ic_browser_list else R.drawable.ic_browser_grid),stringResource(R.string.file_view),Modifier.size(23.dp))}

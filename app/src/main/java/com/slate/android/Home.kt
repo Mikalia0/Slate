@@ -34,8 +34,9 @@ import java.io.File
 @Composable
 internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Unit, analyze: (File) -> Unit, device: () -> Unit, history: StorageHistory, review: (File)->Unit, status: DeviceStatus, openDevicePage: (Int)->Unit, openApps: ()->Unit, openCache:()->Unit, openCleanup: ()->Unit,openHistory:()->Unit,dashboard:DashboardPreferences,scrollState:LazyGridState) {
     val context = LocalContext.current
-    val capacity = primary.totalSpace
-    val free = primary.usableSpace
+    val space by produceState(0L to 0L,primary){value=kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO){primary.totalSpace to primary.usableSpace};while(true){kotlinx.coroutines.delay(15000);value=kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO){primary.totalSpace to primary.usableSpace}}}
+    val capacity = space.first
+    val free = space.second
     val used = (capacity-free).coerceAtLeast(0)
     val fraction = if(capacity>0) (used.toDouble()/capacity).toFloat().coerceIn(0f,1f) else 0f
     val fmt: (Long)->String = { Formatter.formatFileSize(context,it) }
@@ -45,7 +46,7 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
     fun memoryValue(label:String)=live?.memory?.rows?.firstOrNull{it.label==label}?.value?.takeUnless{it=="Unavailable"} ?: "—"
     val temperature=live?.battery?.rows?.firstOrNull{it.label=="Temperature"}?.value?.takeUnless{it=="Unavailable"}?.replace(" ","") ?: "—"
         val chargingPower=live?.battery.powerReading()?.takeIf{it.label=="Charging power" && it.value!="Unavailable"}?.value
-    val usage=rememberAppUsage().snapshot
+    val usage=rememberAppUsage(defer=true).snapshot
     val cache=remember(usage.rows){usage.rows.sumOf{it.cacheBytes}}
     val appsTotal=remember(usage.rows){usage.rows.sumOf{it.total}}
     val appCount=usage.rows.size
