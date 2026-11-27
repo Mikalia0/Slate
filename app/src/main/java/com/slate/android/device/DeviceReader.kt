@@ -47,12 +47,13 @@ internal class DeviceReader(private val context: Context) {
         val online = number("$base/online")?.let { it == 1L } ?: if (id == 0) true else null
         CoreReading(id, number("$base/cpufreq/scaling_cur_freq")?.takeIf { it > 0 && online != false }, maxCore[id], online)
     }
-    private fun gpuLive(): Section {
-        val base = "/sys/class/kgsl/kgsl-3d0"
-        val devfreq = runCatching { File("/sys/class/devfreq").listFiles()?.firstOrNull {
+    private val gpuDevfreq by lazy { runCatching { File("/sys/class/devfreq").listFiles()?.firstOrNull {
             val name = it.name.lowercase(Locale.ROOT)
             name.contains("gpu") || name.contains("mali") || name.contains("kgsl")
-        }?.path }.getOrNull()
+        }?.path }.getOrNull() }
+    private fun gpuLive(): Section {
+        val base = "/sys/class/kgsl/kgsl-3d0"
+        val devfreq=gpuDevfreq
         val hz = number("$base/gpuclk") ?: devfreq?.let { number("$it/cur_freq") }
         val max = number("$base/max_gpuclk") ?: devfreq?.let { number("$it/max_freq") }
         val sysfsBusy = read("$base/gpu_busy_percentage")?.trim()?.removeSuffix("%")?.trim()?.toDoubleOrNull()?.takeIf { it in 0.0..100.0 }
@@ -61,14 +62,13 @@ internal class DeviceReader(private val context: Context) {
             info("Maximum frequency", max?.takeIf { it > 0 }?.let { "${it / 1000000} MHz" }),
             info("Utilization", busy?.let { decimal(it, "%") })))
     }
+    private val thermalZones by lazy { runCatching{File("/sys/class/thermal").listFiles()?.filter{it.name.startsWith("thermal_zone")}?.mapNotNull{zone->read("${zone.path}/type")?.trim()?.let{zone.path to it}}}.getOrNull().orEmpty() }
     private fun thermalLive(): Section {
         val status = if (Build.VERSION.SDK_INT >= 29) context.getSystemService(PowerManager::class.java)?.currentThermalStatus else null
         val statusLabel = when(status) { 0 -> "None"; 1 -> "Light"; 2 -> "Moderate"; 3 -> "Severe"; 4 -> "Critical"; 5 -> "Emergency"; 6 -> "Shutdown"; else -> UNKNOWN }
         val rows = mutableListOf(info("Thermal throttling status", statusLabel))
-        val zones = runCatching { File("/sys/class/thermal").listFiles()?.filter { it.name.startsWith("thermal_zone") } }.getOrNull().orEmpty()
-        zones.forEach { zone ->
-            val type = read("${zone.path}/type")?.trim() ?: return@forEach
-            val temp = number("${zone.path}/temp") ?: return@forEach
+        thermalZones.forEach { (path,type) ->
+            val temp = number("$path/temp") ?: return@forEach
             // Linux thermal zone ABI reports millidegrees Celsius.
             if (temp in -40000L..150000L) rows.add(info(type, decimal(temp / 1000.0, "°C")))
         }
@@ -134,7 +134,7 @@ internal class DeviceReader(private val context: Context) {
             info("zRAM capacity",zram?.let(::fmt))
         )
     }
-    fun live(): LiveInfo {
+    fun live(detailed:Boolean=true): LiveInfo {
         val activity = context.getSystemService(ActivityManager::class.java)
         val memory = ActivityManager.MemoryInfo()
         activity?.getMemoryInfo(memory)
@@ -178,7 +178,7 @@ internal class DeviceReader(private val context: Context) {
         }
         val elapsed = SystemClock.elapsedRealtime()
         val awake = SystemClock.uptimeMillis()
-        val cores = coreReadings()
+        val cores = if(detailed)coreReadings() else emptyList()
         val cpu = cores.map { core -> info("CPU ${core.id}", if (core.online == false) "Offline" else core.current?.let { "${it / 1000} MHz" }) }
         val batteryRows = mutableListOf(info("Level", percent?.let { "$it%" }), info("Status", status(intent.int(BatteryManager.EXTRA_STATUS))),
             info("Health (system status)", health(intent.int(BatteryManager.EXTRA_HEALTH))), info("Power source", plugged),
@@ -195,8 +195,8 @@ internal class DeviceReader(private val context: Context) {
             Meter("Storage", if (total > 0) fmt(storageUsed) else UNKNOWN, "of " + fmt(total), ratio(storageUsed, total)),
             Meter("Battery", percent?.let { "$it%" } ?: UNKNOWN, listOfNotNull(temp, status(intent.int(BatteryManager.EXTRA_STATUS))).joinToString(" · "), percent?.div(100f)),
             Meter("Uptime", duration(elapsed), "Deep sleep " + duration(elapsed - awake), ratio((elapsed - awake).coerceAtLeast(0), elapsed))
-        ), Section("CPU frequencies", cpu), Section("Memory", listOf(info("Total RAM", fmt(memory.totalMem)), info("Available RAM", fmt(memory.availMem)), info("Used RAM (estimate)", fmt(used)), info("Low memory", memory.lowMemory))+memoryDetails()),
-            Section("Battery", batteryRows), Section("Uptime", listOf(info("Since boot", duration(elapsed)), info("Awake", duration(awake)), info("Deep sleep (estimate)", duration(elapsed - awake)))), gpuLive(), thermalLive(), network(), displayLive(), cores)
+        ), Section("CPU frequencies", cpu), Section("Memory", listOf(info("Total RAM", fmt(memory.totalMem)), info("Available RAM", fmt(memory.availMem)), info("Used RAM (estimate)", fmt(used)), info("Low memory", memory.lowMemory))+if(detailed)memoryDetails() else emptyList()),
+            Section("Battery", batteryRows), Section("Uptime", listOf(info("Since boot", duration(elapsed)), info("Awake", duration(awake)), info("Deep sleep (estimate)", duration(elapsed - awake)))), if(detailed)gpuLive() else Section("GPU activity",emptyList()), if(detailed)thermalLive() else Section("Thermals",emptyList()), if(detailed)network() else Section("Network",emptyList()), displayLive(), cores)
     }
 
     fun static(): StaticInfo {

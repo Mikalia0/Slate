@@ -8,7 +8,10 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.zip.ZipFile
 import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
+import org.apache.commons.compress.archivers.zip.ZipFile as RawZipFile
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlin.coroutines.coroutineContext
 
@@ -30,26 +33,27 @@ internal suspend fun rewriteSlateZip(context:Context,root:File,archive:File,chan
     var signed:File?=null
     var total=0L
     val max=32L*1024*1024*1024
-    val buffer=ByteArray(64*1024)
+    val buffer=ByteArray(256*1024)
     suspend fun copy(input:InputStream,out:OutputStream){
         while(true){coroutineContext.ensureActive();val n=input.read(buffer);if(n<0)break;total+=n;require(total<=max);out.write(buffer,0,n)}
     }
     try{
-        ZipFile(archive).use{input->
+        RawZipFile(archive).use{input->
             val entries=input.entries().asSequence().toList()
             require(entries.size<=100000&&entries.map{it.name}.toSet().size==entries.size)
             val from=change.from;val to=change.to
             fun matches(name:String)=from!=null&&(name==from||(from.endsWith("/")&&name.startsWith(from)))
             if(from!=null)require(entries.any{matches(it.name)})
             if(to!=null&&from!=to)require(entries.none{!matches(it.name)&&(it.name==to||(to.endsWith("/")&&it.name.startsWith(to)))})
-            ZipOutputStream(BufferedOutputStream(stage.outputStream())).use{out->
-                input.comment?.let{out.setComment(it)}
+            ZipArchiveOutputStream(stage).use{out->
+                ZipFile(archive).use{original->original.comment?.let{out.setComment(it)}}
+                val ctx=currentCoroutineContext()
                 val written=HashSet<String>()
-                fun put(name:String,old:ZipEntry?=null){
+                fun put(name:String,old:ZipArchiveEntry?=null){
                     require(written.add(name));checkedArchiveName(name)
-                    val e=ZipEntry(name)
+                    val e=ZipArchiveEntry(name)
                     if(old!=null){if(old.time>=0)e.time=old.time;e.comment=old.comment;if(old.method==ZipEntry.STORED){e.method=ZipEntry.STORED;e.size=old.size;e.crc=old.crc}}
-                    out.putNextEntry(e)
+                    out.putArchiveEntry(e)
                 }
                 for(entry in entries){
                     coroutineContext.ensureActive()
@@ -60,17 +64,25 @@ internal suspend fun rewriteSlateZip(context:Context,root:File,archive:File,chan
                     }else{
                         // Rebuilding APKs invalidates signatures; do not retain stale v1 signature records.
                         if(apk&&entry.name.uppercase().let{it.startsWith("META-INF/")&&(it.endsWith(".SF")||it.endsWith(".RSA")||it.endsWith(".DSA")||it.endsWith(".EC")||it=="META-INF/MANIFEST.MF")})continue
-                        put(entry.name,entry)
+                        require(written.add(entry.name));checkedArchiveName(entry.name)
+                        require(input.canReadEntryData(entry)&&entry.size>=0&&entry.size<=max-total)
+                        total+=entry.size
+                        val raw=checkNotNull(input.getRawInputStream(entry))
+                        raw.use{stream->out.addRawArchiveEntry(ZipArchiveEntry(entry),object:FilterInputStream(stream){
+                            override fun read():Int{ctx.ensureActive();return super.read()}
+                            override fun read(b:ByteArray,off:Int,len:Int):Int{ctx.ensureActive();return super.read(b,off,len)}
+                        })}
+                        continue
                     }
                     if(!entry.isDirectory)input.getInputStream(entry).use{copy(it,out)}
-                    out.closeEntry()
+                    out.closeArchiveEntry()
                 }
                 if(to!=null&&(change.source!=null||change.data!=null)){
                     put(to)
                     if(change.source!=null)checkNotNull(context.contentResolver.openInputStream(change.source)).use{copy(it,out)}
                     else ByteArrayInputStream(checkNotNull(change.data)).use{copy(it,out)}
-                    out.closeEntry()
-                }else if(from==null&&to!=null){put(to);out.closeEntry()}
+                    out.closeArchiveEntry()
+                }else if(from==null&&to!=null){put(to);out.closeArchiveEntry()}
             }
         }
         ZipFile(stage).use{zip->require(zip.size()<=100001)}

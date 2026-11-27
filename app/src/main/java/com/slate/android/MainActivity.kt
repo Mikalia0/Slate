@@ -162,7 +162,6 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     val appsState=rememberSaveableStateHolder()
     var personalOnly by rememberSaveable{mutableStateOf(false)}
     var devicePage by rememberSaveable { mutableIntStateOf(0) }
-    val deviceStatus=rememberDeviceStatus()
     val homeScroll=rememberLazyGridState()
     var about by rememberSaveable { mutableStateOf(false) }
     var showVolumes by rememberSaveable { mutableStateOf(false) }
@@ -215,6 +214,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var previousScreen by remember{mutableStateOf(screenKey)}
     LaunchedEffect(screenKey){if(previousScreen!=screenKey){previousScreen=screenKey;screenAlpha.snapTo(.82f);screenAlpha.animateTo(1f,tween(120))}}
     val mainDestination=!about&&!rootData&&!showVolumes&&!showHistory&&!cleanup&&!apps&&!device&&!analyzer
+    val deviceStatus=rememberDeviceStatus(active=device||(mainDestination&&destination==0),detailed=device)
     var fileBrowsing by remember{mutableStateOf(false)}
     var gallerySelecting by remember{mutableStateOf(false)}
     var fileNavigationBlocked by remember{mutableStateOf(false)}

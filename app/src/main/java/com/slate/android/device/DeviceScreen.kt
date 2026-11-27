@@ -43,27 +43,28 @@ internal class DeviceStatus {
     var error by mutableStateOf(false)
 }
 @Composable
-internal fun rememberDeviceStatus():DeviceStatus {
+internal fun rememberDeviceStatus(active:Boolean=true,detailed:Boolean=true):DeviceStatus {
     val context=LocalContext.current.applicationContext
     val reader=remember(context){DeviceReader(context)}
     val state=remember(reader){DeviceStatus()}
     val lifecycle=LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(reader,lifecycle) {
+    LaunchedEffect(reader,lifecycle,active,detailed) {
+        if(!active)return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             coroutineScope {
                 launch {
-                    if(state.fixed==null) {
+                    if(detailed&&state.fixed==null) {
                         state.fixed=withContext(Dispatchers.IO){runCatching{reader.static()}.getOrNull()}
                         state.error=state.fixed==null
                     }
                 }
                 launch {
                     while(true) {
-                        withContext(Dispatchers.IO){runCatching{reader.live()}.getOrNull()}?.let{state.live=it}
-                        delay(2000)
+                        withContext(Dispatchers.IO){runCatching{reader.live(detailed)}.getOrNull()}?.let{state.live=it}
+                        delay(if(detailed)2000 else 4000)
                     }
                 }
-                launch {
+                if(detailed)launch {
                     while(true) {
                         withContext(Dispatchers.IO){runCatching{reader.storage()}.getOrNull()}?.let{state.storage=it}
                         delay(10000)

@@ -99,6 +99,7 @@ internal class FileOperations(private val remote:ProtectedReadClient?){
         val pending=ArrayDeque<Triple<File,File,Boolean>>()
         pending.addLast(Triple(source,target,directory))
         var count=0
+        val buffer=ByteArray(256*1024)
         while(pending.isNotEmpty()){
             ctx.ensureActive();require(++count<=150000)
             val (from,to,isDir)=pending.removeLast()
@@ -110,11 +111,28 @@ internal class FileOperations(private val remote:ProtectedReadClient?){
             }else{
                 var created=false
                 try{
-                    input(sourceRoot,from).use{ins->
+                    if(relative(from)==null&&relative(to)==null){
+                        java.nio.channels.FileChannel.open(from.toPath(),java.nio.file.StandardOpenOption.READ,NOFOLLOW_LINKS).use{ins->
+                            java.nio.channels.FileChannel.open(to.toPath(),java.nio.file.StandardOpenOption.CREATE_NEW,java.nio.file.StandardOpenOption.WRITE,NOFOLLOW_LINKS).use{out->
+                                created=true
+                                val expected=ins.size();var position=0L
+                                val fallback=java.nio.ByteBuffer.wrap(buffer)
+                                while(position<expected){
+                                    ctx.ensureActive()
+                                    val n=try{ins.transferTo(position,minOf(8L*1024*1024,expected-position),out)}catch(_:UnsupportedOperationException){0L}catch(_:IOException){0L}
+                                    if(n>0){position+=n;onBytes(n);continue}
+                                    ins.position(position);out.position(position);fallback.clear();fallback.limit(minOf(buffer.size.toLong(),expected-position).toInt())
+                                    val read=ins.read(fallback);if(read<=0)throw EOFException("Source changed during copy")
+                                    fallback.flip();while(fallback.hasRemaining()){ctx.ensureActive();out.write(fallback)}
+                                    position+=read;onBytes(read.toLong())
+                                }
+                                require(ins.size()==expected){"Source changed during copy"}
+                            }
+                        }
+                    }else input(sourceRoot,from).use{ins->
                         output(targetRoot,to).use{out->
                             created=true
-                            val buf=ByteArray(128*1024)
-                            while(true){ctx.ensureActive();val n=ins.read(buf);if(n<0)break;out.write(buf,0,n);onBytes(n.toLong())}
+                            while(true){ctx.ensureActive();val n=ins.read(buffer);if(n<0)break;out.write(buffer,0,n);onBytes(n.toLong())}
                             out.flush()
                         }
                     }
