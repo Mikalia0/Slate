@@ -81,6 +81,11 @@ internal fun Section?.powerReading():Info? = this?.rows?.firstOrNull{it.label in
 private val tabNames=listOf("Overview","Hardware","System","Battery","Storage","Network","Sensors","Camera")
 private val tabIcons=listOf(R.drawable.ic_device_overview,R.drawable.ic_device_cpu,R.drawable.ic_device_system,R.drawable.ic_device_battery,R.drawable.ic_device_storage,R.drawable.ic_device_network,R.drawable.ic_device_sensors,R.drawable.ic_device_camera)
 
+private const val VULKAN_PAGE=2
+private fun pagerIndex(legacy:Int)=if(legacy>=2)legacy+1 else legacy
+private val visibleTabs=tabNames.toMutableList().apply{add(VULKAN_PAGE,"Vulkan")}
+private val visibleIcons=tabIcons.toMutableList().apply{add(VULKAN_PAGE,R.drawable.ic_device_gpu)}
+
 @Composable
 internal fun DeviceGlyph(id:Int, description:String?=null, modifier:Modifier=Modifier.size(22.dp)) {
     Icon(painterResource(id),description,modifier,tint=MaterialTheme.colorScheme.primary)
@@ -90,42 +95,44 @@ internal fun DeviceGlyph(id:Int, description:String?=null, modifier:Modifier=Mod
 internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=0) {
     val fixed=status.fixed
     val live=status.live
-    val pager=rememberPagerState(initialPage=initialPage,pageCount={tabNames.size})
+    val pager=rememberPagerState(initialPage=pagerIndex(initialPage).coerceIn(visibleTabs.indices),pageCount={visibleTabs.size})
     val scope=rememberCoroutineScope()
     val pageState=rememberSaveableStateHolder()
     var testMode by rememberSaveable{mutableStateOf(false)}
-    var vulkanMode by rememberSaveable{mutableStateOf(false)}
-    if(vulkanMode){VulkanDiagnosticsScreen(onBack={vulkanMode=false});return}
     if(testMode){DeviceTests(onBack={testMode=false});return}
     fun select(page:Int){scope.launch{if(kotlin.math.abs(page-pager.currentPage)==1) pager.animateScrollToPage(page,animationSpec=tween(160)) else pager.scrollToPage(page)}}
     Column(Modifier.fillMaxSize().padding(horizontal=14.dp)) {
         Row(Modifier.fillMaxWidth().padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically) {
             IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")}
-            Text(tr("Device information"),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
+            Text(tr("Device information"),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
             TextButton(onClick={testMode=true}){Text(tr("Tests"))}
         }
         val wide=androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp>=760
         if(!wide)ScrollableTabRow(selectedTabIndex=pager.currentPage,edgePadding=0.dp,containerColor=MaterialTheme.colorScheme.background) {
-            tabNames.forEachIndexed { i,name ->
+            visibleTabs.forEachIndexed { i,name ->
                 Tab(selected=pager.currentPage==i,onClick={select(i)},text={Text(tr(name),style=MaterialTheme.typography.labelMedium,maxLines=1,softWrap=false)},
-                    icon={Icon(painterResource(tabIcons[i]),null,Modifier.size(20.dp))},
+                    icon={Icon(painterResource(visibleIcons[i]),null,Modifier.size(20.dp))},
                     selectedContentColor=MaterialTheme.colorScheme.primary,unselectedContentColor=MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Row(Modifier.weight(1f).fillMaxWidth()){
         if(wide){
             Column(Modifier.width(200.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(end=8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){
-                tabNames.forEachIndexed{i,name->
-                    NavigationDrawerItem(label={Text(tr(name),maxLines=2)},selected=pager.currentPage==i,onClick={select(i)},icon={Icon(painterResource(tabIcons[i]),null,Modifier.size(22.dp))})
+                visibleTabs.forEachIndexed{i,name->
+                    NavigationDrawerItem(label={Text(tr(name),maxLines=2)},selected=pager.currentPage==i,onClick={select(i)},icon={Icon(painterResource(visibleIcons[i]),null,Modifier.size(22.dp))})
                 }
             }
             VerticalDivider(Modifier.fillMaxHeight())
         }
-        HorizontalPager(state=pager,modifier=Modifier.weight(1f).fillMaxHeight(),userScrollEnabled=!wide,beyondViewportPageCount=1,verticalAlignment=Alignment.Top) { page ->
-            pageState.SaveableStateProvider(page) {
+        HorizontalPager(state=pager,modifier=Modifier.weight(1f).fillMaxHeight(),userScrollEnabled=!wide,beyondViewportPageCount=1,verticalAlignment=Alignment.Top) { pagerPage ->
+            pageState.SaveableStateProvider("device-page-"+visibleTabs[pagerPage]) {
+            if(pagerPage==VULKAN_PAGE){
+                VulkanDiagnosticsScreen(onBack=onBack,embedded=true,activePage=pager.settledPage==VULKAN_PAGE)
+            }else{
+            val page=if(pagerPage>VULKAN_PAGE)pagerPage-1 else pagerPage
             Box(Modifier.fillMaxSize(),contentAlignment=Alignment.TopCenter){
             LazyColumn(Modifier.widthIn(max=860.dp).fillMaxSize().padding(horizontal=if(wide)16.dp else 0.dp),state=rememberLazyListState(),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=12.dp)) {
-                if(page==0) deviceOverview(live,fixed,::select)
+                if(page==0) deviceOverview(live,fixed){legacy->select(pagerIndex(legacy))}
                 else {
                     val processor=fixed?.hardware?.firstOrNull()
                     val graphics=fixed?.hardware?.getOrNull(1)
@@ -134,7 +141,6 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
                         1 -> {
                             item(key="processor"){ProcessorPanel(processor,live?.cores.orEmpty())}
                             item(key="graphics"){GraphicsPanel(graphics,live?.gpu)}
-                            item(key="vulkan"){Card(onClick={vulkanMode=true},modifier=Modifier.fillMaxWidth()){ListItem(headlineContent={Text(vkText("Vulkan information","Informações Vulkan"))},supportingContent={Text(vkText("Drivers, capabilities and benchmarks","Drivers, capacidades e benchmarks"))},leadingContent={DeviceGlyph(R.drawable.ic_device_cpu)})}}
                             item(key="memory"){MemoryPanel(live?.memory,live?.meters?.firstOrNull{it.title=="Memory"})}
                             item(key="display"){DisplayPanel(display,live?.display)}
                             live?.thermal?.let{thermal->item(key="thermal"){ThermalPanel(thermal)}}
@@ -168,7 +174,7 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
                             item(key="count"){
                                 FeaturePanel(tabIcons[page],if(fixed==null)"—" else sections.size.toString(),if(page==6)"Sensors" else "Cameras"){}
                             }
-                            if(page==6&&pager.settledPage==6)item(key="live-sensors"){LiveSensors()}
+                            if(page==6&&pager.settledPage==pagerIndex(6))item(key="live-sensors"){LiveSensors()}
                             itemsIndexed(sections,key={index,section->"$index:${section.title}"}){_,section->
                                 if(page==7) CameraPanel(section) else InfoCard(section,tabIcons[page],initiallyExpanded=false)
                             }
@@ -177,6 +183,7 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
                     }
                     if(status.error && fixed==null)item(key="error"){Text(tr("No information available"),style=MaterialTheme.typography.bodySmall)}
                 }
+            }
             }
             }
         }
