@@ -76,6 +76,7 @@ internal fun SlateBrowserDrawer(volumes:List<Volume>,bookmarks:List<String>,hist
             }
             item{DrawerEntry(stringResource(R.string.browser_add_storage),R.drawable.ic_storage_folder,onClick=onAddStorage)}
             item{HorizontalDivider();DrawerHeading(stringResource(R.string.files_categories))}
+            item{DrawerEntry(tr("Installed apps"),R.drawable.ic_file_apk){onCategory("installed_apps")}}
             item{DrawerEntry(stringResource(R.string.files_recent),R.drawable.ic_storage_file){onCategory("recent")}}
             item{DrawerEntry(stringResource(R.string.browser_all_files),R.drawable.ic_storage_file){onCategory("all")}}
             items(listOf(FileCategory.INSTALLERS,FileCategory.IMAGES,FileCategory.AUDIO,FileCategory.VIDEOS,FileCategory.DOCUMENTS,FileCategory.ARCHIVES)){category->

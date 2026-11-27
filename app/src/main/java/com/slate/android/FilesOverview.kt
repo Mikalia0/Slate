@@ -98,6 +98,7 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
     val compact=useTopNavigation()
     val scope=rememberCoroutineScope()
     var page by rememberSaveable{mutableStateOf(initialPage)}
+    if(page=="installed_apps"){InstalledAppsBrowser(onBack={page=""});return}
     var query by rememberSaveable{mutableStateOf("")}
     var sort by rememberSaveable{mutableIntStateOf(0)}
     var selected by remember{mutableStateOf<CatalogFile?>(null)}
@@ -135,6 +136,7 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
             if(page.isNotEmpty())IconButton(onClick={leave()},enabled=!busy){Icon(Icons.Default.ArrowBack,tr("Back"))}
             else IconButton(onClick=onMenu,enabled=!busy){Icon(Icons.Default.Menu,stringResource(R.string.file_volumes))}
             Text(if(chosen!=null)categoryTitle(chosen)else if(page=="search")stringResource(R.string.file_search)else if(page=="recent")stringResource(R.string.files_recent)else if(page=="all")stringResource(R.string.browser_all_files)else stringResource(R.string.browser_home),Modifier.weight(1f).padding(start=8.dp),style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+            if(page.isEmpty())IconButton(onClick={page="installed_apps"}){Icon(painterResource(R.drawable.ic_file_apk),tr("Installed apps"))}
             if(granted&&page.isEmpty())IconButton(onClick={page="search"}){Icon(Icons.Default.Search,stringResource(R.string.file_search))}
             IconButton(onClick=onRefresh,enabled=granted&&!busy){Icon(Icons.Default.Refresh,tr("Refresh"))}
         }
