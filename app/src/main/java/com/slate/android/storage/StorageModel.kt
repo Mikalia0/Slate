@@ -51,6 +51,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
 
     private val catalogMutex=Mutex()
     private var catalogEpoch=0L
+    private val dirtyCatalogFolders=linkedSetOf<File>()
     private var catalogVersion=-1L
     private var catalogTime=0L
     private var catalogRoots=emptyList<String>()
@@ -64,7 +65,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         val saved=withContext(Dispatchers.IO){browserStore.read(volumes)}?:return@withLock null
         browserCatalog=saved;catalogRoots=volumes.map{it.root.path}.sorted();saved
     }
-    internal fun invalidateFileCatalog(){catalogEpoch++}
+    internal fun invalidateFileCatalog(folder:File?=null){catalogEpoch++;if(folder==null){dirtyCatalogFolders.clear()}else if(dirtyCatalogFolders.size<128){dirtyCatalogFolders.add(folder)}else{dirtyCatalogFolders.clear()}}
     internal fun cachedFileCatalog(volumes:List<Volume>):com.slate.android.FileCatalog? =
         browserCatalog.takeIf{catalogRoots==volumes.map{it.root.path}.sorted()}
     internal suspend fun fileCatalog(volumes:List<Volume>):com.slate.android.FileCatalog = catalogMutex.withLock {
@@ -75,7 +76,15 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         // A complete in-memory index can supply personal files without another disk walk.
         // Cleanup exclusions and partial indexes must not hide files in the manager.
         val current=indexes[primary]?.takeIf{catalogEpoch==0L && primary !in partialRoots && exclusions.absolute().isEmpty()}
-        val result=withContext(Dispatchers.IO){com.slate.android.buildFileCatalog(volumes,current)}
+        val dirty=dirtyCatalogFolders.toList()
+        val old=cachedFileCatalog(volumes)
+        val result=withContext(Dispatchers.IO){
+            if(old!=null&&!old.incomplete&&dirty.isNotEmpty()&&dirty.all{folder->!protectedAppPath(folder.toPath())&&volumes.any{folder.toPath().startsWith(it.root.toPath())}}){
+                val replacements=dirty.map{folder->val volume=volumes.first{folder.toPath().startsWith(it.root.toPath())};val sub=com.slate.android.buildFileCatalog(listOf(Volume(folder,volume.label)),null);sub.copy(files=sub.files.map{it.copy(root=volume.root)})}
+                if(replacements.any{it.incomplete})com.slate.android.buildFileCatalog(volumes,current)else com.slate.android.FileCatalog(old.files.filterNot{row->dirty.any{row.entry.file.toPath().startsWith(it.toPath())}}+replacements.flatMap{it.files}.distinctBy{it.entry.file.path},false)
+            }else com.slate.android.buildFileCatalog(volumes,current)
+        }
+        if(epoch==catalogEpoch)dirtyCatalogFolders.clear()
         browserCatalog=result;catalogRoots=roots;catalogTime=android.os.SystemClock.elapsedRealtime();catalogVersion=epoch
         if(!result.incomplete)withContext(Dispatchers.IO){browserStore.write(volumes,result)}
         result

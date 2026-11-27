@@ -19,3 +19,7 @@ if(EXISTS "${SEVENZIP_C}/7z.h")
     target_link_options(slate7z PRIVATE "-Wl,-z,max-page-size=16384")
     set_property(TARGET slate7z PROPERTY C_STANDARD 11)
 endif()
+
+add_library(slatefs SHARED storage/directory.c)
+target_compile_options(slatefs PRIVATE -O2 -fvisibility=hidden)
+target_link_options(slatefs PRIVATE "-Wl,-z,max-page-size=16384")

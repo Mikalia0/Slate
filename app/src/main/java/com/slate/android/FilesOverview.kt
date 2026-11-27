@@ -66,6 +66,8 @@ internal suspend fun buildFileCatalog(volumes:List<Volume>,index:IndexedScan?):F
         while(pending.isNotEmpty()){
             ctx.ensureActive()
             val folder=pending.removeLast()
+            val native=com.slate.android.storage.NativeDirectory.list(folder)
+            if(native!=null){for(row in native){ctx.ensureActive();if(!allowed(root,row.file))continue;if(row.isDirectory)pending.add(row.file)else if(row.isRegularFile)output.add(CatalogFile(root,Entry(row.file,false,row.size,1,0,row.modified)))else if(row.kind==0)incomplete=true};continue}
             val children=runCatching{folder.listFiles()}.getOrNull()
             if(children==null){incomplete=true;continue}
             for(file in children){

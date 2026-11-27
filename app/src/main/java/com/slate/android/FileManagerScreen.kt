@@ -263,7 +263,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     LaunchedEffect(granted,shizuku){if(!granted){folderListings.evictAll();folderSummaries.evictAll()}}
     DisposableEffect(path,cacheable,showHome,safSource){
         val handler=android.os.Handler(android.os.Looper.getMainLooper())
-        val changed=Runnable{observedChange++;model.invalidateFileCatalog()}
+        val changed=Runnable{observedChange++;model.invalidateFileCatalog(folder)}
         val observer=if(cacheable&&!showHome&&safSource==null)runCatching{
             @Suppress("DEPRECATION")
             object:android.os.FileObserver(path,android.os.FileObserver.CREATE or android.os.FileObserver.DELETE or android.os.FileObserver.MOVED_FROM or android.os.FileObserver.MOVED_TO or android.os.FileObserver.CLOSE_WRITE or android.os.FileObserver.ATTRIB or android.os.FileObserver.DELETE_SELF or android.os.FileObserver.MOVE_SELF){
@@ -284,6 +284,8 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 client.list(relative).filter{it.readable&&(hidden||!it.name.startsWith(".") )}.map{FileRow(File(folder,it.name),it.directory,it.size,it.modified)}
             }else withContext(Dispatchers.IO){
                 check(safeFile(root,folder))
+                val native=com.slate.android.storage.NativeDirectory.list(folder)
+                if(native!=null)return@withContext native.filter{(hidden||!it.file.name.startsWith("."))&&(it.isDirectory||it.isRegularFile)&&safeFile(root,it.file)}.map{FileRow(it.file,it.isDirectory,if(it.isRegularFile)it.size else 0L,it.modified)}
                 val list=folder.listFiles()?:error("unreadable")
                 list.asSequence().filter{hidden||!it.name.startsWith(".")}.filter{safeFile(root,it)}.mapNotNull{file->runCatching{val attr=Files.readAttributes(file.toPath(),java.nio.file.attribute.BasicFileAttributes::class.java,java.nio.file.LinkOption.NOFOLLOW_LINKS);FileRow(file,attr.isDirectory,if(attr.isRegularFile)attr.size()else 0L,attr.lastModifiedTime().toMillis())}.getOrNull()}.toList()
             }

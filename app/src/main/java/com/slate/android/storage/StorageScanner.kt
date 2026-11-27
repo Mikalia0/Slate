@@ -57,12 +57,15 @@ class StorageScanner {
         val context=currentCoroutineContext()
         if(isExcluded(directory,excluded)) return IndexedScan(Snapshot(directory,emptyList(),true),emptyMap())
         val protectedEntries=HashMap<File,ProtectedReadEntry>()
+        val nativeEntries=HashMap<File,NativeFileStat>()
         fun listChildren(dir:File):Array<File>?{
             val relative=if(protectedReader!=null)protectedRelative(dir)else null
             if(relative!=null){
                 val rows=runCatching{protectedReader!!.list(relative)}.getOrNull()?:return null
                 return rows.map{row->File(dir,row.name).also{protectedEntries[it]=row}}.toTypedArray()
             }
+            val native=if(protectedReader==null)NativeDirectory.list(dir)else null
+            if(native!=null)return native.map{row->row.file.also{nativeEntries[it]=row}}.toTypedArray()
             val normal=children(dir)?:return null
             // Some Android versions hide these directory entries even from their parent.
             return if(protectedReader!=null&&dir==File(android.os.Environment.getExternalStorageDirectory(),"Android"))
@@ -127,15 +130,16 @@ class StorageScanner {
             }
             val file=frame.children.next()
             val remote=protectedEntries.remove(file)
+            val native=nativeEntries.remove(file)
             if(isExcluded(file,excluded)) { frame.add(Entry(file,false,0,0,1)); continue }
             val protectedRoot=protectedReader!=null&&protectedRelative(file) in listOf("Android/data","Android/obb")
-            val attr=if(remote==null&&!protectedRoot)attributes(file)else null
-            val isDir=remote?.directory?: (protectedRoot||attr?.isDirectory==true)
-            val isRegular=remote?.let{it.readable&&!it.directory}?: (attr?.isRegularFile==true)
-            val modified=remote?.modified?:attr?.lastModifiedTime()?.toMillis()?:0L
+            val attr=if(remote==null&&native==null&&!protectedRoot)attributes(file)else null
+            val isDir=remote?.directory?: (protectedRoot||native?.isDirectory==true||attr?.isDirectory==true)
+            val isRegular=remote?.let{it.readable&&!it.directory}?: (native?.isRegularFile==true||attr?.isRegularFile==true)
+            val modified=remote?.modified?:native?.modified?:attr?.lastModifiedTime()?.toMillis()?:0L
             visited++;lastPath=file.path
             when {
-                remote?.readable==false || (!protectedRoot&&remote==null&&(attr==null||attr.isSymbolicLink)) -> frame.add(Entry(file,false,0,0,1))
+                remote?.readable==false || (!protectedRoot&&remote==null&&(native?.let{it.kind==0||it.isSymbolicLink}?: (attr==null||attr.isSymbolicLink))) -> frame.add(Entry(file,false,0,0,1))
                 isDir -> {
                     val list=listChildren(file)
                     if(list==null) {
@@ -144,7 +148,7 @@ class StorageScanner {
                     } else stack.addLast(Frame(file,list.iterator(),modified))
                 }
                 isRegular -> {
-                    val entry=Entry(file,false,remote?.size?:attr?.size()?:0L,1,0,modified)
+                    val entry=Entry(file,false,remote?.size?:native?.size?:attr?.size()?:0L,1,0,modified)
                     measured+=entry.bytes
                     frame.add(entry)
                     if(largest.size<100) largest.add(entry)
