@@ -87,7 +87,7 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val prefs = remember { getSharedPreferences("appearance", MODE_PRIVATE) }
             var mode by remember { mutableStateOf(runCatching { SlateTheme.valueOf(prefs.getString("theme","SYSTEM") ?: "SYSTEM") }.getOrDefault(SlateTheme.SYSTEM)) }
-            var palette by remember { mutableStateOf(migratePalette(prefs.getString("palette",null),prefs.getString("accent",null),prefs.getBoolean("dynamic",false))) }
+            var palette by remember { mutableStateOf(if(!prefs.getBoolean("setup",false)&&!prefs.contains("palette")&&!prefs.contains("accent")&&!prefs.contains("dynamic")&&Build.VERSION.SDK_INT>=31)SlatePalette.WALLPAPER else migratePalette(prefs.getString("palette",null),prefs.getString("accent",null),prefs.getBoolean("dynamic",false))) }
             var setup by remember { mutableStateOf(prefs.getBoolean("setup",false)) }
             val storageModel:StorageModel = viewModel()
             val history=storageModel.history
@@ -108,7 +108,7 @@ class MainActivity : AppCompatActivity() {
             val onPalette:(SlatePalette)->Unit={palette=it;prefs.edit().putString("palette",it.name).apply()}
             SlateAppearance(mode,palette,this@MainActivity) {
                 when {
-                    !setup -> Onboarding(granted,::requestStorage,mode,palette,onMode,onPalette,privilege,onPrivilege,rootAuthorized,{rootAuthorized=it}) { setup=true; prefs.edit().putBoolean("setup",true).apply() }
+                    !setup -> Onboarding(granted,::requestStorage,mode,palette,onMode,onPalette,privilege,onPrivilege,rootAuthorized,{rootAuthorized=it}) { setup=true; prefs.edit().putBoolean("setup",true).putString("theme",mode.name).putString("palette",palette.name).apply() }
                     settings -> {
                         BackHandler { settings=false }
                         Scaffold(contentWindowInsets=WindowInsets.safeDrawing) { padding ->

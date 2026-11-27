@@ -72,6 +72,9 @@ private fun staticScheme(palette:SlatePalette,dark:Boolean):ColorScheme{
         surfaceContainerLow=Color(t.low),surfaceContainer=Color(t.container),surfaceContainerHigh=Color(t.high),surfaceContainerHighest=Color(t.highest)
     )
 }
+internal fun themeUsesAmoled(mode:SlateTheme,systemDark:Boolean):Boolean =
+    mode==SlateTheme.AMOLED||(mode==SlateTheme.SYSTEM&&systemDark)
+
 private fun ColorScheme.amoled():ColorScheme=copy(
     background=Color.Black,surface=Color.Black,surfaceDim=Color.Black,surfaceContainerLowest=Color.Black,
     surfaceContainerLow=lerp(Color.Black,surfaceContainerLow,.45f),
@@ -90,7 +93,7 @@ private fun paletteScheme(palette:SlatePalette,dark:Boolean,amoled:Boolean=false
 @Composable
 internal fun SlateAppearance(mode:SlateTheme,palette:SlatePalette,activity:ComponentActivity,content:@Composable ()->Unit){
     val dark=when(mode){SlateTheme.SYSTEM->isSystemInDarkTheme();SlateTheme.LIGHT->false;else->true}
-    val colors=paletteScheme(palette,dark,mode==SlateTheme.AMOLED)
+    val colors=paletteScheme(palette,dark,themeUsesAmoled(mode,dark))
     SideEffect{
         val style=if(dark)SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)else SystemBarStyle.light(android.graphics.Color.TRANSPARENT,android.graphics.Color.TRANSPARENT)
         activity.enableEdgeToEdge(statusBarStyle=style,navigationBarStyle=style)
@@ -133,12 +136,13 @@ internal fun ThemeOptions(mode:SlateTheme,palette:SlatePalette,onMode:(SlateThem
                 }
             }
         }
+        if(mode==SlateTheme.SYSTEM)Text(stringResource(R.string.setup_system_amoled),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stringResource(R.string.palette_title),style=MaterialTheme.typography.titleSmall)
         SlatePalette.entries.filter{it!=SlatePalette.WALLPAPER}.chunked(2).forEach{row->
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
                 row.forEach{option->
                     val selected=palette==option
-                    val scheme=paletteScheme(option,dark,mode==SlateTheme.AMOLED)
+                    val scheme=paletteScheme(option,dark,themeUsesAmoled(mode,dark))
                     OutlinedCard(onClick={onPalette(option)},modifier=Modifier.weight(1f),
                         colors=CardDefaults.outlinedCardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer),
                         border=BorderStroke(if(selected)2.dp else 1.dp,if(selected)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)){
@@ -156,7 +160,7 @@ internal fun ThemeOptions(mode:SlateTheme,palette:SlatePalette,onMode:(SlateThem
         }
         if(Build.VERSION.SDK_INT>=31){
             val selected=palette==SlatePalette.WALLPAPER
-            val scheme=paletteScheme(SlatePalette.WALLPAPER,dark,mode==SlateTheme.AMOLED)
+            val scheme=paletteScheme(SlatePalette.WALLPAPER,dark,themeUsesAmoled(mode,dark))
             OutlinedCard(onClick={onPalette(SlatePalette.WALLPAPER)},modifier=Modifier.fillMaxWidth(),border=BorderStroke(if(selected)2.dp else 1.dp,if(selected)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)){
                 Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
                     Row(horizontalArrangement=Arrangement.spacedBy(3.dp)){
@@ -175,64 +179,134 @@ internal fun ThemeOptions(mode:SlateTheme,palette:SlatePalette,onMode:(SlateThem
 
 @Composable
 private fun SetupFeature(icon:Int,title:String,subtitle:String){
-    Row(Modifier.fillMaxWidth().padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)){
-        Surface(Modifier.size(46.dp),shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.secondaryContainer){
-            Box(contentAlignment=Alignment.Center){Icon(painterResource(icon),null,tint=MaterialTheme.colorScheme.onSecondaryContainer,modifier=Modifier.size(24.dp))}
+    Row(Modifier.fillMaxWidth().padding(vertical=7.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
+        Surface(Modifier.size(42.dp),shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.secondaryContainer){
+            Box(contentAlignment=Alignment.Center){Icon(painterResource(icon),null,tint=MaterialTheme.colorScheme.onSecondaryContainer,modifier=Modifier.size(22.dp))}
         }
-        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)){
-            Text(title,style=MaterialTheme.typography.titleMedium)
+        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)){
+            Text(title,style=MaterialTheme.typography.titleSmall)
             Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 @Composable
+private fun SetupTheme(mode:SlateTheme,palette:SlatePalette,onMode:(SlateTheme)->Unit,onPalette:(SlatePalette)->Unit){
+    val systemDark=isSystemInDarkTheme()
+    val dark=when(mode){SlateTheme.SYSTEM->systemDark;SlateTheme.LIGHT->false;else->true}
+    val scheme=paletteScheme(palette,dark,themeUsesAmoled(mode,systemDark))
+    Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)){
+        OutlinedCard(Modifier.fillMaxWidth(),colors=CardDefaults.outlinedCardColors(containerColor=MaterialTheme.colorScheme.surfaceContainerLow)){
+            Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                ThemePreview(scheme)
+                Text(stringResource(R.string.setup_live_preview),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Text(stringResource(R.string.palette_mode),style=MaterialTheme.typography.titleSmall)
+        SlateTheme.entries.chunked(2).forEach{options->
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                options.forEach{option->
+                    FilterChip(selected=option==mode,onClick={onMode(option)},label={Text(tr(option.label))},modifier=Modifier.weight(1f),leadingIcon=if(option==mode){{Icon(Icons.Default.Check,null,Modifier.size(16.dp))}}else null)
+                }
+            }
+        }
+        if(mode==SlateTheme.SYSTEM)Text(stringResource(R.string.setup_system_amoled),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.palette_title),style=MaterialTheme.typography.titleSmall)
+        SlatePalette.entries.filter{it!=SlatePalette.WALLPAPER||Build.VERSION.SDK_INT>=31}.chunked(2).forEach{options->
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                options.forEach{option->
+                    val preview=paletteScheme(option,dark,themeUsesAmoled(mode,systemDark))
+                    FilterChip(selected=option==palette,onClick={onPalette(option)},modifier=Modifier.weight(1f),label={Text(stringResource(option.label),maxLines=2)},leadingIcon={Box(Modifier.size(14.dp).background(preview.primary,CircleShape))})
+                }
+                if(options.size==1)Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
 internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,palette:SlatePalette,onMode:(SlateTheme)->Unit,onPalette:(SlatePalette)->Unit,privilege:PrivilegeMode,onPrivilege:(PrivilegeMode)->Unit,rootAuthorized:Boolean,onRootChanged:(Boolean)->Unit,finish:()->Unit){
     var page by androidx.compose.runtime.saveable.rememberSaveable{mutableIntStateOf(0)}
     BackHandler(page>0){page--}
-    Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing){padding->
-        Box(Modifier.fillMaxSize().padding(padding),contentAlignment=Alignment.TopCenter){
-            Column(Modifier.widthIn(max=520.dp).fillMaxSize().padding(horizontal=22.dp,vertical=10.dp)){
-                Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment=Alignment.CenterVertically){
-                    if(page>0)IconButton(onClick={page--}){Icon(Icons.Default.ArrowBack,tr("Back"))}
-                    else Image(painterResource(R.drawable.ic_slate),null,Modifier.size(34.dp))
-                    Spacer(Modifier.weight(1f))
-                    repeat(3){index->
-                        Box(Modifier.padding(horizontal=3.dp).width(if(index==page)23.dp else 7.dp).height(7.dp).background(if(index<=page)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,CircleShape))
-                    }
+    val title=when(page){0->tr("Welcome to Slate");1->tr("Permissions");else->tr("Make it yours")}
+    val subtitle=when(page){0->tr("Understand your storage and device in one place.");1->tr("Only grant the access needed for the tools you use.");else->tr("Choose your appearance. You can change it in Settings.")}
+    val hero:@Composable (Boolean)->Unit={wide->
+        Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(if(wide)10.dp else 12.dp)){
+            if(page==0){
+                Surface(Modifier.size(if(wide)68.dp else 84.dp),shape=MaterialTheme.shapes.extraLarge,color=MaterialTheme.colorScheme.surfaceContainer){
+                    Box(contentAlignment=Alignment.Center){Image(painterResource(R.drawable.ic_slate),null,Modifier.size(if(wide)48.dp else 60.dp))}
                 }
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(14.dp)){
-                    Spacer(Modifier.height(12.dp))
-                    when(page){
-                        0->{
-                            Image(painterResource(R.drawable.ic_slate),null,Modifier.size(88.dp))
-                            Text(tr("Welcome to Slate"),style=MaterialTheme.typography.headlineLarge)
-                            Text(tr("Understand your storage and device in one place."),style=MaterialTheme.typography.bodyLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                            HorizontalDivider(Modifier.padding(vertical=4.dp))
+            }
+            Text(title,style=if(wide)MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge)
+            Text(subtitle,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            if(page==0&&wide)Text(tr("Your files and measurements stay on your device."),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+        }
+    }
+    val body:@Composable (Boolean)->Unit={wide->
+        Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(10.dp)){
+            when(page){
+                0->{
+                    Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+                        Column(Modifier.padding(horizontal=14.dp,vertical=7.dp)){
                             SetupFeature(R.drawable.ic_device_storage,tr("Storage analyzer"),tr("Find large files and explore folders."))
+                            HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
                             SetupFeature(R.drawable.ic_device_cpu,tr("Device information"),tr("Hardware, battery, display and Android."))
+                            HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
                             SetupFeature(R.drawable.ic_storage_folder,stringResource(R.string.setup_files),stringResource(R.string.setup_files_desc))
-                            Text(tr("Your files and measurements stay on your device."),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
                         }
-                        1->{
-                            Text(tr("Permissions"),style=MaterialTheme.typography.headlineLarge)
-                            Text(tr("Only grant the access needed for the tools you use."),style=MaterialTheme.typography.bodyLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                            Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
-                                Column(Modifier.padding(8.dp)){
-                                    ListItem(headlineContent={Text(tr("Storage access"))},supportingContent={Text(tr(if(granted)"Granted"else"Required to scan shared files and folders."))},leadingContent={Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp))},trailingContent={if(granted)Icon(Icons.Default.Check,tr("Granted"),tint=MaterialTheme.colorScheme.primary)else TextButton(onClick=request){Text(tr("Allow"))}},colors=ListItemDefaults.colors(containerColor=MaterialTheme.colorScheme.surfaceContainer))
-
-                                }
+                    }
+                    if(!wide)Text(tr("Your files and measurements stay on your device."),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+                }
+                1->{
+                    OutlinedCard(Modifier.fillMaxWidth(),colors=CardDefaults.outlinedCardColors(containerColor=MaterialTheme.colorScheme.surfaceContainerLow)){
+                        Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
+                            Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(25.dp),tint=MaterialTheme.colorScheme.primary)
+                            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)){
+                                Text(tr("Storage access"),style=MaterialTheme.typography.titleSmall)
+                                Text(tr(if(granted)"Granted"else"Required to scan shared files and folders."),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            PrivilegeOptions(privilege,onPrivilege,rootAuthorized,onRootChanged)
-                            Text(tr("You can continue without storage access and enable it later."),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            if(granted)Icon(Icons.Default.Check,tr("Granted"),tint=MaterialTheme.colorScheme.primary)else FilledTonalButton(onClick=request){Text(tr("Allow"))}
                         }
-                        else->{
-                            Text(tr("Make it yours"),style=MaterialTheme.typography.headlineLarge)
-                            Text(tr("Choose your appearance. You can change it in Settings."),style=MaterialTheme.typography.bodyLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                            ThemeOptions(mode,palette,onMode,onPalette)
+                    }
+                    PrivilegeOptions(privilege,onPrivilege,rootAuthorized,onRootChanged)
+                    Text(tr("You can continue without storage access and enable it later."),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                else->SetupTheme(mode,palette,onMode,onPalette)
+            }
+        }
+    }
+    Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing){padding->
+        BoxWithConstraints(Modifier.fillMaxSize().padding(padding),contentAlignment=Alignment.TopCenter){
+            val wide=maxWidth>=640.dp&&maxWidth>maxHeight
+            val compact=maxHeight<440.dp
+            Column(Modifier.widthIn(max=if(wide)980.dp else 520.dp).fillMaxSize().padding(horizontal=if(compact)16.dp else 22.dp,vertical=if(compact)4.dp else 12.dp)){
+                Row(Modifier.fillMaxWidth().height(44.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                    if(page>0)IconButton(onClick={page--},modifier=Modifier.size(40.dp)){Icon(Icons.Default.ArrowBack,tr("Back"))}
+                    else Image(painterResource(R.drawable.ic_slate),null,Modifier.size(30.dp))
+                    Text("Slate",style=MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.weight(1f))
+                    Text(stringResource(R.string.setup_step,page+1,3),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Row(Modifier.fillMaxWidth().padding(bottom=if(compact)6.dp else 14.dp),horizontalArrangement=Arrangement.spacedBy(5.dp)){
+                    repeat(3){index->Box(Modifier.weight(1f).height(4.dp).background(if(index<=page)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,CircleShape))}
+                }
+                key(page,wide){
+                    if(wide){
+                        Row(Modifier.weight(1f).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(22.dp)){
+                            Column(Modifier.weight(.85f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(vertical=4.dp),verticalArrangement=Arrangement.Center){hero(true)}
+                            Column(Modifier.weight(1.15f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom=4.dp)){body(true)}
+                        }
+                    }else{
+                        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom=8.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
+                            hero(false);body(false)
                         }
                     }
                 }
-                Button(onClick={if(page==2)finish()else page++},modifier=Modifier.fillMaxWidth().padding(top=8.dp).height(52.dp)){Text(tr(if(page==2)"Finish setup"else"Continue"));Spacer(Modifier.width(8.dp));Icon(if(page==2)Icons.Default.Check else Icons.Default.KeyboardArrowRight,null)}
+                Row(Modifier.fillMaxWidth().padding(top=6.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
+                    if(page==2)TextButton(onClick=finish){Text(stringResource(R.string.setup_use_current))}
+                    Button(onClick={if(page==2)finish()else page++},modifier=Modifier.weight(1f).height(48.dp)){
+                        Text(tr(if(page==2)"Finish setup"else"Continue"));Spacer(Modifier.width(8.dp));Icon(if(page==2)Icons.Default.Check else Icons.Default.KeyboardArrowRight,null)
+                    }
+                }
             }
         }
     }

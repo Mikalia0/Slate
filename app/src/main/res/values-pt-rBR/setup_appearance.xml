@@ -1,0 +1,6 @@
+<resources>
+    <string name="setup_system_amoled">Segue o sistema: claro no modo claro e preto AMOLED no modo escuro.</string>
+    <string name="setup_live_preview">Prévia do tema</string>
+    <string name="setup_step">%1$d de %2$d</string>
+    <string name="setup_use_current">Usar tema atual</string>
+</resources>

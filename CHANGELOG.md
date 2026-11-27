@@ -1,3 +1,8 @@
+## Unreleased — First-run appearance
+
+- Refine the first-run flow with a compact live preview, step progress and adaptive landscape layout.
+- Follow system light/dark mode with AMOLED black in dark mode; use system wallpaper colors for new installations on Android 12+.
+
 ## Unreleased — Update delivery
 
 - Check a lightweight public update manifest instead of the GitHub REST releases API.
