@@ -146,21 +146,25 @@ internal suspend fun shareWithoutExif(context:Context,item:MediaItem){
     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="image/png";putExtra(Intent.EXTRA_STREAM,uri);clipData=ClipData.newRawUri("Photo",uri);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)},null))
 }
 internal fun galleryHashDistance(a:Long,b:Long)=java.lang.Long.bitCount(a xor b)
+private val galleryHashes=android.util.LruCache<String,String>(8192)
 internal suspend fun galleryDuplicates(context:Context,items:List<MediaItem>,similar:Boolean):Set<String>{
     val output=linkedSetOf<String>()
     if(!similar){
         val candidates=items.filter{it.bytes>0}.groupBy{it.bytes}.values.filter{it.size>1}
+        val buf=ByteArray(256*1024)
         for(group in candidates){
             val hashes=mutableMapOf<String,MutableList<String>>()
             for(item in group){
                 currentCoroutineContext().ensureActive()
+                val cacheKey=item.uri.toString()+":"+item.modified+":"+item.bytes
+                val cached=galleryHashes.get(cacheKey)
+                if(cached!=null){hashes.getOrPut(cached){mutableListOf()}.add(item.uri.toString());continue}
                 val digest=MessageDigest.getInstance("SHA-256")
                 try{
                     checkNotNull(context.contentResolver.openInputStream(item.uri)).use{input->
-                        val buf=ByteArray(65536)
                         while(true){currentCoroutineContext().ensureActive();val n=input.read(buf);if(n<0)break;digest.update(buf,0,n)}
                     }
-                    val key=digest.digest().joinToString(""){"%02x".format(it)}
+                    val key=com.slate.android.storage.hexDigest(digest.digest()).also{galleryHashes.put(cacheKey,it)}
                     hashes.getOrPut(key){mutableListOf()}.add(item.uri.toString())
                 }catch(e:kotlinx.coroutines.CancellationException){throw e}catch(_:Exception){}
             }

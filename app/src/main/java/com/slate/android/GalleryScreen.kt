@@ -116,7 +116,7 @@ private fun cachedThumbnail(context:Context,item:MediaItem,size:Int):Bitmap? {
     val key=thumbnailKey(item,size)
     thumbnails.get(key)?.let{return it}
     val folder=java.io.File(context.cacheDir,"gallery-thumbs").apply{mkdirs()}
-    val hash=java.security.MessageDigest.getInstance("SHA-256").digest(key.toByteArray()).joinToString(""){"%02x".format(it)}
+    val hash=com.slate.android.storage.hexDigest(java.security.MessageDigest.getInstance("SHA-256").digest(key.toByteArray()))
     val disk=java.io.File(folder,hash+".jpg")
     val cached=runCatching{android.graphics.BitmapFactory.decodeFile(disk.path)}.getOrNull()
     if(cached!=null){disk.setLastModified(System.currentTimeMillis());thumbnails.put(key,cached);return cached}
@@ -128,7 +128,7 @@ private fun cachedThumbnail(context:Context,item:MediaItem,size:Int):Bitmap? {
         finally{temp.delete()}
         synchronized(thumbnails){
             val now=android.os.SystemClock.elapsedRealtime()
-            if(now-lastThumbTrim>=5000||lastThumbTrim==0L){
+            if(now-lastThumbTrim>=60000||lastThumbTrim==0L){
                 lastThumbTrim=now
                 val files=folder.listFiles()?.filter{it.extension=="jpg"}.orEmpty().sortedBy{it.lastModified()}
                 var bytes=files.sumOf{it.length()}
@@ -148,7 +148,7 @@ private fun thumbnail(context:Context,item:MediaItem,size:Int):Bitmap?=runCatchi
 @Composable
 private fun MediaTile(item:MediaItem,modifier:Modifier=Modifier,thumbSize:Int=320,selected:Boolean=false,favorite:Boolean=false,selecting:Boolean=false,onLongClick:(()->Unit)?=null,onClick:()->Unit){
     val context=LocalContext.current
-    val bitmap by produceState<Bitmap?>(thumbnails.get(thumbnailKey(item,thumbSize)),item.uri,item.modified,item.bytes,thumbSize){value=thumbnailSlots.withPermit{withContext(Dispatchers.IO){cachedThumbnail(context,item,thumbSize)}}}
+    val bitmap by produceState<Bitmap?>(thumbnails.get(thumbnailKey(item,thumbSize)),item.uri,item.modified,item.bytes,thumbSize){value=thumbnails.get(thumbnailKey(item,thumbSize))?:thumbnailSlots.withPermit{withContext(Dispatchers.IO){cachedThumbnail(context,item,thumbSize)}}}
     Box(modifier.aspectRatio(1f).clip(RoundedCornerShape(3.dp)).combinedClickable(onClick=onClick,onLongClick=onLongClick),contentAlignment=Alignment.Center){
         val image=bitmap
         if(image!=null)Image(image.asImageBitmap(),item.name,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
@@ -400,12 +400,15 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit,onOpenFolder:(MediaI
         finally{loading=false}
     }
     BackHandler(preview!=null||selected.isNotEmpty()||bucket!=null||search||duplicateKeys!=null){when{preview!=null->preview=null;selected.isNotEmpty()->selected=emptySet();search->{search=false;query=""};duplicateKeys!=null->duplicateKeys=null;else->bucket=null}}
-    val visible=remember(media,bucket,filter,favorites,query,sort,hiddenAlbums,showHidden,duplicateKeys){val source=media.filter{(showHidden||it.bucket !in hiddenAlbums)&&(bucket==null||it.bucket==bucket)&&(duplicateKeys==null||it.uri.toString() in duplicateKeys.orEmpty())&&(query.isBlank()||it.name.contains(query,true)||it.folder.contains(query,true))&&when(filter){1->!it.video;2->it.video;3->it.uri.toString() in favorites;4->!it.video&&it.folder.contains("screenshot",true);5->it.video&&(it.folder.contains("screen",true)||it.name.contains("screenrecord",true));else->true}};when(sort){1->source.sortedBy{it.date};2->source.sortedByDescending{it.bytes};3->source.sortedBy{it.name.lowercase()};else->source.sortedByDescending{it.date}}}
-    val groups=remember(media,query,hiddenAlbums,showHidden,sort){val groups=media.filter{showHidden||it.bucket !in hiddenAlbums}.groupBy{it.bucket}.values.filter{group->query.isBlank()||group.any{it.folder.contains(query,true)||it.name.contains(query,true)}};when(sort){1->groups.sortedBy{it.first().date};2->groups.sortedByDescending{it.sumOf{m->m.bytes}};3->groups.sortedBy{it.first().folder.lowercase()};else->groups.sortedByDescending{it.first().date}}}
+    val visible by produceState<List<MediaItem>>(emptyList(),media,bucket,filter,favorites,query,sort,hiddenAlbums,showHidden,duplicateKeys){
+        val sourceMedia=media
+        value=withContext(Dispatchers.Default){val source=sourceMedia.filter{(showHidden||it.bucket !in hiddenAlbums)&&(bucket==null||it.bucket==bucket)&&(duplicateKeys==null||it.uri.toString() in duplicateKeys.orEmpty())&&(query.isBlank()||it.name.contains(query,true)||it.folder.contains(query,true))&&when(filter){1->!it.video;2->it.video;3->it.uri.toString() in favorites;4->!it.video&&it.folder.contains("screenshot",true);5->it.video&&(it.folder.contains("screen",true)||it.name.contains("screenrecord",true));else->true}};when(sort){1->source.sortedBy{it.date};2->source.sortedByDescending{it.bytes};3->source.sortedBy{it.name.lowercase()};else->source}}
+    }
+    val groups by produceState<List<List<MediaItem>>>(emptyList(),media,query,hiddenAlbums,showHidden,sort){value=withContext(Dispatchers.Default){val groups=media.filter{showHidden||it.bucket !in hiddenAlbums}.groupBy{it.bucket}.values.filter{group->query.isBlank()||group.any{it.folder.contains(query,true)||it.name.contains(query,true)}};when(sort){1->groups.sortedBy{it.first().date};2->groups.sortedByDescending{it.sumOf{m->m.bytes}};3->groups.sortedBy{it.first().folder.lowercase()};else->groups.sortedByDescending{it.first().date}}}}
     val allLabel=stringResource(R.string.gallery_all)
     val todayLabel=stringResource(R.string.gallery_today)
     val yesterdayLabel=stringResource(R.string.gallery_yesterday)
-    val days=remember(visible,sort,allLabel,todayLabel,yesterdayLabel){val format=DateFormat.getDateInstance();val now=java.util.Calendar.getInstance();val today=format.format(now.time);now.add(java.util.Calendar.DAY_OF_YEAR,-1);val yesterday=format.format(now.time);if(sort>=2)mapOf(allLabel to visible)else visible.groupBy{val day=format.format(Date(it.date*1000));when(day){today->todayLabel;yesterday->yesterdayLabel;else->day}}}
+    val days by produceState<Map<String,List<MediaItem>>>(emptyMap(),visible,sort,allLabel,todayLabel,yesterdayLabel){value=withContext(Dispatchers.Default){val format=DateFormat.getDateInstance();val now=java.util.Calendar.getInstance();val today=format.format(now.time);now.add(java.util.Calendar.DAY_OF_YEAR,-1);val yesterday=format.format(now.time);if(sort>=2)mapOf(allLabel to visible)else visible.groupBy{val day=format.format(Date(it.date*1000));when(day){today->todayLabel;yesterday->yesterdayLabel;else->day}}}}
     val scrollAnchors=remember(albumGrid,groups,days,currentColumns){
         galleryRowAnchors(if(albumGrid)listOf(groups.size)else days.values.map{it.size},currentColumns,!albumGrid)
     }

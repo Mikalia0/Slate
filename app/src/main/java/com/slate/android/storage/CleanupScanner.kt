@@ -50,7 +50,15 @@ internal suspend fun findCleanup(root:File,kind:CleanupKind,excluded:Set<String>
         outer@for((size,files) in candidates.entries.sortedByDescending{it.key}){
             if(files.size<2)continue
             val groups=HashMap<String,MutableList<CleanupItem>>()
-            for(item in files) {
+            val sampled=HashMap<String,MutableList<CleanupItem>>()
+            for(item in files){
+                context.ensureActive()
+                val sample=try{sampleFile(item.file,size)}catch(e:kotlinx.coroutines.CancellationException){throw e}catch(_:Exception){continue}
+                sampled.getOrPut(sample){ArrayList()}.add(item)
+            }
+            for(candidates in sampled.values){if(candidates.size<2)continue
+            for(item in candidates) {
+                if(item.file.length()!=item.bytes||item.file.lastModified()!=item.modified)continue
                 context.ensureActive()
                 if(size>2L*1024*1024*1024-bytesHashed){limited=true;break@outer}
                 val digest=MessageDigest.getInstance("SHA-256")
@@ -67,9 +75,10 @@ internal suspend fun findCleanup(root:File,kind:CleanupKind,excluded:Set<String>
                     }
                     if(bytesHashed>2L*1024*1024*1024){limited=true;break@outer}
                     if(item.file.length()!=item.bytes || item.file.lastModified()!=item.modified)continue
-                    digest.digest().joinToString(""){"%02x".format(it.toInt() and 255)}
+                    hexDigest(digest.digest())
                 }catch(e:kotlinx.coroutines.CancellationException){throw e}catch(_:Exception){continue}
                 groups.getOrPut(hash){ArrayList()}.add(item)
+            }
             }
             groups.values.filter{it.size>1}.forEach{group->results.addAll(group.map{it.copy(group=group.first().file.path)})}
             if(results.size>=5000){limited=true;break}
