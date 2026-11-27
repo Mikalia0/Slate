@@ -75,6 +75,7 @@ internal fun LiveSensors(){
 @Composable
 internal fun DeviceTests(onBack:()->Unit){
     var mode by remember{mutableIntStateOf(0)}
+    if(mode==4){VulkanDiagnosticsScreen(onBack={mode=0},initialTab=3);return}
     var color by remember{mutableIntStateOf(0)}
     val colors=listOf(Color.Red,Color.Green,Color.Blue,Color.White,Color.Black)
     val points=remember{mutableStateListOf<Offset>()}
@@ -87,7 +88,7 @@ internal fun DeviceTests(onBack:()->Unit){
         }
         when(mode){
             0->Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                listOf("Display colors","Touch response","Live sensors").forEachIndexed{i,label->
+                listOf("Display colors","Touch response","Live sensors",vkText("GPU Vulkan tests","Testes Vulkan da GPU")).forEachIndexed{i,label->
                     Card(onClick={mode=i+1},modifier=Modifier.fillMaxWidth()){
                         ListItem(headlineContent={Text(label)})
                     }

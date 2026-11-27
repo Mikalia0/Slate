@@ -94,6 +94,8 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
     val scope=rememberCoroutineScope()
     val pageState=rememberSaveableStateHolder()
     var testMode by rememberSaveable{mutableStateOf(false)}
+    var vulkanMode by rememberSaveable{mutableStateOf(false)}
+    if(vulkanMode){VulkanDiagnosticsScreen(onBack={vulkanMode=false});return}
     if(testMode){DeviceTests(onBack={testMode=false});return}
     fun select(page:Int){scope.launch{if(kotlin.math.abs(page-pager.currentPage)==1) pager.animateScrollToPage(page,animationSpec=tween(160)) else pager.scrollToPage(page)}}
     Column(Modifier.fillMaxSize().padding(horizontal=14.dp)) {
@@ -132,6 +134,7 @@ internal fun DeviceScreen(onBack:()->Unit, status:DeviceStatus, initialPage:Int=
                         1 -> {
                             item(key="processor"){ProcessorPanel(processor,live?.cores.orEmpty())}
                             item(key="graphics"){GraphicsPanel(graphics,live?.gpu)}
+                            item(key="vulkan"){Card(onClick={vulkanMode=true},modifier=Modifier.fillMaxWidth()){ListItem(headlineContent={Text(vkText("Vulkan information","Informações Vulkan"))},supportingContent={Text(vkText("Drivers, capabilities and benchmarks","Drivers, capacidades e benchmarks"))},leadingContent={DeviceGlyph(R.drawable.ic_device_cpu)})}}
                             item(key="memory"){MemoryPanel(live?.memory,live?.meters?.firstOrNull{it.title=="Memory"})}
                             item(key="display"){DisplayPanel(display,live?.display)}
                             live?.thermal?.let{thermal->item(key="thermal"){ThermalPanel(thermal)}}
