@@ -53,6 +53,12 @@ jobs:
             rm -rf "$root"
             bash scripts/build-sevenzip.sh
           fi
+      - name: Prepare Vulkan diagnostics dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v glslangValidator >/dev/null; then sudo apt-get update -qq; sudo apt-get install -y glslang-tools; fi
+          bash scripts/prepare-adrenotools.sh
       - name: Check signing configuration
         env:
           SLATE_KEYSTORE_BASE64: ${{ secrets.SLATE_KEYSTORE_BASE64 }}

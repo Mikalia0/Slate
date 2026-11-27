@@ -48,6 +48,7 @@ android {
     packaging { jniLibs.useLegacyPackaging = true }
     sourceSets.getByName("main").jniLibs.srcDir(layout.buildDirectory.dir("generated/sevenzip/jniLibs"))
     sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/sevenzip/assets"))
+    sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/adrenotools/assets"))
     buildFeatures { compose = true; aidl = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
