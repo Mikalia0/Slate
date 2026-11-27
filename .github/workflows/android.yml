@@ -85,22 +85,15 @@ jobs:
           if ! gh release view "$stable" >/dev/null 2>&1; then
             tag="$stable"
             gh release create "$stable" Slate.apk changelog.txt \
-              --target "$GITHUB_SHA" --title "Slate $stable" --latest --notes-file release-notes.md
+              --target "$GITHUB_SHA" --title "Slate $stable" --latest=false --notes-file release-notes.md
           else
             tag="dev-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
             gh release create "$tag" Slate.apk changelog.txt \
               --target "$GITHUB_SHA" --title "Slate $version · Build ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
-              --prerelease --latest=false --notes-file release-notes.md
+              --latest=false --notes-file release-notes.md
           fi
           bash scripts/publish-update-manifest.sh "$tag" "$code"
-      - name: Organize historical development releases
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq '.[] | select(.tag_name | startswith("dev-")) | select(.draft == false and .prerelease == false) | .tag_name' |
-          while IFS= read -r tag; do
-            gh release edit "$tag" --prerelease --latest=false
-          done
+          # The update feed rejects older builds; use its selected release for Latest.
+          git fetch --no-tags origin refs/heads/updates
+          latest_tag="$(git show FETCH_HEAD:update.json | jq -er '.tag')"
+          gh release edit "$latest_tag" --prerelease=false --latest
