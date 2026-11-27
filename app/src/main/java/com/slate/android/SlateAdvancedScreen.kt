@@ -38,6 +38,9 @@ import java.util.Locale
     var input by remember(localFile){mutableStateOf<InputFile?>(InputFile(localFile.name,localFile))}
     var busy by remember{mutableStateOf(false)}
     var status by remember{mutableStateOf<String?>(null)}
+    var operationTitle by remember{mutableStateOf<String?>(null)}
+    var stage by remember{mutableStateOf(ApkWorkStage.PREPARING)}
+    var failed by remember{mutableStateOf(false)}
     var manifest by remember{mutableStateOf<ManifestInfo?>(null)}
     var hex by remember{mutableStateOf<String?>(null)}
     var label by remember{mutableStateOf("")}
@@ -47,7 +50,7 @@ import java.util.Locale
     var tab by remember{mutableIntStateOf(0)}
     fun load(uri:Uri){
         scope.launch{
-            busy=true;status=null;manifest=null;hex=null;tab=0
+            busy=true;status=null;manifest=null;hex=null;tab=0;operationTitle=tr("Open file","Abrir arquivo");stage=ApkWorkStage.READING;failed=false
             try{
                 val next=withContext(Dispatchers.IO){stageInput(context,uri)}
                 input?.file?.takeIf{it!=localFile}?.delete();input=next
@@ -55,48 +58,48 @@ import java.util.Locale
                     manifest=withContext(Dispatchers.IO){readManifest(next)}
                     label="";version=manifest?.version.orEmpty();code=manifest?.code.orEmpty()
                 }
-            }catch(e:CancellationException){throw e}catch(e:Exception){status=e.message?:tr("Unable to open file","Não foi possível abrir o arquivo")}
-            finally{busy=false}
+            }catch(e:CancellationException){throw e}catch(e:Exception){failed=true;status=e.message?:tr("Unable to open file","Não foi possível abrir o arquivo")}
+            finally{busy=false;if(!failed)operationTitle=null}
         }
     }
     val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){it?.let{load(it)}}
     val extract=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()){uri->
         val source=input
         if(uri!=null&&source!=null)scope.launch{
-            busy=true;status=null
+            busy=true;status=null;operationTitle=tr("Extract files","Extrair arquivos");stage=ApkWorkStage.EXTRACTING;failed=false
             try{val folder=withContext(Dispatchers.IO){extractAdvanced(context,source,uri)};status=tr("Extracted: ","Extraído: ")+folder}
-            catch(e:CancellationException){throw e}catch(e:Exception){status=tr("Extraction failed. ","Falha na extração. ")+(e.message.orEmpty())}
+            catch(e:CancellationException){throw e}catch(e:Exception){failed=true;status=tr("Extraction failed. ","Falha na extração. ")+(e.message.orEmpty())}
             finally{busy=false}
         }
     }
     val save=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.android.package-archive")){uri->
         val source=input
         if(uri!=null&&source!=null)scope.launch{
-            busy=true;status=null
-            try{withContext(Dispatchers.IO){editManifest(context,source,uri,label,version,code,autoSign)};status=if(autoSign)tr("Signed copy saved.","Cópia assinada salva.")else tr("Unsigned copy saved.","Cópia sem assinatura salva.")}
-            catch(e:CancellationException){throw e}catch(e:Exception){status=tr("Editing failed. ","Falha na edição. ")+e.message.orEmpty()}
+            busy=true;status=null;operationTitle=tr("Edit APK","Editar APK");stage=ApkWorkStage.PREPARING;failed=false
+            try{withContext(Dispatchers.IO){editManifest(context,source,uri,label,version,code,autoSign){stage=it}};status=if(autoSign)tr("Signed copy saved.","Cópia assinada salva.")else tr("Unsigned copy saved.","Cópia sem assinatura salva.")}
+            catch(e:CancellationException){throw e}catch(e:Exception){failed=true;status=tr("Editing failed. ","Falha na edição. ")+e.message.orEmpty()}
             finally{busy=false}
         }
     }
     LaunchedEffect(localFile){
         if(localFile.extension.equals("apk",true)){
-            busy=true
+            busy=true;operationTitle=tr("Read manifest","Ler manifesto");stage=ApkWorkStage.READING;failed=false
             try{manifest=withContext(Dispatchers.IO){readManifest(InputFile(localFile.name,localFile))};version=manifest?.version.orEmpty();code=manifest?.code.orEmpty()}
-            catch(e:CancellationException){throw e}catch(e:Exception){status=e.message?:tr("Unable to open file","Não foi possível abrir o arquivo")}
-            finally{busy=false}
+            catch(e:CancellationException){throw e}catch(e:Exception){failed=true;status=e.message?:tr("Unable to open file","Não foi possível abrir o arquivo")}
+            finally{busy=false;if(!failed)operationTitle=null}
         }
     }
     val current by rememberUpdatedState(input)
     DisposableEffect(Unit){onDispose{current?.file?.takeIf{it!=localFile}?.delete()}}
     androidx.activity.compose.BackHandler(busy){}
+    operationTitle?.let{title->ApkOperationDialog(title,input?.name?:localFile.name,stage,if(busy)null else status,failed,onClose={operationTitle=null;status=null})}
     Column(Modifier.fillMaxSize()){
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick=close,enabled=!busy){Icon(Icons.Default.ArrowBack,tr("Back","Voltar"))}
             Text(tr("Advanced tools","Ferramentas avançadas"),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
             TextButton(enabled=!busy,onClick={picker.launch(arrayOf("*/*"))}){Text(tr("Open","Abrir"))}
         }
-        if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
-        status?.let{Surface(color=MaterialTheme.colorScheme.secondaryContainer,shape=MaterialTheme.shapes.medium,modifier=Modifier.padding(12.dp)){Text(it,Modifier.padding(12.dp),style=MaterialTheme.typography.bodyMedium)}}
+        if(operationTitle==null)status?.let{Surface(color=MaterialTheme.colorScheme.secondaryContainer,shape=MaterialTheme.shapes.medium,modifier=Modifier.padding(12.dp)){Text(it,Modifier.padding(12.dp),style=MaterialTheme.typography.bodyMedium)}}
         val source=input
         if(source==null){
             Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){

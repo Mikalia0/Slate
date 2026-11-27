@@ -13,7 +13,7 @@ import java.util.zip.ZipFile
  * The input is never changed. The output must be signed by its owner.
  */
 @Suppress("DEPRECATION")
-internal fun injectExternalDocumentsProvider(context:Context,root:File,file:File,autoSign:Boolean=true):File{
+internal fun injectExternalDocumentsProvider(context:Context,root:File,file:File,autoSign:Boolean=true,progress:(ApkWorkStage)->Unit={}):File{
     require(safeFile(root,file)&&file.isFile&&!com.slate.android.storage.protectedAppPath(file.toPath()))
     val parent=checkNotNull(file.parentFile)
     require(safeFile(root,parent)&&parent.canWrite())
@@ -33,7 +33,9 @@ internal fun injectExternalDocumentsProvider(context:Context,root:File,file:File
     val tmp=Files.createTempFile(parent.toPath(),".slate-provider-",".apk").toFile()
     var signed:File?=null
     try{
+        progress(ApkWorkStage.READING)
         val module=ApkModule.loadApkFile(file)
+        progress(ApkWorkStage.EDITING)
         try{
             val manifest=checkNotNull(module.androidManifest)
             val application=checkNotNull(manifest.applicationElement)
@@ -48,13 +50,15 @@ internal fun injectExternalDocumentsProvider(context:Context,root:File,file:File
             module.add(ByteInputSource(payload,dexName))
             entries.filter{it.uppercase().let{n->n.startsWith("META-INF/")&&(n.endsWith(".SF")||n.endsWith(".RSA")||n.endsWith(".DSA")||n.endsWith(".EC")||n=="META-INF/MANIFEST.MF")}}.forEach{module.removeInputSource(it)}
             module.setApkSignatureBlock(null)
+            progress(ApkWorkStage.REBUILDING)
             module.writeApk(tmp)
         }finally{module.close()}
         val updated=checkNotNull(context.packageManager.getPackageArchiveInfo(tmp.path,PackageManager.GET_PROVIDERS))
         require(updated.packageName==info.packageName&&updated.providers.orEmpty().any{it.authority==authority&&it.permissionIsDocumentsProvider()})
         ZipFile(tmp).use{require(it.getEntry(dexName)!=null)}
-        val output=signEditedApk(context,file,tmp,autoSign)
+        val output=signEditedApk(context,file,tmp,autoSign,progress)
         if(output!=tmp)signed=output
+        progress(ApkWorkStage.SAVING)
         return publishApkCopy(output,parent,file.nameWithoutExtension+"-documents")
     }finally{tmp.delete();signed?.delete()}
 }

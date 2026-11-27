@@ -57,21 +57,24 @@ private data class ArchiveItem(val name:String,val bytes:Long,val directory:Bool
     var folderName by remember{mutableStateOf("")}
     val list=entries?.getOrNull()
     val editable=list!=null&&list.size<=100000&&file.canWrite()&&file.parentFile?.canWrite()==true
-    fun runTask(action:suspend ()->Unit){
+    var operationTitle by remember{mutableStateOf<String?>(null)}
+    var stage by remember{mutableStateOf(ApkWorkStage.PREPARING)}
+    var failed by remember{mutableStateOf(false)}
+    fun runTask(title:String,initialStage:ApkWorkStage=ApkWorkStage.PREPARING,showResult:Boolean=true,action:suspend ()->Unit){
         if(busy)return
-        busy=true;status=null
+        busy=true;status=null;operationTitle=title;stage=initialStage;failed=false
         scope.launch{
-            try{action()}catch(e:CancellationException){throw e}catch(e:Exception){status=t("Operation failed: ","Falha na operação: ")+(e.message?:t("Unknown error","Erro desconhecido"))}
-            finally{busy=false}
+            try{action()}catch(e:CancellationException){throw e}catch(e:Exception){failed=true;status=t("Operation failed: ","Falha na operação: ")+(e.message?:t("Unknown error","Erro desconhecido"))}
+            finally{busy=false;if(!showResult&&!failed)operationTitle=null else if(status==null)status=t("Completed","Concluído")}
         }
     }
     val export=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")){uri->
         val name=exportTarget;exportTarget=null
-        if(uri!=null&&name!=null)runTask{withContext(Dispatchers.IO){copyArchiveEntry(context,file,name,uri)};status=t("File copied","Arquivo copiado")}
+        if(uri!=null&&name!=null)runTask(t("Copy file","Copiar arquivo"),ApkWorkStage.COPYING){withContext(Dispatchers.IO){copyArchiveEntry(context,file,name,uri)};status=t("File copied","Arquivo copiado")}
     }
     val importer=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
         val target=importTarget;importTarget=null
-        if(uri!=null)runTask{
+        if(uri!=null)runTask(t("Reading file","Lendo arquivo"),ApkWorkStage.READING,showResult=false){
             val name=withContext(Dispatchers.IO){displayName(context,uri)}
             if(target!=null)pending=ZipChange(target.name,target.name,source=uri)
             else {
@@ -99,11 +102,11 @@ private data class ArchiveItem(val name:String,val bytes:Long,val directory:Bool
                 }
             }
             FilledTonalButton(enabled=!busy&&list!=null,onClick={
-                runTask{val dest=withContext(Dispatchers.IO){extractSlateZip(root,file)};status=context.getString(R.string.slate_created,dest.name)}
+                runTask(t("Extract archive","Extrair arquivo"),ApkWorkStage.EXTRACTING){val dest=withContext(Dispatchers.IO){extractSlateZip(root,file)};status=context.getString(R.string.slate_created,dest.name)}
             }){Text(stringResource(R.string.archive_extract))}
         }
-        if(busy||entries==null)LinearProgressIndicator(Modifier.fillMaxWidth())
-        status?.let{Text(it,Modifier.padding(horizontal=12.dp,vertical=5.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.primary)}
+        if(entries==null&&!busy)LinearProgressIndicator(Modifier.fillMaxWidth())
+        if(operationTitle==null)status?.let{Text(it,Modifier.padding(horizontal=12.dp,vertical=5.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.primary)}
         if(entries!=null&&list==null)Text(stringResource(R.string.browser_preview_error),Modifier.padding(16.dp))
         if(list!=null){
             val children=remember(list,path){
@@ -134,7 +137,7 @@ private data class ArchiveItem(val name:String,val bytes:Long,val directory:Bool
                     TextButton(onClick={selected=null;exportTarget=entry.name;export.launch(entry.name.substringAfterLast('/'))}){Text(t("Copy out…","Copiar para…"))}
                     if(editable){
                         TextButton(onClick={selected=null;importTarget=entry;importer.launch(arrayOf("*/*"))}){Text(t("Replace with file…","Substituir por arquivo…"))}
-                        if(entry.bytes in 0..1048576)TextButton(onClick={selected=null;runTask{
+                        if(entry.bytes in 0..1048576)TextButton(onClick={selected=null;runTask(t("Read text","Ler texto"),ApkWorkStage.READING,showResult=false){
                             editText=withContext(Dispatchers.IO){readArchiveText(file,entry.name)}
                             editTarget=entry.name
                         }}){Text(t("Edit as UTF-8 text","Editar como texto UTF-8"))}
@@ -163,6 +166,7 @@ private data class ArchiveItem(val name:String,val bytes:Long,val directory:Bool
     if(newFolder)AlertDialog(onDismissRequest={newFolder=false},title={Text(t("New folder","Nova pasta"))},text={OutlinedTextField(folderName,{folderName=it},singleLine=true)},confirmButton={
         TextButton(enabled=folderName.isNotBlank()&&folderName !in listOf(".","..")&&!folderName.contains('/')&&!folderName.contains('\\'),onClick={newFolder=false;pending=ZipChange(null,path+folderName+"/")}){Text(t("Create","Criar"))}
     },dismissButton={TextButton(onClick={newFolder=false}){Text(tr("Cancel"))}})
+    operationTitle?.let{title->ApkOperationDialog(title,file.name,stage,if(busy)null else status,failed,onClose={operationTitle=null;status=null})}
     pending?.let{change->
         var autoSign by remember(change){mutableStateOf(true)}
         AlertDialog(onDismissRequest={pending=null},title={Text(if(apk)t("Save modified APK copy","Salvar cópia modificada")else t("Update archive","Atualizar arquivo compactado"))},text={
@@ -170,8 +174,8 @@ private data class ArchiveItem(val name:String,val bytes:Long,val directory:Bool
                 Text(if(apk)t("A separate APK copy will be created.","Uma cópia separada do APK será criada.")else t("The archive will be rebuilt and replaced only after successful completion.","O arquivo será reconstruído e substituído somente após a conclusão com sucesso."))
                 if(apk)ApkAutoSignToggle(autoSign,{autoSign=it})
             }
-        },confirmButton={TextButton(onClick={pending=null;runTask{
-            val dest=withContext(Dispatchers.IO){rewriteSlateZip(context,root,file,change,autoSign)}
+        },confirmButton={TextButton(onClick={pending=null;runTask(if(apk)t("Modify APK","Modificar APK")else t("Update archive","Atualizar arquivo"),ApkWorkStage.REBUILDING){
+            val dest=withContext(Dispatchers.IO){rewriteSlateZip(context,root,file,change,autoSign){stage=it}}
             MediaScannerConnection.scanFile(context,arrayOf(dest.path),null,null)
             revision++;status=context.getString(R.string.slate_created,dest.name)
         }}){Text(t("Apply","Aplicar"))}},dismissButton={TextButton(onClick={pending=null}){Text(tr("Cancel"))}})

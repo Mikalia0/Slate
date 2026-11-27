@@ -44,14 +44,16 @@ internal fun readManifest(input:InputFile):ManifestInfo{
         return ManifestInfo(m.serializeToXml(),"",m.versionName.orEmpty(),m.versionCode?.toString().orEmpty())
     }finally{apk.close()}
 }
-internal fun editManifest(context:Context,input:InputFile,destination:Uri,label:String,version:String,code:String,autoSign:Boolean=true){
+internal fun editManifest(context:Context,input:InputFile,destination:Uri,label:String,version:String,code:String,autoSign:Boolean=true,progress:(ApkWorkStage)->Unit={}){
     require(label.length<=200&&version.length<=100)
     val number=code.toIntOrNull()?.also{require(it>0)}
     require(code.isBlank()||number!=null)
     val tmp=File.createTempFile("edited-",".apk",context.cacheDir)
     var signed:File?=null
     try{
+        progress(ApkWorkStage.READING)
         val apk=ApkModule.loadApkFile(input.file)
+        progress(ApkWorkStage.EDITING)
         try{
             val manifest=checkNotNull(apk.androidManifest)
             if(label.isNotBlank())manifest.setApplicationLabel(label)
@@ -59,10 +61,12 @@ internal fun editManifest(context:Context,input:InputFile,destination:Uri,label:
             if(number!=null)manifest.setVersionCode(number)
             java.util.zip.ZipFile(input.file).use{zip->zip.entries().asSequence().map{it.name}.filter{it.uppercase(java.util.Locale.ROOT).let{n->n.startsWith("META-INF/")&&(n.endsWith(".SF")||n.endsWith(".RSA")||n.endsWith(".DSA")||n.endsWith(".EC")||n=="META-INF/MANIFEST.MF")}}.toList().forEach{apk.removeInputSource(it)}}
             apk.setApkSignatureBlock(null)
+            progress(ApkWorkStage.REBUILDING)
             apk.writeApk(tmp)
         }finally{apk.close()}
-        val output=signEditedApk(context,input.file,tmp,autoSign)
+        val output=signEditedApk(context,input.file,tmp,autoSign,progress)
         if(output!=tmp)signed=output
+        progress(ApkWorkStage.SAVING)
         checkNotNull(context.contentResolver.openOutputStream(destination,"wt")).use{out->output.inputStream().use{it.copyTo(out)}}
     }finally{tmp.delete();signed?.delete()}
 }

@@ -162,6 +162,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     var viewer by remember{mutableStateOf<File?>(null)}
     var properties by remember{mutableStateOf<FileRow?>(null)}
     var handler by remember{mutableStateOf<File?>(null)}
+    var directApk by remember{mutableStateOf<Pair<File,Int>?>(null)}
     var toolsScreen by remember{mutableStateOf(false)}
     var viewerTab by remember{mutableIntStateOf(0)}
     var actionMenu by remember{mutableStateOf(false)}
@@ -566,13 +567,18 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     }
     handler?.let{file->
         if(file.extension.equals("apk",true)&&canViewSlateFile(root,file)){
-            SlateApkActions(root,file,onClose={handler=null},onInspect={tabIndex->handler=null;viewerTab=tabIndex;viewer=file})
+            SlateApkActions(root,file,onClose={handler=null},onInspect={tabIndex->handler=null;if(tabIndex>=3)directApk=file to tabIndex else{viewerTab=tabIndex;viewer=file}})
         }else AlertDialog(onDismissRequest={handler=null},title={Text(stringResource(R.string.browser_open_with))},text={
             Column{
                 if(canViewSlateFile(root,file))TextButton(onClick={handler=null;viewerTab=0;viewer=file}){Text(stringResource(R.string.browser_internal))}
                 TextButton(onClick={handler=null;openSharedFile(context,root,file,false)}){Text(stringResource(R.string.browser_external))}
             }
         },confirmButton={TextButton(onClick={handler=null}){Text(tr("Close"))}})
+    }
+    directApk?.let{(file,tabIndex)->
+        key(file.path,tabIndex){
+            SlateApkScreen(root,file,external={openSharedFile(context,root,file,false)},initialTab=tabIndex,directOnly=true,onClose={directApk=null;revision++;catalogRevision++;onChanged()})
+        }
     }
     if(sorting)AlertDialog(onDismissRequest={sorting=false},title={Text(stringResource(R.string.file_sort))},text={
         Column{

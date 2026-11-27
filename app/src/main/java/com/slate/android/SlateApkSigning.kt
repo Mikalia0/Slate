@@ -100,24 +100,27 @@ private fun signerConfig(options:ApkSignOptions):ApkSigner.SignerConfig=synchron
     val chain=checkNotNull(store.getCertificateChain(options.key)).map{it as X509Certificate}
     ApkSigner.SignerConfig.Builder(options.v1Name,key,chain).build()
 }
-internal fun signApkTo(input:File,output:File,options:ApkSignOptions){
+internal fun signApkTo(input:File,output:File,options:ApkSignOptions,progress:(ApkWorkStage)->Unit={}){
+    progress(ApkWorkStage.SIGNING)
     require(input.canonicalFile!=output.canonicalFile)
     val scheme=options.scheme
     ApkSigner.Builder(listOf(signerConfig(options))).setInputApk(input).setOutputApk(output)
         .setV1SigningEnabled(scheme.v1).setV2SigningEnabled(scheme.v2).setV3SigningEnabled(scheme.v3).build().sign()
+    progress(ApkWorkStage.VERIFYING)
     val verified=ApkVerifier.Builder(output).build().verify()
     // Verification checks the schemes required for the APK SDK range; redundant schemes may not be evaluated.
     require(verified.isVerified){
         "APK signature verification failed; select a scheme supported by the APK"
     }
 }
-internal fun signSlateApk(root:File,file:File,options:ApkSignOptions):File{
+internal fun signSlateApk(root:File,file:File,options:ApkSignOptions,progress:(ApkWorkStage)->Unit={}):File{
     require(safeFile(root,file)&&file.isFile&&!com.slate.android.storage.protectedAppPath(file.toPath()))
     val parent=checkNotNull(file.parentFile)
     require(safeFile(root,parent)&&parent.canWrite())
     val tmp=Files.createTempFile(parent.toPath(),".slate-sign-",".apk").toFile()
     try{
-        signApkTo(file,tmp,options)
+        signApkTo(file,tmp,options,progress)
+        progress(ApkWorkStage.SAVING)
         return publishApkCopy(tmp,parent,file.nameWithoutExtension+"-signed")
     }finally{tmp.delete()}
 }
@@ -128,9 +131,9 @@ internal fun publishApkCopy(staged:File,parent:File,name:String):File{
     }
     error("No available APK name")
 }
-internal fun signEditedApk(context:Context,source:File,staged:File,enabled:Boolean):File{
+internal fun signEditedApk(context:Context,source:File,staged:File,enabled:Boolean,progress:(ApkWorkStage)->Unit={}):File{
     if(!enabled)return staged
     val options=apkSignOptions(context,apkPackage(context,source))
     val signed=Files.createTempFile(checkNotNull(staged.parentFile).toPath(),".slate-auto-sign-",".apk").toFile()
-    try{signApkTo(staged,signed,options);return signed}catch(e:Throwable){signed.delete();throw e}
+    try{signApkTo(staged,signed,options,progress);return signed}catch(e:Throwable){signed.delete();throw e}
 }

@@ -32,11 +32,12 @@ private fun cloneOwnedName(value:String,old:String,new:String):String =
     if(value==old||value.startsWith("$old."))new+value.removePrefix(old)else value
 
 @Suppress("DEPRECATION")
-internal fun cloneSlateApk(context:Context,root:File,file:File,newPackage:String,autoSign:Boolean):File{
+internal fun cloneSlateApk(context:Context,root:File,file:File,newPackage:String,autoSign:Boolean,progress:(ApkWorkStage)->Unit={}):File{
     require(validClonePackage(newPackage)){"Invalid package name"}
     require(safeFile(root,file)&&file.isFile&&!com.slate.android.storage.protectedAppPath(file.toPath()))
     val parent=checkNotNull(file.parentFile)
     require(safeFile(root,parent)&&parent.canWrite())
+    progress(ApkWorkStage.READING)
     val pm=context.packageManager
     val original=checkNotNull(pm.getPackageArchiveInfo(file.path,PackageManager.GET_PROVIDERS))
     val old=original.packageName
@@ -46,6 +47,7 @@ internal fun cloneSlateApk(context:Context,root:File,file:File,newPackage:String
     var signed:File?=null
     try{
         val module=ApkModule.loadApkFile(file)
+        progress(ApkWorkStage.EDITING)
         try{
             val manifest=checkNotNull(module.androidManifest)
             val element=checkNotNull(manifest.manifestElement)
@@ -80,15 +82,18 @@ internal fun cloneSlateApk(context:Context,root:File,file:File,newPackage:String
             require(entries.size<=100000)
             entries.filter{it.uppercase(java.util.Locale.ROOT).let{n->n.startsWith("META-INF/")&&(n.endsWith(".SF")||n.endsWith(".RSA")||n.endsWith(".DSA")||n.endsWith(".EC")||n=="META-INF/MANIFEST.MF")}}.forEach{module.removeInputSource(it)}
             module.setApkSignatureBlock(null)
+            progress(ApkWorkStage.REBUILDING)
             module.writeApk(stage)
         }finally{module.close()}
+        progress(ApkWorkStage.VERIFYING)
         val result=checkNotNull(pm.getPackageArchiveInfo(stage.path,0))
         require(result.packageName==newPackage){"Invalid cloned manifest"}
         val output=if(autoSign){
-            val target=signEditedApk(context,file,stage,true)
+            val target=signEditedApk(context,file,stage,true,progress)
             signed=target
             target
         }else stage
+        progress(ApkWorkStage.SAVING)
         for(i in 0..9999){
             val dest=File(parent,file.nameWithoutExtension+"-clone"+(if(i==0)""else "-$i")+".apk")
             try{Files.move(output.toPath(),dest.toPath());return dest}catch(_:java.nio.file.FileAlreadyExistsException){}

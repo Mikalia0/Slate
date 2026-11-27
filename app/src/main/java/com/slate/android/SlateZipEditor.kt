@@ -21,7 +21,7 @@ internal fun checkedArchiveName(name:String):String {
     return name
 }
 internal data class ZipChange(val from:String?,val to:String?,val data:ByteArray?=null,val source:Uri?=null)
-internal suspend fun rewriteSlateZip(context:Context,root:File,archive:File,change:ZipChange,autoSign:Boolean=true):File {
+internal suspend fun rewriteSlateZip(context:Context,root:File,archive:File,change:ZipChange,autoSign:Boolean=true,progress:(ApkWorkStage)->Unit={}):File {
     require(safeFile(root,archive)&&archive.isFile&&archive.canRead()&&!com.slate.android.storage.protectedAppPath(archive.toPath()))
     val parent=checkNotNull(archive.parentFile)
     require(safeFile(root,parent)&&parent.canWrite())
@@ -38,6 +38,7 @@ internal suspend fun rewriteSlateZip(context:Context,root:File,archive:File,chan
         while(true){coroutineContext.ensureActive();val n=input.read(buffer);if(n<0)break;total+=n;require(total<=max);out.write(buffer,0,n)}
     }
     try{
+        progress(ApkWorkStage.REBUILDING)
         RawZipFile(archive).use{input->
             val entries=input.getEntries().asSequence().toList()
             require(entries.size<=100000&&entries.map{it.name}.toSet().size==entries.size)
@@ -85,15 +86,18 @@ internal suspend fun rewriteSlateZip(context:Context,root:File,archive:File,chan
                 }else if(from==null&&to!=null){put(to);out.closeArchiveEntry()}
             }
         }
+        progress(ApkWorkStage.VERIFYING)
         ZipFile(stage).use{zip->require(zip.size()<=100001)}
         coroutineContext.ensureActive()
         require(archive.length()==originalSize&&archive.lastModified()==originalTime)
         if(apk){
-            val output=signEditedApk(context,archive,stage,autoSign)
+            val output=signEditedApk(context,archive,stage,autoSign,progress)
             if(output!=stage)signed=output
+            progress(ApkWorkStage.SAVING)
             return publishApkCopy(output,parent,archive.nameWithoutExtension+"-edited")
         }
         // Atomic replacement: if the filesystem cannot do it, leave the source unchanged.
+        progress(ApkWorkStage.SAVING)
         Files.move(stage.toPath(),archive.toPath(),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING)
         return archive
     }finally{stage.delete();signed?.delete()}
