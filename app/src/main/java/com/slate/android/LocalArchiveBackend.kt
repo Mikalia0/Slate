@@ -48,12 +48,12 @@ private suspend fun archiveSources(root:File,files:List<File>):List<ArchiveSourc
     require(list.map{it.name}.distinct().size==list.size)
     return list
 }
-internal suspend fun createLocalArchive(root:File,parent:File,files:List<File>,name:String,format:LocalArchiveFormat,level:Int):File{
+internal suspend fun createLocalArchive(root:File,parent:File,files:List<File>,name:String,format:LocalArchiveFormat,level:Int,context:android.content.Context?=null):File{
     checkLocal(root,parent);require(parent.isDirectory&&parent.canWrite()&&files.isNotEmpty()&&validFileName(name))
     val sources=archiveSources(root,files)
     val destination=File(parent,if(name.endsWith("."+format.suffix,true))name else name+"."+format.suffix)
     require(!destination.exists())
-    val temp=Files.createTempFile(parent.toPath(),".slate-archive-",".tmp").toFile()
+    val temp=Files.createTempFile(parent.toPath(),".slate-archive-",if(format==LocalArchiveFormat.SEVEN)".7z" else ".tmp").toFile()
     val buffer=ByteArray(256*1024)
     try{
         when(format){
@@ -61,7 +61,7 @@ internal suspend fun createLocalArchive(root:File,parent:File,files:List<File>,n
                 out.setLevel(level.coerceIn(0,9))
                 for(source in sources){coroutineContext.ensureActive();checkLocal(root,source.file);out.putNextEntry(ZipEntry(source.name+if(source.directory)"/"else "").apply{time=source.file.lastModified()});if(!source.directory)source.file.inputStream().use{streamCopy(it,out,buffer)};out.closeEntry()}
             }
-            LocalArchiveFormat.SEVEN->SevenZOutputFile(temp).use{out->
+            LocalArchiveFormat.SEVEN->if(!NativeSevenZip.compress(context,parent,files,temp,level))SevenZOutputFile(temp).use{out->
                 out.setContentCompression(if(level==0)SevenZMethod.COPY else SevenZMethod.LZMA2)
                 for(source in sources){coroutineContext.ensureActive();checkLocal(root,source.file);out.putArchiveEntry(out.createArchiveEntry(source.file,source.name));if(!source.directory)source.file.inputStream().use{input->while(true){coroutineContext.ensureActive();val n=input.read(buffer);if(n<0)break;out.write(buffer,0,n)}};out.closeArchiveEntry()}
             }
@@ -107,8 +107,13 @@ internal suspend fun extractLocalArchive(root:File,file:File):File{
     }
     try{
         when(suffix){
-            ".7z"->SevenZFile(file).use{archive->
+            ".7z"->{
+                if(!NativeSevenZip.extract(file,limit,::directory,::output)){
+                    staging.listFiles()?.forEach{check(it.deleteRecursively())};count=0;bytes=0
+                    SevenZFile(file).use{archive->
                 while(true){coroutineContext.ensureActive();val e=archive.nextEntry?:break;require(!e.isAntiItem);if(e.isDirectory)directory(e.name)else output(e.name).use{out->while(true){coroutineContext.ensureActive();val n=archive.read(buffer);if(n<0)break;if(n>0)out.write(buffer,0,n)}}}
+                    }
+                }
             }
             ".rar"->Archive(file).use{archive->while(true){coroutineContext.ensureActive();val e=archive.nextFileHeader()?:break;val name=e.fileName.replace('\\','/');if(e.isDirectory)directory(name)else output(name).use{archive.extractFile(e,it)}}}
             else->file.inputStream().buffered(buffer.size).use{raw->
@@ -143,7 +148,7 @@ internal suspend fun extractLocalArchive(root:File,file:File):File{
         Box{OutlinedButton(onClick={menu=true}){Text(format.label)};DropdownMenu(expanded=menu,onDismissRequest={menu=false}){LocalArchiveFormat.entries.forEach{option->DropdownMenuItem(text={Text(option.label)},onClick={format=option;menu=false})}}}
         if(format in listOf(LocalArchiveFormat.ZIP,LocalArchiveFormat.BZIP,LocalArchiveFormat.XZ,LocalArchiveFormat.ZSTD,LocalArchiveFormat.SEVEN)){
             Text(tr("Compression"))
-            Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){listOf(0 to "Store",3 to "Fast",6 to "Normal",9 to "Maximum").filter{format==LocalArchiveFormat.ZIP||format==LocalArchiveFormat.SEVEN||it.first>0}.filter{format!=LocalArchiveFormat.SEVEN||it.first in listOf(0,6)}.filter{format!=LocalArchiveFormat.XZ||it.first<=6}.forEach{(value,label)->FilterChip(selected=level==value,onClick={level=value},label={Text(tr(label))})}}
+            Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){listOf(0 to "Store",3 to "Fast",6 to "Normal",9 to "Maximum").filter{format==LocalArchiveFormat.ZIP||format==LocalArchiveFormat.SEVEN||it.first>0}.filter{format!=LocalArchiveFormat.XZ||it.first<=6}.forEach{(value,label)->FilterChip(selected=level==value,onClick={level=value},label={Text(tr(label))})}}
         }
         Text(name+"."+format.suffix,style=MaterialTheme.typography.bodySmall)
     }},confirmButton={TextButton(enabled=validFileName(name),onClick={onCreate(files,name,format,level)}){Text(tr("Compress"))}},dismissButton={TextButton(onClick=onClose){Text(tr("Cancel"))}})

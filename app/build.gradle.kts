@@ -34,6 +34,10 @@ android {
         isMinifyEnabled = false
     }
     packaging { resources.excludes += setOf("META-INF/DEPENDENCIES","META-INF/LICENSE","META-INF/LICENSE.txt","META-INF/NOTICE","META-INF/NOTICE.txt") }
+    // The upstream 7zz PIE is executed from the installed, read-only native library directory.
+    packaging { jniLibs.useLegacyPackaging = true }
+    sourceSets.getByName("main").jniLibs.srcDir(layout.buildDirectory.dir("generated/sevenzip/jniLibs"))
+    sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/sevenzip/assets"))
     buildFeatures { compose = true; aidl = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

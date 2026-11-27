@@ -26,3 +26,5 @@ Adreno KGSL memstore utilization fallback adapted from Winlator-Ludashi commit [
 
 - [Canta](https://github.com/samolego/Canta) — feature reference.
 - [Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation) — community package descriptions and risk classifications (downloaded from upstream at runtime).
+
+- **7-Zip 26.06** — Igor Pavlov, https://github.com/ip7z/7zip/tree/d3296e39e1f1f92c7b41c0c3848e65640428d42d (LGPL-2.1-or-later and upstream public-domain/BSD portions; built with DISABLE_RAR=1). Slate's reproducible Android build: https://github.com/stevenmx2/Slate/blob/main/scripts/build-sevenzip.sh. License texts are included in the APK under `about/sevenzip`.

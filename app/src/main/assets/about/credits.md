@@ -15,3 +15,5 @@ Additional manufacturer marks from Simple Icons: [samsung](https://github.com/si
 [AndroidHiddenApiBypass](https://github.com/LSPosed/AndroidHiddenApiBypass) by LSPosed (Apache-2.0) is used for access to the cache-only package-manager interfaces within the privileged Shizuku service.
 
 Adreno KGSL memstore utilization fallback adapted from Winlator-Ludashi commit [5cf4bac](https://github.com/Other-backup/Winlator-Ludashi/commit/5cf4bac607f17b673d1409be29da7c47d615cbd6), derived from The412Banner/Bannerlator commit 0ab047311ccc55b2911d984727d2d57ac6c0ebf7 and DroidDeck PRs #1969 and #1981 (GPL-3.0-only). Qualcomm KGSL minimal UAPI retains its GPL-2.0 WITH Linux-syscall-note notice.
+
+- **7-Zip 26.06** — Igor Pavlov, https://github.com/ip7z/7zip/tree/d3296e39e1f1f92c7b41c0c3848e65640428d42d (LGPL-2.1-or-later and upstream public-domain/BSD portions; built with DISABLE_RAR=1). Slate's reproducible Android build: https://github.com/stevenmx2/Slate/blob/main/scripts/build-sevenzip.sh. License texts are included in the APK under `about/sevenzip`.

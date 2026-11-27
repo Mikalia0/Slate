@@ -541,7 +541,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     }else ModalNavigationDrawer(drawerState=drawer,gesturesEnabled=!busy,drawerContent={
         ModalDrawerSheet(Modifier.widthIn(max=320.dp)){drawerBody()}
     }){browserContent()}
-    if(archiveSelection.isNotEmpty())LocalArchiveDialog(archiveSelection,onClose={archiveSelection=emptyList()},onCreate={files,name,format,level->archiveSelection=emptyList();runOperation{createLocalArchive(root,folder,files,name,format,level)}})
+    if(archiveSelection.isNotEmpty())LocalArchiveDialog(archiveSelection,onClose={archiveSelection=emptyList()},onCreate={files,name,format,level->archiveSelection=emptyList();runOperation{createLocalArchive(root,folder,files,name,format,level,context)}})
     if(addSourceDialog)StorageConnectionDialog(onClose={addSourceDialog=false},onPick={addSourceDialog=false;addStorage.launch(null)})
     if(editFavorites)SlateFavoritesDialog(bookmarks.toList().sorted(),onClose={editFavorites=false},onRemove={key->bookmarks=bookmarks-key;prefs.edit().putStringSet("bookmarks",bookmarks).apply()})
     properties?.let{row->

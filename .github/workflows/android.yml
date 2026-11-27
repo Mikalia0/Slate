@@ -27,6 +27,9 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: "platform-tools platforms;android-35 build-tools;35.0.0 ndk;27.2.12479018 cmake;3.22.1"
+      - name: Build upstream 7-Zip for Android
+        shell: bash
+        run: bash scripts/build-sevenzip.sh
       - name: Check signing configuration
         env:
           SLATE_KEYSTORE_BASE64: ${{ secrets.SLATE_KEYSTORE_BASE64 }}
