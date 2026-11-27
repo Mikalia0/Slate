@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "tag": "dev-117-1",
-  "versionCode": 1117,
+  "tag": "dev-118-1",
+  "versionCode": 1118,
   "attempt": 1,
-  "url": "https://github.com/stevenmx2/Slate/releases/download/dev-117-1/Slate.apk",
-  "size": 19724167,
-  "sha256": "5dcb106b9bf2b75fdaf4c0ba48b4d9f873f76d098abe3dfa463324628197eb1b",
-  "notes": "- FileManager: Preserve active folder across navigation recompositions\n- CI: Cache multi-ABI 7-Zip outputs and enable Gradle build cache\n- Build: Restore safe release configuration after AppCompat startup crash\n- Build: Fix ART profile wildcard method signatures\n- CI: Fix native 7-Zip ELF validation under pipefail\n- Gallery: Add interactive crop, advanced photo filters and detailed media properties\n- Performance: Persist gallery metadata, reuse fresh storage index and add scanner tests\n- Build: Enable R8 and baseline profiles with startup and scrolling benchmarks\n- Storage: Batch directory metadata with native scanner and refresh changed catalog subtrees\n- Performance: Move gallery processing off main thread and prefilter duplicate files\n- Performance: Copy raw ZIP entries, accelerate file transfers and scope hardware monitoring\n- Archives: Test native extraction bounds and allow multi-ABI build time\n- Archives: Integrate upstream native 7-Zip compression and extraction\n- FileManager: Persist browser catalogs and export installed apps in batches\n- Archives: Add local compression and fast streaming extraction\n- Performance: Defer startup work and optimize browser metadata caching\n- FileManager: Add installed apps browser with APK export and sharing\n- Refine gallery selection and add viewer thumbnail strip\n- Expand gallery management, image editing and media caching\n",
-  "versionNotes": "Version code: 1117"
+  "url": "https://github.com/stevenmx2/Slate/releases/download/dev-118-1/Slate.apk",
+  "size": 20067217,
+  "sha256": "a8abefe1f848fd253b3e71a44c631ad6657719ced81b8bb8b5c30c2efec0b829",
+  "notes": "- Device: Add Vulkan driver import, comparison and isolated GPU tests\n- Vulkan: Port Ludashi diagnostics and pinned AdrenoTools loader\n- FileManager: Preserve active folder across navigation recompositions\n- CI: Cache multi-ABI 7-Zip outputs and enable Gradle build cache\n- Build: Restore safe release configuration after AppCompat startup crash\n- Build: Fix ART profile wildcard method signatures\n- CI: Fix native 7-Zip ELF validation under pipefail\n- Gallery: Add interactive crop, advanced photo filters and detailed media properties\n- Performance: Persist gallery metadata, reuse fresh storage index and add scanner tests\n- Build: Enable R8 and baseline profiles with startup and scrolling benchmarks\n- Storage: Batch directory metadata with native scanner and refresh changed catalog subtrees\n- Performance: Move gallery processing off main thread and prefilter duplicate files\n- Performance: Copy raw ZIP entries, accelerate file transfers and scope hardware monitoring\n- Archives: Test native extraction bounds and allow multi-ABI build time\n- Archives: Integrate upstream native 7-Zip compression and extraction\n- FileManager: Persist browser catalogs and export installed apps in batches\n- Archives: Add local compression and fast streaming extraction\n- Performance: Defer startup work and optimize browser metadata caching\n- FileManager: Add installed apps browser with APK export and sharing\n- Refine gallery selection and add viewer thumbnail strip\n- Expand gallery management, image editing and media caching\n",
+  "versionNotes": "Version code: 1118"
 }
