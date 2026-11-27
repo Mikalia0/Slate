@@ -136,6 +136,7 @@ internal suspend fun extractLocalArchive(root:File,file:File):File{
     var name by remember{mutableStateOf(files.singleOrNull()?.nameWithoutExtension?.ifBlank{"archive"}?:"archive")}
     var format by remember{mutableStateOf(LocalArchiveFormat.ZIP)}
     var level by remember{mutableIntStateOf(3)}
+    LaunchedEffect(format){level=if(format==LocalArchiveFormat.SEVEN)6 else 3}
     var menu by remember{mutableStateOf(false)}
     AlertDialog(onDismissRequest=onClose,title={Text(tr("Compress"))},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)){
         OutlinedTextField(name,{name=it},label={Text(tr("Name"))},singleLine=true)

@@ -55,6 +55,15 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     private var catalogTime=0L
     private var catalogRoots=emptyList<String>()
     private var browserCatalog:com.slate.android.FileCatalog?=null
+    private val browserStore=com.slate.android.BrowserCatalogStore(app.cacheDir)
+    private var catalogDiskChecked=false
+    internal suspend fun restoreFileCatalog(volumes:List<Volume>):com.slate.android.FileCatalog?=catalogMutex.withLock{
+        cachedFileCatalog(volumes)?.let{return@withLock it}
+        if(catalogDiskChecked)return@withLock null
+        catalogDiskChecked=true
+        val saved=withContext(Dispatchers.IO){browserStore.read(volumes)}?:return@withLock null
+        browserCatalog=saved;catalogRoots=volumes.map{it.root.path}.sorted();saved
+    }
     internal fun invalidateFileCatalog(){catalogEpoch++}
     internal fun cachedFileCatalog(volumes:List<Volume>):com.slate.android.FileCatalog? =
         browserCatalog.takeIf{catalogRoots==volumes.map{it.root.path}.sorted()}
@@ -68,6 +77,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         val current=indexes[primary]?.takeIf{catalogEpoch==0L && primary !in partialRoots && exclusions.absolute().isEmpty()}
         val result=withContext(Dispatchers.IO){com.slate.android.buildFileCatalog(volumes,current)}
         browserCatalog=result;catalogRoots=roots;catalogTime=android.os.SystemClock.elapsedRealtime();catalogVersion=epoch
+        if(!result.incomplete)withContext(Dispatchers.IO){browserStore.write(volumes,result)}
         result
     }
 

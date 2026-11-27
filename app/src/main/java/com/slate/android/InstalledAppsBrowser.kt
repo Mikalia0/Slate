@@ -42,6 +42,17 @@ private data class InstalledApk(val id:String,val label:String,val version:Strin
 }
 private object InstalledCatalog {
     @Volatile var snapshot:List<InstalledApk>?=null
+    suspend fun restore(context:Context):List<InstalledApk>?=withContext(Dispatchers.IO){runCatching{
+        val raw=android.util.AtomicFile(File(context.cacheDir,"installed-catalog-v1")).openRead().bufferedReader().use{it.readText()}
+        val array=org.json.JSONArray(raw);require(array.length()<=20000)
+        List(array.length()){i->val row=array.getJSONObject(i);val paths=row.getJSONArray("paths");InstalledApk(row.getString("id"),row.getString("label"),row.getString("version"),row.getBoolean("system"),List(paths.length()){paths.getString(it)},row.getLong("updated"))}
+    }.getOrNull()}
+    private fun save(context:Context,rows:List<InstalledApk>){
+        val file=android.util.AtomicFile(File(context.cacheDir,"installed-catalog-v1"))
+        val array=org.json.JSONArray();rows.forEach{row->array.put(org.json.JSONObject().put("id",row.id).put("label",row.label).put("version",row.version).put("system",row.system).put("paths",org.json.JSONArray(row.files)).put("updated",row.updated))}
+        var stream:java.io.FileOutputStream?=null
+        try{val raw=file.startWrite();stream=raw;raw.write(array.toString().toByteArray(Charsets.UTF_8));file.finishWrite(raw);stream=null}catch(_:Exception){stream?.let{file.failWrite(it)}}
+    }
     @Suppress("DEPRECATION")
     suspend fun read(context:Context):List<InstalledApk> = withContext(Dispatchers.IO){
         val pm=context.packageManager
@@ -49,7 +60,7 @@ private object InstalledCatalog {
             coroutineContext.ensureActive()
             val app=pkg.applicationInfo ?: return@mapNotNull null
             runCatching{InstalledApk(pkg.packageName,pm.getApplicationLabel(app).toString(),pkg.versionName.orEmpty(),app.flags and ApplicationInfo.FLAG_SYSTEM!=0,listOf(app.sourceDir)+app.splitSourceDirs.orEmpty(),pkg.lastUpdateTime)}.getOrNull()
-        }.sortedBy{it.label.lowercase()}.also{snapshot=it}
+        }.sortedBy{it.label.lowercase()}.also{snapshot=it;save(context,it)}
     }
 }
 private suspend fun writeInstalled(context:Context,app:InstalledApk,target:java.io.OutputStream)=withContext(Dispatchers.IO){
@@ -80,6 +91,7 @@ private suspend fun writeInstalled(context:Context,app:InstalledApk,target:java.
     var chosen by remember{mutableStateOf(setOf<String>())}
     var active by remember{mutableStateOf<InstalledApk?>(null)}
     var pending by remember{mutableStateOf<InstalledApk?>(null)}
+    var batch by remember{mutableStateOf<List<InstalledApk>>(emptyList())}
     var busy by remember{mutableStateOf(false)}
     var error by remember{mutableStateOf<String?>(null)}
     DisposableEffect(context){
@@ -89,13 +101,17 @@ private suspend fun writeInstalled(context:Context,app:InstalledApk,target:java.
         onDispose{context.unregisterReceiver(receiver)}
     }
     LaunchedEffect(revision){
-        try{rows=InstalledCatalog.read(context);chosen=chosen.intersect(rows.map{it.id}.toSet());loaded=true}
+        try{if(!loaded)InstalledCatalog.restore(context)?.let{rows=it;loaded=true};rows=InstalledCatalog.read(context);chosen=chosen.intersect(rows.map{it.id}.toSet());loaded=true}
         catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"Could not read installed apps"}
     }
     fun runTask(action:suspend ()->Unit){scope.launch{busy=true;try{action()}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"Operation failed"}finally{busy=false}}}
     val exporter=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")){uri->
         val app=pending;pending=null
         if(uri!=null&&app!=null)runTask{withContext(Dispatchers.IO){checkNotNull(context.contentResolver.openOutputStream(uri,"wt")).use{writeInstalled(context,app,it)}}}
+    }
+    val batchExporter=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()){uri->
+        val list=batch;batch=emptyList()
+        if(uri!=null&&list.isNotEmpty())runTask{withContext(Dispatchers.IO){val dir=checkNotNull(androidx.documentfile.provider.DocumentFile.fromTreeUri(context,uri));for(app in list){coroutineContext.ensureActive();val dest=checkNotNull(dir.createFile(if(app.files.size==1)"application/vnd.android.package-archive" else "application/octet-stream",app.fileName));try{checkNotNull(context.contentResolver.openOutputStream(dest.uri,"wt")).use{writeInstalled(context,app,it)}}catch(e:Throwable){dest.delete();throw e}}}}
     }
     fun share(apps:List<InstalledApk>){runTask{
         val uris=withContext(Dispatchers.IO){
@@ -129,6 +145,7 @@ private suspend fun writeInstalled(context:Context,app:InstalledApk,target:java.
         if(chosen.isNotEmpty())Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly){
             TextButton(onClick={chosen=visible.map{it.id}.toSet()},enabled=!busy){Text(tr("Select all"))}
             TextButton(onClick={share(rows.filter{it.id in chosen})},enabled=!busy){Text(tr("Share"))}
+            TextButton(onClick={batch=rows.filter{it.id in chosen};batchExporter.launch(null)},enabled=!busy){Text(tr("Export"))}
         }
         DelayedBrowserProgress(!loaded||busy)
         Text(visible.size.toString()+" "+tr("Apps"),Modifier.padding(horizontal=16.dp),style=MaterialTheme.typography.bodySmall)

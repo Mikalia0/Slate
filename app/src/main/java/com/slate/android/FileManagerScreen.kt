@@ -187,11 +187,11 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     LaunchedEffect(showHome){browsingCallback(!showHome)}
     DisposableEffect(Unit){onDispose{browsingCallback(false)}}
     val availableVolumes=volumes.ifEmpty{listOf(Volume(primary,"Internal storage"))}
-    val catalog by produceState<FileCatalog?>(model.cachedFileCatalog(availableVolumes),granted,availableVolumes,catalogRevision,showHome,overviewPage){
+    val catalog by produceState<FileCatalog?>(if(granted)model.cachedFileCatalog(availableVolumes)else null,granted,availableVolumes,catalogRevision,showHome,overviewPage){
         if(!granted)value=null
         else if(showHome&&overviewPage!="installed_apps"){
-            value=model.cachedFileCatalog(availableVolumes)
-            if(value!=null)delay(700)
+            value=model.cachedFileCatalog(availableVolumes)?:model.restoreFileCatalog(availableVolumes)
+            if(value!=null)delay(1200)
             value=model.fileCatalog(availableVolumes)
         }
     }
