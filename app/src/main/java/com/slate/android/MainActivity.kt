@@ -211,12 +211,15 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     LaunchedEffect(screenKey){if(previousScreen!=screenKey){previousScreen=screenKey;screenAlpha.snapTo(.82f);screenAlpha.animateTo(1f,tween(120))}}
     val mainDestination=!about&&!rootData&&!showVolumes&&!showHistory&&!cleanup&&!apps&&!device&&!analyzer
     var fileBrowsing by remember{mutableStateOf(false)}
-    BackHandler(mainDestination&&destination!=0){destination=0}
+    var fileNavigationBlocked by remember{mutableStateOf(false)}
+    val navigationEnabled=destination!=1||!fileNavigationBlocked
+    BackHandler(mainDestination&&destination!=0){if(navigationEnabled)destination=0}
     Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing,bottomBar={
         if(!topNavigation&&mainDestination&&!(destination==1&&fileBrowsing))SlateBottomNavigation(destination){destination=it}
     }){padding->
-        Row(Modifier.fillMaxSize().padding(padding)){
-            Box(Modifier.weight(1f).fillMaxHeight().graphicsLayer{alpha=screenAlpha.value}){
+        Column(Modifier.fillMaxSize().padding(padding)){
+            if(topNavigation&&mainDestination)SlateLandscapeHeader(destination,{destination=it},onSettings,{about=true},navigationEnabled)
+            Box(Modifier.weight(1f).fillMaxWidth().graphicsLayer{alpha=screenAlpha.value}){
         if(about) {
             AdaptiveContent(760){AboutScreen(onBack={about=false})}
         } else if(rootData && rootAuthorized) {
@@ -236,15 +239,15 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         } else if(mainDestination&&destination!=0) {
              toolState.SaveableStateProvider(destination){
                  when(destination){
-                     1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()},model=model,onBrowsingChanged={fileBrowsing=it},onSettings=onSettings,onDashboard={destination=0},onDestination={destination=it})
-                     2 -> GalleryScreen(granted,request,topActions={if(topNavigation)SlateTopNavigation(destination){destination=it}})
-                     3 -> MonitorsScreen(topActions={if(topNavigation)SlateTopNavigation(destination){destination=it}})
+                     1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()},model=model,onBrowsingChanged={fileBrowsing=it},onSettings=onSettings,onDashboard={destination=0},onDestination={destination=it},onNavigationBlocked={fileNavigationBlocked=it})
+                     2 -> GalleryScreen(granted,request)
+                     3 -> MonitorsScreen()
                  }
              }
          } else if (device) {
             Box(Modifier.fillMaxSize()) { DeviceScreen(onBack = { device = false },status=deviceStatus,initialPage=devicePage) }
         } else Column(Modifier.fillMaxSize().padding(horizontal = if(analyzer)0.dp else 14.dp)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal=if(analyzer)8.dp else 0.dp,vertical = if(topNavigation&&!analyzer)0.dp else 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            if(analyzer||!topNavigation)Row(Modifier.fillMaxWidth().padding(horizontal=if(analyzer)8.dp else 0.dp,vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (analyzer) IconButton(onClick = ::back) { Icon(Icons.Default.ArrowBack,"Back") }
                 else Image(painterResource(R.drawable.ic_slate), null, Modifier.size(36.dp))
                 Spacer(Modifier.width(8.dp))
@@ -268,7 +271,6 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                         }
                     }
                 }else Text("Slate",style=MaterialTheme.typography.headlineSmall,modifier=Modifier.weight(1f))
-                if(!analyzer&&topNavigation)SlateTopNavigation(destination){destination=it}
                 if (!analyzer) { IconButton(onClick=onSettings){Icon(Icons.Default.Settings,"Settings")}; IconButton(onClick={about=true}){Icon(Icons.Default.Info,"About")} }
             }
             if (!analyzer) {

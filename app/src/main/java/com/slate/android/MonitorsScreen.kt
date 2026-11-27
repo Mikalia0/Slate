@@ -21,7 +21,7 @@ import com.slate.android.storage.shizukuGranted
 import kotlinx.coroutines.delay
 
 @Composable
-internal fun MonitorsScreen(topActions:@Composable ()->Unit={}){
+internal fun MonitorsScreen(){
     val context=LocalContext.current
     var running by remember{mutableStateOf(PerformanceOverlayService.running)}
     var authorized by remember{mutableStateOf(shizukuGranted())}
@@ -104,7 +104,6 @@ internal fun MonitorsScreen(topActions:@Composable ()->Unit={}){
         }
     }
     Column(Modifier.fillMaxSize()){
-    if(compact)Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){Text(stringResource(R.string.tool_monitors),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium);topActions()}
     BoxWithConstraints(Modifier.weight(1f)){
         if(maxWidth>=720.dp||compact){
             Row(Modifier.fillMaxSize().padding(horizontal=12.dp,vertical=if(compact)2.dp else 12.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)){

@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## Unreleased — Persistent landscape navigation
+
+- Keep navigation, Settings and About in a single shared header, with fixed ordering on every main screen.
+- Use available dashboard height for both landscape panels, preserving scrolling in smaller windows.
+- Keep file operations protected against switching main screens during a transfer.
+
 ## Unreleased — Display and landscape fixes
 
 - Show screen resolution and current refresh rate on the dashboard; improve processor naming and dashboard text layout.

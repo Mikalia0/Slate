@@ -102,7 +102,7 @@ private fun tabKey(root:File,folder:File)=root.path+"\n"+folder.path
 private fun tabFiles(key:String)=File(key.substringBefore('\n')) to File(key.substringAfter('\n'))
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->Unit,onChanged:()->Unit,model:com.slate.android.storage.StorageModel,onBrowsingChanged:(Boolean)->Unit={},onSettings:()->Unit={},onDashboard:()->Unit={},onDestination:(Int)->Unit={}){
+internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->Unit,onChanged:()->Unit,model:com.slate.android.storage.StorageModel,onBrowsingChanged:(Boolean)->Unit={},onSettings:()->Unit={},onDashboard:()->Unit={},onDestination:(Int)->Unit={},onNavigationBlocked:(Boolean)->Unit={}){
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val primary=Environment.getExternalStorageDirectory()
@@ -159,6 +159,9 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     var name by remember{mutableStateOf("")}
     var message by remember{mutableStateOf<String?>(null)}
     var busy by remember{mutableStateOf(false)}
+    val navigationCallback by rememberUpdatedState(onNavigationBlocked)
+    SideEffect{navigationCallback(busy)}
+    DisposableEffect(Unit){onDispose{navigationCallback(false)}}
     var transferJob by remember{mutableStateOf<Job?>(null)}
     var transferBytes by remember{mutableLongStateOf(0L)}
     var transferTotal by remember{mutableLongStateOf(0L)}
@@ -274,7 +277,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     }
     val browserContent:@Composable ()->Unit={
     if(showHome){
-        key(overviewEpoch){FilesOverview(granted,availableVolumes,catalog,request,onRefresh={onChanged();revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()},initialPage=overviewPage,onMenu={if(!expanded)openDrawer()},topActions={if(topTools)SlateTopNavigation(1,onDestination)},bookmarks=bookmarks.toList().sorted(),onOpenBookmark={key->val(volume,dir)=tabFiles(key);if((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null)){go(dir,volume);showHome=false}})}
+        key(overviewEpoch){FilesOverview(granted,availableVolumes,catalog,request,onRefresh={onChanged();revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()},initialPage=overviewPage,onMenu={if(!expanded)openDrawer()},bookmarks=bookmarks.toList().sorted(),onOpenBookmark={key->val(volume,dir)=tabFiles(key);if((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null)){go(dir,volume);showHome=false}})}
     }else Column(Modifier.fillMaxSize()){
         val rootLabel=tr(availableVolumes.firstOrNull{it.root.path==rootPath}?.label?:"Internal storage")
         val title=if(folder==root)rootLabel else folder.name
@@ -354,9 +357,6 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                             DropdownMenuItem(text={Text(stringResource(R.string.file_view))},onClick={menu=false;grid=!grid;prefs.edit().putBoolean("grid",grid).apply()})
                             DropdownMenuItem(text={Text(stringResource(R.string.cache_select_all))},onClick={menu=false;marked=shown.map{it.file.path}.toSet()})
                         }
-                        DropdownMenuItem(text={Text(stringResource(R.string.tool_home))},onClick={menu=false;onDashboard()})
-                        DropdownMenuItem(text={Text(stringResource(R.string.tool_gallery))},onClick={menu=false;onDestination(2)})
-                        DropdownMenuItem(text={Text(stringResource(R.string.tool_monitors))},onClick={menu=false;onDestination(3)})
                     }
                     DropdownMenuItem(text={Text(stringResource(R.string.file_new_folder))},enabled=!protected||shizuku,onClick={menu=false;name="";operation="mkdir"})
                     DropdownMenuItem(text={Text(stringResource(R.string.file_hidden))},onClick={hidden=!hidden;menu=false},trailingIcon={Checkbox(checked=hidden,onCheckedChange=null)})

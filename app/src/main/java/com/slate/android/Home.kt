@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.style.TextOverflow
 import com.slate.android.storage.Volume
 import com.slate.android.storage.rememberAppUsage
@@ -73,13 +74,14 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
     val insightTitle=when{low->tr("Low storage");recommendCache->tr("Review app cache");suggestion!=null->suggestion.name;else->tr("History")}
     val insightDetail=when{low->fmt(free);recommendCache->fmt(cache);suggestion!=null->fmt(suggestion.bytes);else->tr("Scan history")}
     val appsDetail=if(usage.loaded)androidx.compose.ui.res.stringResource(R.string.apps_count,appCount)else tr(if(usage.allowed)"Loading…" else "Usage access")
-    val summary:@Composable (Boolean)->Unit={compact->
-        Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
-            Column(Modifier.padding(if(compact)10.dp else 14.dp),verticalArrangement=Arrangement.spacedBy(if(compact)5.dp else 10.dp)){
+    val summary:@Composable (Boolean,Dp)->Unit={compact,panelHeight->
+        Card(Modifier.fillMaxWidth().heightIn(min=panelHeight),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+            Column(Modifier.fillMaxWidth().heightIn(min=panelHeight).padding(if(compact)10.dp else 14.dp),verticalArrangement=if(compact)Arrangement.SpaceBetween else Arrangement.spacedBy(10.dp)){
+                val gaugeSize=if(compact)(panelHeight/5).coerceIn(56.dp,112.dp) else 70.dp
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(3.dp)){
-                    OverviewGauge(tr("Storage"),fraction,if(capacity>0)"${(fraction*100).toInt()}%"else "—",if(capacity>0)fmt(used)+" / "+fmt(capacity)else "—",Modifier.weight(1f),openVolumes,compact)
-                    OverviewGauge("RAM",ram?.fraction?:0f,ram?.fraction?.let{"${(it*100).toInt()}%"}?:"—",memoryValue("Used RAM (estimate)")+" / "+memoryValue("Total RAM"),Modifier.weight(1f),{openDevicePage(1)},compact)
-                    OverviewGauge(tr("Battery"),battery?.fraction?:0f,battery?.value?.takeUnless{it=="Unavailable"}?:"—",listOfNotNull(temperature,chargingPower).joinToString(" · "),Modifier.weight(1f),{openDevicePage(3)},compact)
+                    OverviewGauge(tr("Storage"),fraction,if(capacity>0)"${(fraction*100).toInt()}%"else "—",if(capacity>0)fmt(used)+" / "+fmt(capacity)else "—",Modifier.weight(1f),openVolumes,compact,gaugeSize)
+                    OverviewGauge("RAM",ram?.fraction?:0f,ram?.fraction?.let{"${(it*100).toInt()}%"}?:"—",memoryValue("Used RAM (estimate)")+" / "+memoryValue("Total RAM"),Modifier.weight(1f),{openDevicePage(1)},compact,gaugeSize)
+                    OverviewGauge(tr("Battery"),battery?.fraction?:0f,battery?.value?.takeUnless{it=="Unavailable"}?:"—",listOfNotNull(temperature,chargingPower).joinToString(" · "),Modifier.weight(1f),{openDevicePage(3)},compact,gaugeSize)
                 }
                 HorizontalDivider()
                 Row(Modifier.fillMaxWidth().clickable(onClick=device).padding(vertical=if(compact)2.dp else 6.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
@@ -110,29 +112,32 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
             }
         }
     }
-    val shortcuts:@Composable ()->Unit={
-        Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+    val shortcuts:@Composable (Dp)->Unit={panelHeight->
+        val count=if("insights" in dashboard.visible)4 else 3
+        val rowHeight=((panelHeight-8.dp-(count-1).dp)/count).coerceAtLeast(48.dp)
+        Card(Modifier.fillMaxWidth().heightIn(min=panelHeight),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
             Column(Modifier.padding(horizontal=10.dp,vertical=4.dp)){
-                DashboardShortcut(R.drawable.ic_device_overview,tr("Apps"),appsDetail,openApps)
+                DashboardShortcut(R.drawable.ic_device_overview,tr("Apps"),appsDetail,openApps,rowHeight)
                 HorizontalDivider()
-                DashboardShortcut(null,tr("Cleanup"),if(usage.loaded)fmt(cache)else tr("Temporary files"),openCleanup)
-                if("insights" in dashboard.visible){HorizontalDivider();DashboardShortcut(R.drawable.ic_slate_insights,tr("Storage insights"),insightTitle+" · "+insightDetail,insightAction)}
+                DashboardShortcut(null,tr("Cleanup"),if(usage.loaded)fmt(cache)else tr("Temporary files"),openCleanup,rowHeight)
+                if("insights" in dashboard.visible){HorizontalDivider();DashboardShortcut(R.drawable.ic_slate_insights,tr("Storage insights"),insightTitle+" · "+insightDetail,insightAction,rowHeight)}
                 HorizontalDivider()
-                DashboardShortcut(R.drawable.ic_slate_history,tr("History"),tr("Scan history"),openHistory)
+                DashboardShortcut(R.drawable.ic_slate_history,tr("History"),tr("Scan history"),openHistory,rowHeight)
             }
         }
     }
     BoxWithConstraints(Modifier.fillMaxSize()){
         val horizontal=useTopNavigation()&&maxWidth>=480.dp
         if(horizontal){
-            Row(Modifier.fillMaxSize().padding(bottom=4.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                Column(Modifier.weight(1.35f).fillMaxHeight().verticalScroll(rememberScrollState())){summary(true)}
-                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())){shortcuts()}
+            val panelHeight=(maxHeight-8.dp).coerceAtLeast(0.dp)
+            Row(Modifier.fillMaxSize().padding(bottom=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                Column(Modifier.weight(1.35f).fillMaxHeight().verticalScroll(rememberScrollState())){summary(true,panelHeight)}
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())){shortcuts(panelHeight)}
             }
         }else{
             val columns=if(maxWidth>=1000.dp)4 else if(maxWidth>=600.dp)3 else 2
             LazyVerticalGrid(columns=GridCells.Fixed(columns),state=scrollState,modifier=Modifier.fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=10.dp)){
-                item(key="storage",span={GridItemSpan(maxLineSpan)}){summary(false)}
+                item(key="storage",span={GridItemSpan(maxLineSpan)}){summary(false,0.dp)}
                 item(key="apps"){
                     DashboardTile(R.drawable.ic_device_overview,tr("Apps"),if(usage.loaded)fmt(appsTotal)else "—",appsDetail,openApps)
                 }
@@ -166,8 +171,8 @@ internal fun HomeScreen(primary: File, volumes: List<Volume>, openVolumes:()->Un
     }
 }
 
-@Composable private fun DashboardShortcut(icon:Int?,title:String,detail:String,onClick:()->Unit){
-    Row(Modifier.fillMaxWidth().clickable(onClick=onClick).heightIn(min=48.dp).padding(horizontal=4.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(9.dp)){
+@Composable private fun DashboardShortcut(icon:Int?,title:String,detail:String,onClick:()->Unit,rowHeight:Dp){
+    Row(Modifier.fillMaxWidth().clickable(onClick=onClick).heightIn(min=rowHeight).padding(horizontal=4.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(9.dp)){
         if(icon!=null)DeviceGlyph(icon,modifier=Modifier.size(22.dp))else Icon(Icons.Default.Delete,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(22.dp))
         Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)){
             Text(title,style=MaterialTheme.typography.titleSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
@@ -227,9 +232,9 @@ internal fun ScanLoading(state: com.slate.android.storage.ScanState, cancel: ()-
     }
 }
 
-@Composable private fun OverviewGauge(label:String,fraction:Float,value:String,detail:String,modifier:Modifier,onClick:()->Unit,compact:Boolean){
+@Composable private fun OverviewGauge(label:String,fraction:Float,value:String,detail:String,modifier:Modifier,onClick:()->Unit,compact:Boolean,gaugeSize:Dp){
     Column(modifier.clickable(onClick=onClick).padding(vertical=if(compact)2.dp else 4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)){
-        Box(Modifier.size(if(compact)56.dp else 70.dp),contentAlignment=Alignment.Center){
+        Box(Modifier.size(gaugeSize),contentAlignment=Alignment.Center){
             CircularProgressIndicator(progress={fraction.coerceIn(0f,1f)},modifier=Modifier.fillMaxSize(),strokeWidth=4.dp,trackColor=MaterialTheme.colorScheme.surfaceContainerHigh)
             Text(value,style=MaterialTheme.typography.titleMedium,maxLines=1)
         }

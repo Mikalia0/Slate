@@ -231,7 +231,7 @@ private fun MediaViewer(items:List<MediaItem>,initial:Int,favorites:Set<String>,
 }
 
 @Composable
-internal fun GalleryScreen(granted:Boolean,request:()->Unit,topActions:@Composable ()->Unit={}){
+internal fun GalleryScreen(granted:Boolean,request:()->Unit){
     val context=LocalContext.current
     val lifecycle=LocalLifecycleOwner.current.lifecycle
     val scope=rememberCoroutineScope()
@@ -312,7 +312,6 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit,topActions:@Composab
         Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){
             if(bucket!=null||selected.isNotEmpty())IconButton(onClick={if(selected.isNotEmpty())selected=emptySet()else bucket=null}){Icon(Icons.Default.ArrowBack,null)}
             Text(if(selected.isNotEmpty())stringResource(R.string.tool_selected,selected.size)else if(bucket!=null)media.firstOrNull{it.bucket==bucket}?.folder.orEmpty()else stringResource(R.string.tool_gallery),Modifier.weight(1f),style=if(compact)MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
-            if(compact&&selected.isEmpty())topActions()
             if(selected.isNotEmpty()){
                 IconButton(onClick={selected=visible.map{it.uri.toString()}.toSet()}){Icon(Icons.Default.Check,stringResource(R.string.cache_select_all))}
                 IconButton(onClick={shareMedia(context,media.filter{it.uri.toString() in selected})}){Icon(Icons.Default.Share,null)}
