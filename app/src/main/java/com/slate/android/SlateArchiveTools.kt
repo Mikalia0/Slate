@@ -25,6 +25,7 @@ internal suspend fun extractSlateZip(root:File,archive:File):File{
         var count=0
         var bytes=0L
         val limit=minOf(32L*1024*1024*1024,parent.usableSpace)
+        val buffer=ByteArray(256*1024)
         ZipFile(archive).use{zip->
             val entries=zip.entries()
             while(entries.hasMoreElements()){
@@ -36,7 +37,6 @@ internal suspend fun extractSlateZip(root:File,archive:File):File{
                 Files.createDirectories(target.parentFile!!.toPath())
                 zip.getInputStream(entry).use{input->
                     Files.newOutputStream(target.toPath(),java.nio.file.StandardOpenOption.CREATE_NEW,java.nio.file.StandardOpenOption.WRITE).use{output->
-                        val buffer=ByteArray(64*1024)
                         while(true){
                             coroutineContext.ensureActive()
                             val n=input.read(buffer);if(n<0)break

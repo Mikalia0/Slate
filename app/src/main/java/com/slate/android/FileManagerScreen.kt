@@ -168,6 +168,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     val pathClipboard=LocalClipboardManager.current
     var clipboard by remember{mutableStateOf<ClipboardFile?>(null)}
     var operation by remember{mutableStateOf<String?>(null)}
+    var archiveSelection by remember{mutableStateOf<List<File>>(emptyList())}
     var name by remember{mutableStateOf("")}
     var message by remember{mutableStateOf<String?>(null)}
     var busy by remember{mutableStateOf(false)}
@@ -359,7 +360,9 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                     IconButton(onClick={actionMenu=true},enabled=!busy){Icon(Icons.Default.MoreVert,tr("More"))}
                     DropdownMenu(expanded=actionMenu,onDismissRequest={actionMenu=false}){
                         DropdownMenuItem(text={Text(stringResource(R.string.cache_select_all))},onClick={marked=shown.map{it.file.path}.toSet();actionMenu=false})
+                        if(canModify&&!protected&&chosen.all{!protectedAppPath(it.file.toPath())})DropdownMenuItem(text={Text(tr("Compress"))},onClick={archiveSelection=chosen.map{it.file};actionMenu=false})
                         if(single!=null){
+                            if(!single.directory&&!protectedAppPath(single.file.toPath())&&localArchiveSupported(single.file.name))DropdownMenuItem(text={Text(tr("Extract here"))},onClick={actionMenu=false;runOperation{extractLocalArchive(root,single.file)}})
                             DropdownMenuItem(text={Text(stringResource(R.string.browser_properties))},onClick={properties=single;actionMenu=false})
                             if(!single.directory){
                                 DropdownMenuItem(text={Text(stringResource(R.string.browser_open_with))},onClick={handler=single.file;actionMenu=false})
@@ -538,6 +541,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     }else ModalNavigationDrawer(drawerState=drawer,gesturesEnabled=!busy,drawerContent={
         ModalDrawerSheet(Modifier.widthIn(max=320.dp)){drawerBody()}
     }){browserContent()}
+    if(archiveSelection.isNotEmpty())LocalArchiveDialog(archiveSelection,onClose={archiveSelection=emptyList()},onCreate={files,name,format,level->archiveSelection=emptyList();runOperation{createLocalArchive(root,folder,files,name,format,level)}})
     if(addSourceDialog)StorageConnectionDialog(onClose={addSourceDialog=false},onPick={addSourceDialog=false;addStorage.launch(null)})
     if(editFavorites)SlateFavoritesDialog(bookmarks.toList().sorted(),onClose={editFavorites=false},onRemove={key->bookmarks=bookmarks-key;prefs.edit().putStringSet("bookmarks",bookmarks).apply()})
     properties?.let{row->
