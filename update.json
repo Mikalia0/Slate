@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "tag": "dev-93-1",
-  "versionCode": 1093,
+  "tag": "dev-94-1",
+  "versionCode": 1094,
   "attempt": 1,
-  "url": "https://github.com/stevenmx2/Slate/releases/download/dev-93-1/Slate.apk",
+  "url": "https://github.com/stevenmx2/Slate/releases/download/dev-94-1/Slate.apk",
   "size": 15935897,
-  "sha256": "b32485ff7b5c445938469f09bf26ebb00bf90eb3ad7076e3cae4d687667709b5",
-  "notes": "- Use a public release manifest for in-app updates\n- Add UAD-powered system app debloater to app manager\n- Support APK installation through authorized Shizuku shell\n- Add APK cloning and preserve file browser navigation\n",
-  "versionNotes": "Version code: 1093"
+  "sha256": "6bcd42e8fa6e9298b5bc4c4f78a3a7e90652c41b0be737b92b387e6bf3b497f5",
+  "notes": "- Mark the newest published build as the latest release\n",
+  "versionNotes": "Version code: 1094"
 }
