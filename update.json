@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "tag": "dev-97-1",
-  "versionCode": 1097,
+  "tag": "dev-99-1",
+  "versionCode": 1099,
   "attempt": 1,
-  "url": "https://github.com/stevenmx2/Slate/releases/download/dev-97-1/Slate.apk",
-  "size": 15960485,
-  "sha256": "a7d5082f24f4582e6884c157f6dc3c26fcdfe7c67514b3e8fd673a606c6e55ac",
-  "notes": "- Simplify onboarding and separate AMOLED from display mode\n",
-  "versionNotes": "Version code: 1097"
+  "url": "https://github.com/stevenmx2/Slate/releases/download/dev-99-1/Slate.apk",
+  "size": 16014585,
+  "sha256": "a2f125c46077218876e56b924fd8893f43d5c2e0ea8ac3c733c8fb6bc39a3066",
+  "notes": "- Restore onboarding theme previews and advanced access choices\n- Cache file browsing and unify document provider presentation\n",
+  "versionNotes": "Version code: 1099"
 }
