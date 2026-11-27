@@ -2,6 +2,11 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## Unreleased — Shizuku APK installation
+
+- Choose between the Android package installer and authorized Shizuku shell installation, including Shizuku started with ADB.
+- Stream the selected APK to the package manager for the current user, retain standard signature and version checks, and display the actual result.
+
 ## Unreleased — APK cloning and browser restoration
 
 - Clone authorized APKs with a different manifest package name, optional local automatic signing and a separate output file.

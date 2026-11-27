@@ -22,6 +22,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import com.slate.android.storage.installApkWithShizuku
+import com.slate.android.storage.shizukuInstallReady
+import com.slate.android.storage.shizukuAvailable
+import rikka.shizuku.Shizuku
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -42,6 +49,48 @@ private data class ApkQuickInfo(val label:String,val pkg:String,val version:Stri
     val pt=androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language=="pt"
     fun t(en:String,br:String)=if(pt)br else en
     var error by remember{mutableStateOf(false)}
+    val scope=rememberCoroutineScope()
+    val ready by produceState(shizukuInstallReady()) {while(true){value=shizukuInstallReady();delay(700)}}
+    val available by produceState(shizukuAvailable()){while(true){value=shizukuAvailable();delay(700)}}
+    var installing by remember{mutableStateOf(false)}
+    var installResult by remember{mutableStateOf<String?>(null)}
+    var chooseInstall by remember{mutableStateOf(false)}
+    fun normalInstall(){
+        val ok=runCatching{
+            require(safeFile(root,file)&&file.isFile)
+            val uri=FileProvider.getUriForFile(context,context.packageName+".files",file)
+            val intent=Intent(Intent.ACTION_INSTALL_PACKAGE).setData(uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            intent.clipData=ClipData.newRawUri(file.name,uri)
+            context.startActivity(intent)
+        }.isSuccess
+        if(ok)onClose()else if(openSharedFile(context,root,file,false))onClose()else error=true
+    }
+    if(chooseInstall){
+        AlertDialog(onDismissRequest={if(!installing)chooseInstall=false},title={Text(stringResource(R.string.apk_install_method))},text={
+            Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+                Text(info?.label?:file.name,style=MaterialTheme.typography.titleSmall)
+                Text(info?.pkg.orEmpty(),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                if(!installing&&installResult==null){
+                    ListItem(headlineContent={Text(stringResource(R.string.apk_install_system))},leadingContent={Icon(Icons.Default.CheckCircle,null)},modifier=Modifier.clickable{normalInstall()})
+                    HorizontalDivider()
+                    ListItem(headlineContent={Text(stringResource(R.string.apk_install_shizuku))},supportingContent={Text(stringResource(if(ready)R.string.apk_install_shizuku_desc else R.string.apk_install_authorize))},leadingContent={Icon(Icons.Default.Build,null)},modifier=Modifier.clickable{
+                        if(!ready){runCatching{Shizuku.requestPermission(711)}.onFailure{installResult=it.message?:"Shizuku"}}
+                        else{
+                            installing=true
+                            scope.launch{
+                                try{installResult=installApkWithShizuku(context,root,file)}
+                                catch(e:CancellationException){throw e}catch(e:Exception){installResult=e.message?:context.getString(R.string.slate_tool_failed)}
+                                finally{installing=false}
+                            }
+                        }
+                    })
+                }
+                if(installing){LinearProgressIndicator(Modifier.fillMaxWidth());Text(stringResource(R.string.apk_install_running))}
+                installResult?.let{result->Text(if(result=="Success")stringResource(R.string.apk_install_success)else result,color=if(result=="Success")MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodyMedium)}
+            }
+        },confirmButton={TextButton(enabled=!installing,onClick={if(installResult=="Success")onClose()else{installResult=null;chooseInstall=false}}){Text(if(installResult!=null)tr("Close")else tr("Cancel"))}})
+        return
+    }
     AlertDialog(onDismissRequest=onClose,title={
         Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
             FilePreview(com.slate.android.storage.Entry(file,false,file.length(),0,0,file.lastModified()),Modifier.size(48.dp),MaterialTheme.colorScheme.primary)
@@ -72,13 +121,6 @@ private data class ApkQuickInfo(val label:String,val pkg:String,val version:Stri
             if(error)Text(stringResource(R.string.file_failed),color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
         }
     },confirmButton={Button(onClick={
-        val ok=runCatching{
-            require(safeFile(root,file)&&file.isFile)
-            val uri=FileProvider.getUriForFile(context,context.packageName+".files",file)
-            val intent=Intent(Intent.ACTION_INSTALL_PACKAGE).setData(uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            intent.clipData=ClipData.newRawUri(file.name,uri)
-            context.startActivity(intent)
-        }.isSuccess
-        if(ok)onClose()else if(openSharedFile(context,root,file,false))onClose()else error=true
+        if(available||ready)chooseInstall=true else normalInstall()
     }){Text(t("Install","Instalar"))}},dismissButton={TextButton(onClick=onClose){Text(t("Cancel","Cancelar"))}})
 }

@@ -1,0 +1,9 @@
+<resources>
+    <string name="apk_install_method">Instalar com</string>
+    <string name="apk_install_system">Instalador de pacotes do Android</string>
+    <string name="apk_install_shizuku">Shizuku / shell ADB</string>
+    <string name="apk_install_shizuku_desc">Instalar diretamente pelo shell autorizado.</string>
+    <string name="apk_install_authorize">Toque para autorizar o Slate no Shizuku.</string>
+    <string name="apk_install_running">Instalando APK…</string>
+    <string name="apk_install_success">Aplicativo instalado com sucesso.</string>
+</resources>
