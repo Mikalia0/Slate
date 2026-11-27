@@ -26,7 +26,7 @@ import java.io.File
 import kotlinx.coroutines.*
 
 @Composable
-internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:Set<String>,onBack:()->Unit,onChanged:()->Unit,review:(File)->Unit) {
+internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:Set<String>,onBack:()->Unit,onChanged:()->Unit,review:(File)->Unit,index:()->IndexedScan?={null}) {
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     var protectedMode by remember{mutableStateOf(false)}
@@ -44,9 +44,10 @@ internal fun CleanupScreen(root:File,granted:Boolean,request:()->Unit,excluded:S
     fun scan(){
         job?.cancel();busy=true;visited=0;result=null;selected=emptySet();message=null
         val mode=kind
+        val cached=index()
         job=scope.launch {
             try{
-                result=withContext(Dispatchers.IO){findCleanup(root,mode,excluded){n->visited=n}}
+                result=withContext(Dispatchers.IO){findCleanup(root,mode,excluded,cached){n->visited=n}}
             }catch(e:CancellationException){throw e}catch(e:Exception){message=e.message ?: "Scan failed"}
             finally{busy=false}
         }

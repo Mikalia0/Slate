@@ -12,7 +12,7 @@ import kotlinx.coroutines.ensureActive
 internal enum class CleanupKind(val title:String) { DUPLICATES("Duplicates"), TEMPORARY("Temporary files"), EMPTY("Empty folders") }
 internal data class CleanupItem(val file:File,val bytes:Long,val modified:Long,val group:String="")
 internal data class CleanupResult(val items:List<CleanupItem>,val limited:Boolean)
-internal suspend fun findCleanup(root:File,kind:CleanupKind,excluded:Set<String>,progress:(Long)->Unit):CleanupResult {
+internal suspend fun findCleanup(root:File,kind:CleanupKind,excluded:Set<String>,index:IndexedScan?=null,progress:(Long)->Unit):CleanupResult {
     val context=currentCoroutineContext()
     val stack=ArrayDeque<File>();stack.add(root)
     val results=ArrayList<CleanupItem>()
@@ -22,6 +22,7 @@ internal suspend fun findCleanup(root:File,kind:CleanupKind,excluded:Set<String>
         val relative=file.relativeTo(root).path
         return relative=="Android" || relative.startsWith("Android/") || excluded.any{relative==it || relative.startsWith("$it/")}
     }
+    val indexedFolders=if(index?.root?.directory==root)index else null
     while(stack.isNotEmpty()){
         context.ensureActive()
         if(visited>=150_000L){limited=true;break}
@@ -32,7 +33,11 @@ internal suspend fun findCleanup(root:File,kind:CleanupKind,excluded:Set<String>
         visited++
         if(visited%128==0L)progress(visited)
         if(attr.isDirectory){
-            val children=runCatching{file.listFiles()}.getOrNull() ?: continue
+            val prior=if(file==root)indexedFolders?.root else indexedFolders?.folders?.get(file)
+            // Directory mtime is only an advisory check. Missing/partial snapshots and empty
+            // folders use a real listing, and every candidate still gets live attributes.
+            val priorEntry=if(file==root)null else (if(file.parentFile==root)indexedFolders?.root else indexedFolders?.folders?.get(file.parentFile))?.entries?.firstOrNull{it.file==file}
+            val children=if(prior!=null&&!prior.rootUnreadable&&prior.entries.isNotEmpty()&&priorEntry?.modified==attr.lastModifiedTime().toMillis())prior.entries.map{it.file}.toTypedArray()else runCatching{file.listFiles()}.getOrNull() ?: continue
             if(kind==CleanupKind.EMPTY && file!=root && children.isEmpty())results.add(CleanupItem(file,0,attr.lastModifiedTime().toMillis()))
             else children.forEach{stack.add(it)}
         } else if(attr.isRegularFile) {

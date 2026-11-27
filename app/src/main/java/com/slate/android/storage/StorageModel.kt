@@ -31,6 +31,8 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     private var saveJob:Job?=null
     private var backgroundJob:Job?=null
     private var checkedSession=false
+    private var lastCompleteIndexAt=0L
+    private var lastCompleteIndexEpoch=-1L
     private val scanner = StorageScanner()
     private var privilegedIndex=false
     private suspend fun scanWithAccess(directory:File,excluded:Set<File>,previous:IndexedScan?,onProgress:(ScanProgress)->Unit={}):IndexedScan{
@@ -91,6 +93,14 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         result
     }
 
+    // Only reuse a recent, complete nonprivileged snapshot. Unknown external changes
+    // are reconciled by the next normal scan; destructive actions still revalidate paths.
+    internal fun cleanupIndex(root:File):IndexedScan?{
+        if(privilegedIndex||root!=primary||exclusions.absolute().isNotEmpty()||lastCompleteIndexEpoch!=catalogEpoch||android.os.SystemClock.elapsedRealtime()-lastCompleteIndexAt>30000)return null
+        val index=indexes[root]?:return null
+        if(index.root.rootUnreadable||root in partialRoots)return null
+        return index
+    }
     internal suspend fun personalCategories():List<CategoryStats>? {
         val indexed=indexes[primary] ?: savedIndex ?: return null
         return withContext(Dispatchers.Default){indexed.personalCategories()}
@@ -159,6 +169,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
                     if(directory==primary && !result.root.rootUnreadable) {
                         savedIndex=null
                         checkedSession=true
+                        lastCompleteIndexAt=android.os.SystemClock.elapsedRealtime();lastCompleteIndexEpoch=catalogEpoch
                         history.record(result.root,id)
                         if(!privilegedIndex)persist(result)
 
@@ -179,7 +190,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     }
     private fun clearIndexes(){
         saveJob?.cancel();backgroundJob?.cancel()
-        cache.clear();indexes.clear();partialRoots.clear();savedIndex=null;diskChecked=true
+        cache.clear();indexes.clear();partialRoots.clear();savedIndex=null;diskChecked=true;lastCompleteIndexEpoch=-1
         // A queued clear follows any in-flight write, so stale data is not restored.
         saveJob=viewModelScope.launch(Dispatchers.IO){persistence.withLock{store.clear()}}
     }
@@ -197,6 +208,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
                     // A navigation change does not invalidate a read-only reconciliation.
                     // An explicit scan or exclusion change cancels this job instead.
                     checkedSession=true
+                    lastCompleteIndexAt=android.os.SystemClock.elapsedRealtime();lastCompleteIndexEpoch=catalogEpoch
                     history.record(result.root,System.nanoTime())
                     indexes.clear();cache.clear();partialRoots.clear()
                     indexes[primary]=result

@@ -239,7 +239,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         } else if(showHistory) {
             AdaptiveContent(860){HistoryScreen(history,onBack={showHistory=false})}
         } else if(cleanup) {
-            AdaptiveContent(1000){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,onBack={cleanup=false},onChanged={model.invalidate()},review={folder->cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();largeFiles=false;query="";search=false;model.open(folder)})}
+            AdaptiveContent(1000){CleanupScreen(primary,granted,request,excluded=model.exclusions.paths,index={model.cleanupIndex(primary)},onBack={cleanup=false},onChanged={model.invalidate()},review={folder->cleanup=false;analyzer=true;selectedPath=primary.absolutePath;selection=emptySet();largeFiles=false;query="";search=false;model.open(folder)})}
         } else if(apps) {
             appsState.SaveableStateProvider("apps"){Box(Modifier.fillMaxSize()){AppsStorageScreen(onBack={apps=false},reviewFolder={folder->returnToApps=true;apps=false;analyzer=true;personalOnly=false;selectedPath=folder.absolutePath;openFolder(folder)},initialCacheSort=appCacheSort,onCacheChanged={model.invalidate()})}}
         } else if(mainDestination&&destination!=0) {

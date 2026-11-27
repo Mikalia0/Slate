@@ -83,7 +83,8 @@ private var gallerySnapshot:Pair<String,List<MediaItem>>?=null
 private suspend fun readMedia(context:Context,fullAccess:Boolean):List<MediaItem> = withContext(Dispatchers.IO){
     val stamp=if(fullAccess&&Build.VERSION.SDK_INT>=30)runCatching{MediaStore.getExternalVolumeNames(context).sorted().joinToString("|"){volume->volume+":"+MediaStore.getVersion(context,volume)+":"+MediaStore.getGeneration(context,volume)}}.getOrNull()else null
     if(stamp!=null) synchronized(thumbnails){gallerySnapshot?.takeIf{it.first==stamp}?.second}?.let{return@withContext it}
-    if(stamp==null)synchronized(thumbnails){gallerySnapshot=null}
+    if(stamp!=null)GalleryCatalogStore.read(context,stamp)?.let{saved->synchronized(thumbnails){gallerySnapshot=stamp to saved};return@withContext saved}
+    if(stamp==null){synchronized(thumbnails){gallerySnapshot=null};GalleryCatalogStore.clear(context)}
     val output=ArrayList<MediaItem>()
     var queries=0
     for(video in listOf(false,true)){
@@ -105,7 +106,7 @@ private suspend fun readMedia(context:Context,fullAccess:Boolean):List<MediaItem
     }
     check(queries>0)
     val result=output.sortedByDescending{it.date}
-    if(stamp!=null)synchronized(thumbnails){gallerySnapshot=stamp to result}
+    if(stamp!=null&&queries==2){synchronized(thumbnails){gallerySnapshot=stamp to result};GalleryCatalogStore.write(context,stamp,result)}
     result
 }
 private val thumbnails=object:LruCache<String,Bitmap>(24*1024*1024){override fun sizeOf(key:String,value:Bitmap)=value.allocationByteCount}
@@ -392,7 +393,8 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit,onOpenFolder:(MediaI
     val allowed=granted||mediaPermissions().any{context.checkSelfPermission(it)==PackageManager.PERMISSION_GRANTED}
     val fullAccess=granted||(Build.VERSION.SDK_INT>=33&&listOf(Manifest.permission.READ_MEDIA_IMAGES,Manifest.permission.READ_MEDIA_VIDEO).all{context.checkSelfPermission(it)==PackageManager.PERMISSION_GRANTED})
     LaunchedEffect(granted,revision,allowed,fullAccess){
-        if(!allowed){media=emptyList();synchronized(thumbnails){gallerySnapshot=null};return@LaunchedEffect}
+        if(!allowed){media=emptyList();synchronized(thumbnails){gallerySnapshot=null};withContext(Dispatchers.IO){GalleryCatalogStore.clear(context)};return@LaunchedEffect}
+        if(!fullAccess)media=emptyList()
         loading=true;error=false
         try{media=readMedia(context,fullAccess);selected=selected.intersect(media.map{it.uri.toString()}.toSet());val migrated=media.filter{item->item.volume=="external_primary"&&ContentUris.withAppendedId(if(item.video)MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI,item.id).toString() in favorites}.map{it.uri.toString()};if(migrated.any{it !in favorites}){favorites=favorites+migrated;prefs.edit().putStringSet("favorites",favorites).apply()}}
         catch(e:CancellationException){throw e}
