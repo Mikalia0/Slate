@@ -148,7 +148,6 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     val root = remember(selectedPath) { File(selectedPath) }
     val selectedVolume = volumes.firstOrNull { it.root.absolutePath == selectedPath }
     val state by model.state.collectAsState()
-    LaunchedEffect(granted) { if(granted){kotlinx.coroutines.delay(4500);model.checkSession()} }
     var destination by rememberSaveable { mutableIntStateOf(0) }
     var galleryFolder by rememberSaveable{mutableStateOf<String?>(null)}
     val toolState=rememberSaveableStateHolder()
@@ -214,6 +213,17 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     var previousScreen by remember{mutableStateOf(screenKey)}
     LaunchedEffect(screenKey){if(previousScreen!=screenKey){previousScreen=screenKey;screenAlpha.snapTo(.82f);screenAlpha.animateTo(1f,tween(120))}}
     val mainDestination=!about&&!rootData&&!showVolumes&&!showHistory&&!cleanup&&!apps&&!device&&!analyzer
+    val dashboardActive=mainDestination&&destination==0
+    // Reconciliation is idle work: do not start it behind an actively opened tool.
+    LaunchedEffect(model,granted,dashboardActive,analyzer){
+        if(granted&&dashboardActive){
+            kotlinx.coroutines.delay(4500)
+            model.checkSession()
+        }else if(!granted||!analyzer){
+            model.pauseSessionCheck()
+        }
+    }
+    DisposableEffect(model){onDispose{model.pauseSessionCheck()}}
     val deviceStatus=rememberDeviceStatus(active=device||(mainDestination&&destination==0),detailed=device)
     var fileBrowserLocation by rememberSaveable{mutableStateOf<String?>(null)}
     val fileBrowsing=fileBrowserLocation!=null

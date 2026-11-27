@@ -64,8 +64,10 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     internal suspend fun restoreFileCatalog(volumes:List<Volume>):com.slate.android.FileCatalog?=catalogMutex.withLock{
         cachedFileCatalog(volumes)?.let{return@withLock it}
         if(catalogDiskChecked)return@withLock null
+        val saved=withContext(Dispatchers.IO){browserStore.read(volumes)}
+        // Leaving the manager can cancel the read; only mark completed attempts.
         catalogDiskChecked=true
-        val saved=withContext(Dispatchers.IO){browserStore.read(volumes)}?:return@withLock null
+        if(saved==null)return@withLock null
         browserCatalog=saved;catalogRoots=volumes.map{it.root.path}.sorted();saved
     }
     internal fun invalidateFileCatalog(folder:File?=null){catalogEpoch++;if(folder==null||dirtyCatalogFolders.size>=128){fullCatalogRefresh=true;dirtyCatalogFolders.clear()}else if(!fullCatalogRefresh){dirtyCatalogFolders.add(folder)}}
@@ -194,6 +196,10 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
         // A queued clear follows any in-flight write, so stale data is not restored.
         saveJob=viewModelScope.launch(Dispatchers.IO){persistence.withLock{store.clear()}}
     }
+    internal fun pauseSessionCheck(){
+        backgroundJob?.cancel()
+    }
+
     fun checkSession() {
         if(shizukuGranted()||privilegedIndex)return
         if(checkedSession || backgroundJob?.isActive==true || history.scannedAt==0L || mutable.value.running)return
@@ -205,8 +211,8 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
                 if(prior!=null && savedIndex==null && indexes[primary]==null){savedIndex=prior;diskChecked=true}
                 val result=withContext(Dispatchers.IO){scanner.scanIndexed(primary,excluded,previous=prior)}
                 if(!result.root.rootUnreadable){
-                    // A navigation change does not invalidate a read-only reconciliation.
-                    // An explicit scan or exclusion change cancels this job instead.
+                    // Publish only a completed reconciliation; foreground navigation
+                    // can cancel idle work without discarding the previous index.
                     checkedSession=true
                     lastCompleteIndexAt=android.os.SystemClock.elapsedRealtime();lastCompleteIndexEpoch=catalogEpoch
                     history.record(result.root,System.nanoTime())
