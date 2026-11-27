@@ -12,8 +12,9 @@ test "$(git -C "$src" rev-parse HEAD)" = "$pin"
 # Android provides pthread symbols in libc. Preserve the upstream source revision
 # and apply these reproducible build-only adjustments.
 sed -i 's/-Werror//g; s/-lpthread//g' "$src/CPP/7zip/7zip_gcc.mak"
-ndk="${ANDROID_NDK_HOME:-${ANDROID_HOME:?}/ndk/27.2.12479018}"
-if [[ ! -d "$ndk/toolchains/llvm/prebuilt" ]]; then ndk="$ANDROID_HOME/ndk/27.2.12479018"; fi
+# Match the NDK configured in app/build.gradle.kts, not the runner default.
+ndk="${SLATE_NDK_HOME:-${ANDROID_HOME:?}/ndk/27.2.12479018}"
+test -d "$ndk/toolchains/llvm/prebuilt"
 toolchain="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin"
 bundle="$src/CPP/7zip/Bundles/Alone2"
 for pair in arm64-v8a:aarch64-linux-android armeabi-v7a:armv7a-linux-androideabi x86:i686-linux-android x86_64:x86_64-linux-android; do
@@ -25,7 +26,19 @@ for pair in arm64-v8a:aarch64-linux-android armeabi-v7a:armv7a-linux-androideabi
         DISABLE_RAR=1 MY_DYNAMIC_LINK=1 MY_LIBS="-static-libstdc++ -Wl,-z,max-page-size=16384"
     install -m 755 "$bundle/_slate_$abi/7zz" "$out/libslate7zz.so"
     "$toolchain/llvm-strip" --strip-unneeded "$out/libslate7zz.so"
-    "$toolchain/llvm-readelf" -h "$out/libslate7zz.so" | grep -q 'DYN'
+    # Read the full output before matching; grep -q in a pipe can terminate
+    # llvm-readelf early and fail with exit 74 under set -o pipefail.
+    header="$("$toolchain/llvm-readelf" -h "$out/libslate7zz.so")"
+    if ! grep -Eq 'Type:[[:space:]]+DYN' <<< "$header"; then
+        printf 'Invalid PIE executable for %s:\n%s\n' "$abi" "$header" >&2
+        exit 1
+    fi
+    program_headers="$("$toolchain/llvm-readelf" -l "$out/libslate7zz.so")"
+    if ! grep -Eq 'Requesting program interpreter: /system/bin/linker(64)?\]' <<< "$program_headers"; then
+        printf 'Missing Android PIE interpreter for %s:\n%s\n' "$abi" "$program_headers" >&2
+        exit 1
+    fi
+    echo "Validated 7-Zip for $abi"
 done
 mkdir -p "$root/assets/about/sevenzip"
 cp "$src/DOC/License.txt" "$root/assets/about/sevenzip/"
