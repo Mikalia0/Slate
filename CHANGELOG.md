@@ -1,3 +1,10 @@
+## Unreleased — Gallery improvements
+
+- Organize photos, albums and favorites with filters, sorting, album sizes, hiding, selection actions, duplicate and similar-image scans.
+- Add media renaming, album copy/move and creation on Android 10+, and direct folder navigation.
+- Add non-destructive image editor, EXIF details, metadata-free image sharing, double-tap zoom, slideshow and wallpaper chooser.
+- Cache adaptive thumbnails in memory and on disk, observe MediaStore changes and prefer capture dates.
+
 ## Unreleased — File browsing and storage connections
 
 - Reuse bounded in-memory folder listings, folder counts and file catalogs, observe the active local folder and avoid full scans after read-only previews.

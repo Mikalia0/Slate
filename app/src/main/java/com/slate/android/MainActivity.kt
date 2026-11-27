@@ -150,6 +150,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     val state by model.state.collectAsState()
     LaunchedEffect(granted) { if(granted)model.checkSession() }
     var destination by rememberSaveable { mutableIntStateOf(0) }
+    var galleryFolder by rememberSaveable{mutableStateOf<String?>(null)}
     val toolState=rememberSaveableStateHolder()
     var analyzer by rememberSaveable { mutableStateOf(false) }
     var device by rememberSaveable { mutableStateOf(false) }
@@ -243,8 +244,13 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         } else if(mainDestination&&destination!=0) {
              toolState.SaveableStateProvider(destination){
                  when(destination){
-                     1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()},model=model,onBrowsingChanged={fileBrowsing=it},onSettings=onSettings,onDashboard={destination=0},onDestination={destination=it},onNavigationBlocked={fileNavigationBlocked=it})
-                     2 -> GalleryScreen(granted,request)
+                     1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()},model=model,onBrowsingChanged={fileBrowsing=it},onSettings=onSettings,onDashboard={destination=0},onDestination={destination=it},onNavigationBlocked={fileNavigationBlocked=it},initialFolder=galleryFolder,onInitialFolderConsumed={galleryFolder=null})
+                     2 -> GalleryScreen(granted,request,onOpenFolder={item->
+                         val volume=volumes.firstOrNull{v->if(item.volume=="external_primary")v.root==primary else v.root.name.equals(item.volume,true)}
+                         val folder=volume?.let{java.io.File(it.root,item.relative)}
+                         if(volume!=null&&folder!=null&&item.relative.isNotBlank()&&safeFile(volume.root,folder)&&folder.isDirectory){galleryFolder=volume.root.path+"\n"+folder.path;destination=1}
+                         else android.widget.Toast.makeText(context,context.getString(R.string.gallery_folder_unavailable),android.widget.Toast.LENGTH_SHORT).show()
+                     },onChanged={model.invalidate()})
                      3 -> MonitorsScreen()
                  }
              }

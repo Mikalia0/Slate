@@ -109,7 +109,7 @@ private fun tabKey(root:File,folder:File)=root.path+"\n"+folder.path
 private fun tabFiles(key:String)=File(key.substringBefore('\n')) to File(key.substringAfter('\n'))
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->Unit,onChanged:()->Unit,model:com.slate.android.storage.StorageModel,onBrowsingChanged:(Boolean)->Unit={},onSettings:()->Unit={},onDashboard:()->Unit={},onDestination:(Int)->Unit={},onNavigationBlocked:(Boolean)->Unit={}){
+internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->Unit,onChanged:()->Unit,model:com.slate.android.storage.StorageModel,onBrowsingChanged:(Boolean)->Unit={},onSettings:()->Unit={},onDashboard:()->Unit={},onDestination:(Int)->Unit={},onNavigationBlocked:(Boolean)->Unit={},initialFolder:String?=null,onInitialFolderConsumed:()->Unit={}){
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val primary=Environment.getExternalStorageDirectory()
@@ -200,6 +200,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         prefs.edit().putString("history",org.json.JSONArray(history).toString()).apply()
         query="";searching=false;selected=null;marked=emptySet();message=null
     }
+    LaunchedEffect(initialFolder){initialFolder?.let{key->val (volume,dir)=tabFiles(key);if(safeFile(volume,dir)&&dir.isDirectory){go(dir,volume);showHome=false};onInitialFolderConsumed()}}
     fun home(page:String=""){overviewState.removeState(overviewEpoch);overviewPage=page;overviewEpoch++;showHome=true;query="";searching=false;marked=emptySet()}
     fun closeDrawer(){if(useTopNavigationValue)landscapeDrawer=false else scope.launch{drawer.close()}}
     fun openDrawer(){if(useTopNavigationValue)landscapeDrawer=true else scope.launch{drawer.open()}}

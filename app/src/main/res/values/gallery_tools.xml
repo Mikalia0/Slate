@@ -1,0 +1,36 @@
+<resources>
+    <string name="gallery_full_resolution">High-resolution preview</string>
+    <string name="gallery_wallpaper">Set as wallpaper</string>
+    <string name="gallery_private_share">Share without metadata</string>
+    <string name="gallery_slideshow">Slideshow</string>
+    <string name="gallery_rename">Rename</string>
+    <string name="gallery_open_folder">Open folder in Files</string>
+    <string name="gallery_edit">Edit image</string>
+    <string name="gallery_add_favorites">Add to favorites</string>
+    <string name="gallery_copy_album">Copy to album</string>
+    <string name="gallery_move_album">Move to album</string>
+    <string name="gallery_filter">Filters and sort</string>
+    <string name="gallery_duplicates">Find duplicates</string>
+    <string name="gallery_similar">Find similar images</string>
+    <string name="gallery_hidden">Show hidden albums</string>
+    <string name="gallery_clear_results">Clear scan results</string>
+    <string name="gallery_screenshots">Screenshots</string>
+    <string name="gallery_recordings">Screen recordings</string>
+    <string name="gallery_newest">Newest first</string>
+    <string name="gallery_oldest">Oldest first</string>
+    <string name="gallery_largest">Largest first</string>
+    <string name="gallery_name">Name</string>
+    <string name="gallery_hide_desc">Hide this album from Slate only. Files will not be moved or deleted.</string>
+    <string name="gallery_hide">Hide album</string>
+    <string name="gallery_unhide">Unhide album</string>
+    <string name="gallery_album_new">New album name</string>
+    <string name="gallery_album_note">New albums are created when files are added. Photos go to Pictures and videos to Movies.</string>
+    <string name="gallery_save_copy">Save copy</string>
+    <string name="gallery_loading_preview">Loading preview</string>
+    <string name="gallery_rotate">Rotate 90°</string>
+    <string name="gallery_reset">Reset</string>
+    <string name="gallery_crop">Center crop</string>
+    <string name="gallery_brightness">Brightness</string>
+    <string name="gallery_contrast">Contrast</string>
+    <string name="gallery_folder_unavailable">Folder unavailable in local storage.</string>
+</resources>

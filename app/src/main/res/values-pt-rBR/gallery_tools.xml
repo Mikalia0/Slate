@@ -1,0 +1,36 @@
+<resources>
+    <string name="gallery_full_resolution">Prévia em alta resolução</string>
+    <string name="gallery_wallpaper">Definir como papel de parede</string>
+    <string name="gallery_private_share">Compartilhar sem metadados</string>
+    <string name="gallery_slideshow">Apresentação de slides</string>
+    <string name="gallery_rename">Renomear</string>
+    <string name="gallery_open_folder">Abrir pasta em Arquivos</string>
+    <string name="gallery_edit">Editar imagem</string>
+    <string name="gallery_add_favorites">Adicionar aos favoritos</string>
+    <string name="gallery_copy_album">Copiar para álbum</string>
+    <string name="gallery_move_album">Mover para álbum</string>
+    <string name="gallery_filter">Filtros e ordenação</string>
+    <string name="gallery_duplicates">Encontrar duplicatas</string>
+    <string name="gallery_similar">Encontrar imagens semelhantes</string>
+    <string name="gallery_hidden">Mostrar álbuns ocultos</string>
+    <string name="gallery_clear_results">Limpar resultados</string>
+    <string name="gallery_screenshots">Capturas de tela</string>
+    <string name="gallery_recordings">Gravações de tela</string>
+    <string name="gallery_newest">Mais recentes primeiro</string>
+    <string name="gallery_oldest">Mais antigas primeiro</string>
+    <string name="gallery_largest">Maiores primeiro</string>
+    <string name="gallery_name">Nome</string>
+    <string name="gallery_hide_desc">Ocultar este álbum apenas no Slate. Os arquivos não serão movidos nem excluídos.</string>
+    <string name="gallery_hide">Ocultar álbum</string>
+    <string name="gallery_unhide">Reexibir álbum</string>
+    <string name="gallery_album_new">Nome do novo álbum</string>
+    <string name="gallery_album_note">Novos álbuns são criados ao adicionar arquivos. Fotos em Pictures e vídeos em Movies.</string>
+    <string name="gallery_save_copy">Salvar cópia</string>
+    <string name="gallery_loading_preview">Carregando prévia</string>
+    <string name="gallery_rotate">Girar 90°</string>
+    <string name="gallery_reset">Redefinir</string>
+    <string name="gallery_crop">Recorte central</string>
+    <string name="gallery_brightness">Brilho</string>
+    <string name="gallery_contrast">Contraste</string>
+    <string name="gallery_folder_unavailable">Pasta indisponível no armazenamento local.</string>
+</resources>
