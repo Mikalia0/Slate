@@ -1,0 +1,7 @@
+<resources>
+    <string name="apk_clone">Clonar APK</string>
+    <string name="apk_clone_desc">Crie uma cópia com outro nome de pacote.</string>
+    <string name="apk_clone_package">Novo nome do pacote</string>
+    <string name="apk_clone_auto_sign">Assinar automaticamente</string>
+    <string name="apk_clone_warning">Cria um APK separado. A clonagem pelo manifesto pode não funcionar com referências fixas ao pacote ou verificações de assinatura. A assinatura automática usa uma chave local do Slate.</string>
+</resources>

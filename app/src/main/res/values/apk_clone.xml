@@ -1,0 +1,7 @@
+<resources>
+    <string name="apk_clone">Clone APK</string>
+    <string name="apk_clone_desc">Create a copy with a different package name.</string>
+    <string name="apk_clone_package">New package name</string>
+    <string name="apk_clone_auto_sign">Sign automatically</string>
+    <string name="apk_clone_warning">Creates a separate APK. Manifest-only cloning may not work with hardcoded package references or signature checks. Automatic signing uses a local Slate key.</string>
+</resources>

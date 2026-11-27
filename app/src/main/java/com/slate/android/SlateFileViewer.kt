@@ -55,7 +55,7 @@ internal fun SlateFileViewer(root:File,file:File,onClose:()->Unit,onExternal:()-
     BackHandler(onBack=onClose)
     var menu by remember{mutableStateOf(false)}
     Column(Modifier.fillMaxSize()){
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+        if(viewerType(file)!=SlateViewer.APK)Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick=onClose){Icon(Icons.Default.ArrowBack,stringResource(R.string.browser_back))}
             Text(file.name,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
             Box{
@@ -73,7 +73,7 @@ internal fun SlateFileViewer(root:File,file:File,onClose:()->Unit,onExternal:()-
             SlateViewer.TEXT->TextViewer(file,onExternal)
             SlateViewer.PDF->PdfViewer(file,onExternal)
             SlateViewer.ZIP->SlateArchiveScreen(root,file,onExternal)
-            SlateViewer.APK->SlateApkScreen(root,file,onExternal,initialApkTab)
+            SlateViewer.APK->SlateApkScreen(root,file,onExternal,initialApkTab,onClose)
             SlateViewer.ADVANCED->SlateAdvancedScreen(file,onClose)
             null->ViewerError(onExternal)
         }}

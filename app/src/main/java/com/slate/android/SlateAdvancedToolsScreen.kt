@@ -57,14 +57,18 @@ import java.util.zip.ZipFile
         SelectionContainer{Text(value,style=MaterialTheme.typography.bodyMedium)}
     }
 }
-@Composable internal fun SlateApkScreen(root:File,file:File,external:()->Unit,initialTab:Int=0){
+@Composable internal fun SlateApkScreen(root:File,file:File,external:()->Unit,initialTab:Int=0,onClose:()->Unit={}){
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val inspection by produceState<Result<ApkInspection>?>(null,file){
         value=withContext(Dispatchers.IO){runCatching{inspectSlateApk(context,file)}}
     }
     val details=inspection?.getOrNull()
-    var tab by remember{mutableIntStateOf(initialTab.coerceIn(0,2))}
+    var tab by remember{mutableIntStateOf(if(initialTab==3)2 else initialTab.coerceIn(0,2))}
+    var cloneDialog by remember{mutableStateOf(initialTab==3)}
+    var clonePackage by remember{mutableStateOf("")}
+    var autoSign by remember{mutableStateOf(true)}
+    LaunchedEffect(details?.pkg){if(clonePackage.isBlank()&&details!=null)clonePackage=details.pkg+".clone"}
     var advanced by remember{mutableStateOf(false)}
     if(advanced){BackHandler{advanced=false};SlateAdvancedScreen(file){advanced=false};return}
     var signDialog by remember{mutableStateOf(false)}
@@ -77,6 +81,7 @@ import java.util.zip.ZipFile
     val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->keyUri=uri}
     BackHandler(signing){}
     Column(Modifier.fillMaxSize()){
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){IconButton(onClick=onClose,enabled=!signing){Icon(Icons.Default.ArrowBack,stringResource(R.string.browser_back))};Text(file.name,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)}
         Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
             FilePreview(com.slate.android.storage.Entry(file,false,file.length(),0,0,file.lastModified()),Modifier.size(52.dp),MaterialTheme.colorScheme.primary)
             Column(Modifier.weight(1f)){
@@ -128,6 +133,7 @@ import java.util.zip.ZipFile
             1->Box(Modifier.weight(1f)){SlateArchiveScreen(root,file,external)}
             else->LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
                 item{ToolHeading(stringResource(R.string.apk_tools),stringResource(R.string.apk_tools_description))}
+                item{ToolRow(stringResource(R.string.apk_clone),stringResource(R.string.apk_clone_desc),R.drawable.ic_file_apk,enabled=!signing&&details!=null){clonePackage=details?.pkg.orEmpty()+".clone";cloneDialog=true}}
                 item{ToolRow(stringResource(R.string.apk_manifest_tools),stringResource(R.string.apk_manifest_tools_desc),R.drawable.ic_file_apk,enabled=!signing){advanced=true}}
                 item{ToolRow(stringResource(R.string.apk_inject_provider),stringResource(R.string.apk_inject_provider_desc),R.drawable.ic_storage_folder,enabled=!signing){providerDialog=true}}
                 item{ToolRow(stringResource(R.string.apk_sign),stringResource(R.string.apk_sign_desc),R.drawable.ic_file_apk,enabled=!signing){signDialog=true}}
@@ -141,6 +147,30 @@ import java.util.zip.ZipFile
         }
         }
     }
+    if(cloneDialog)AlertDialog(onDismissRequest={cloneDialog=false},title={Text(stringResource(R.string.apk_clone))},text={
+        Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+            OutlinedTextField(clonePackage,{clonePackage=it.trim()},label={Text(stringResource(R.string.apk_clone_package))},singleLine=true,isError=clonePackage.isNotEmpty()&&(!validClonePackage(clonePackage)||clonePackage==details?.pkg))
+            Row(verticalAlignment=Alignment.CenterVertically){
+                Text(stringResource(R.string.apk_clone_auto_sign),Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium)
+                Switch(checked=autoSign,onCheckedChange={autoSign=it})
+            }
+            Text(stringResource(R.string.apk_clone_warning),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    },confirmButton={
+        TextButton(enabled=details!=null&&validClonePackage(clonePackage)&&clonePackage!=details?.pkg,onClick={
+            val pkg=clonePackage;val sign=autoSign
+            cloneDialog=false
+            scope.launch{
+                signing=true;status=null
+                try{
+                    val dest=withContext(Dispatchers.IO){cloneSlateApk(context,root,file,pkg,sign)}
+                    MediaScannerConnection.scanFile(context,arrayOf(dest.path),null,null)
+                    status=context.getString(R.string.slate_created,dest.name)
+                }catch(e:CancellationException){throw e}catch(e:Exception){status=e.message?:context.getString(R.string.slate_tool_failed)}
+                finally{signing=false}
+            }
+        }){Text(stringResource(R.string.apk_clone))}
+    },dismissButton={TextButton(onClick={cloneDialog=false}){Text(tr("Cancel"))}})
     if(providerDialog)AlertDialog(onDismissRequest={providerDialog=false},title={Text(stringResource(R.string.apk_inject_provider))},text={Text(stringResource(R.string.apk_inject_provider_confirm))},confirmButton={
         TextButton(onClick={
             providerDialog=false

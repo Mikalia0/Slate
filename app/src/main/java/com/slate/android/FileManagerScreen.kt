@@ -22,6 +22,9 @@ import java.text.DateFormat
 import java.util.Date
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -113,6 +116,9 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     val (root,folder)=tabFiles(tabs[tab.coerceIn(tabs.indices)])
     val rootPath=root.path
     val path=folder.path
+    val listState=key(rootPath,path,tab){rememberLazyListState()}
+    val gridState=key(rootPath,path,tab){rememberLazyGridState()}
+    val overviewState=rememberSaveableStateHolder()
     val protected=protectedRelative(folder,primary)!=null
     var shizuku by remember{mutableStateOf(shizukuGranted())}
     LaunchedEffect(Unit){while(true){shizuku=shizukuGranted();delay(1000)}}
@@ -175,8 +181,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     DisposableEffect(Unit){onDispose{browsingCallback(false)}}
     val availableVolumes=volumes.ifEmpty{listOf(Volume(primary,"Internal storage"))}
     val catalog by produceState<FileCatalog?>(null,granted,availableVolumes,revision){
-        value=null
-        if(granted)value=model.fileCatalog(availableVolumes)
+        if(granted)value=model.fileCatalog(availableVolumes)else value=null
     }
     fun go(file:File,volume:File=root){
         val key=tabKey(volume,file)
@@ -185,7 +190,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         prefs.edit().putString("history",org.json.JSONArray(history).toString()).apply()
         query="";searching=false;selected=null;marked=emptySet();message=null
     }
-    fun home(page:String=""){overviewPage=page;overviewEpoch++;showHome=true;query="";searching=false;marked=emptySet()}
+    fun home(page:String=""){overviewState.removeState(overviewEpoch);overviewPage=page;overviewEpoch++;showHome=true;query="";searching=false;marked=emptySet()}
     fun closeDrawer(){if(useTopNavigationValue)landscapeDrawer=false else scope.launch{drawer.close()}}
     fun openDrawer(){if(useTopNavigationValue)landscapeDrawer=true else scope.launch{drawer.open()}}
     val sortKey="sort:"+tabKey(root,folder)
@@ -237,9 +242,10 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
             finally{busy=false;transferring=false;transferJob=null;revision++;onChanged()}
         }
     }
+    var loadedPath by remember{mutableStateOf("")}
     LaunchedEffect(path,rootPath,revision,granted,hidden,shizuku){
         message=null
-        rows=emptyList()
+        if(loadedPath!=path){rows=emptyList();loadedPath=path}
         if(!granted&&!shizuku)return@LaunchedEffect
         loading=true
         try{
@@ -277,7 +283,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     }
     val browserContent:@Composable ()->Unit={
     if(showHome){
-        key(overviewEpoch){FilesOverview(granted,availableVolumes,catalog,request,onRefresh={onChanged();revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()},initialPage=overviewPage,onMenu={if(!expanded)openDrawer()},bookmarks=bookmarks.toList().sorted(),onOpenBookmark={key->val(volume,dir)=tabFiles(key);if((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null)){go(dir,volume);showHome=false}})}
+        overviewState.SaveableStateProvider(overviewEpoch){FilesOverview(granted,availableVolumes,catalog,request,onRefresh={onChanged();revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()},initialPage=overviewPage,onMenu={if(!expanded)openDrawer()},bookmarks=bookmarks.toList().sorted(),onOpenBookmark={key->val(volume,dir)=tabFiles(key);if((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null)){go(dir,volume);showHome=false}})}
     }else Column(Modifier.fillMaxSize()){
         val rootLabel=tr(availableVolumes.firstOrNull{it.root.path==rootPath}?.label?:"Internal storage")
         val title=if(folder==root)rootLabel else folder.name
@@ -431,7 +437,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
         Row(Modifier.weight(1f).fillMaxWidth()){
         Column(Modifier.weight(1f).fillMaxHeight()){
         if(grid&&shown.isEmpty()&&!loading)Text(stringResource(R.string.file_empty),Modifier.padding(14.dp))
-        if(grid)LazyVerticalGrid(columns=GridCells.Adaptive(105.dp),modifier=Modifier.weight(1f),contentPadding=PaddingValues(10.dp),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+        if(grid)LazyVerticalGrid(columns=GridCells.Adaptive(105.dp),state=gridState,modifier=Modifier.weight(1f),contentPadding=PaddingValues(10.dp),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
             items(shown,key={it.file.path}){row->
                 Surface(shape=MaterialTheme.shapes.medium,color=if(row.file.path in marked)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface){
                     Column(Modifier.fillMaxWidth().combinedClickable(enabled=!busy,onClick={tap(row)},onLongClick={marked=marked+row.file.path}).padding(10.dp),horizontalAlignment=Alignment.CenterHorizontally){
@@ -446,7 +452,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 if(sort==2)shown.groupBy{if(it.modified>0)fileDay(it.modified)else 0L}.toList()
                 else listOf(0L to shown)
             }
-            LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(vertical=2.dp)){
+            LazyColumn(Modifier.weight(1f),state=listState,contentPadding=PaddingValues(vertical=2.dp)){
                 groups.forEach{(day,entries)->
                     if(sort==2&&entries.isNotEmpty())item(key="day-$day"){
                         Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal=14.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically){

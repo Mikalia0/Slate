@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -108,7 +109,6 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
     var viewerTab by remember{mutableIntStateOf(0)}
     fun open(item:CatalogFile){if(canViewSlateFile(item.root,item.entry.file)){if(item.entry.file.extension.equals("apk",true))apkChoice=item else{viewerTab=0;viewer=item}}else if(!openSharedFile(context,item.root,item.entry.file,false))failed=true}
     apkChoice?.let{item->SlateApkActions(item.root,item.entry.file,onClose={apkChoice=null},onInspect={viewerTab=it;apkChoice=null;viewer=item})}
-    viewer?.let{item->SlateFileViewer(item.root,item.entry.file,onClose={viewer=null;onChanged()},onExternal={openSharedFile(context,item.root,item.entry.file,false)},initialApkTab=viewerTab);return}
     val grouped by produceState<Map<FileCategory,List<CatalogFile>>>(emptyMap(),catalog){
         value=withContext(Dispatchers.Default){catalog?.files.orEmpty().groupBy{fileCategory(it.entry.file.extension)}}
     }
@@ -123,6 +123,11 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
             when(sort){1->filtered.sortedByDescending{it.entry.bytes};2->filtered.sortedBy{it.entry.file.name.lowercase()};else->filtered.sortedByDescending{it.entry.modified}}
         }
     }
+    val homeScroll=rememberLazyListState()
+    val storageScroll=rememberLazyListState()
+    val categoryScroll=rememberLazyListState()
+    val resultScroll=key(page){rememberLazyListState()}
+    viewer?.let{item->SlateFileViewer(item.root,item.entry.file,onClose={viewer=null;onChanged()},onExternal={openSharedFile(context,item.root,item.entry.file,false)},initialApkTab=viewerTab);return}
     fun leave(){page="";query="";selected=null;failed=false}
     BackHandler(page.isNotEmpty()||busy){if(!busy)leave()}
     Column(Modifier.fillMaxSize()){
@@ -145,7 +150,7 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
         if(failed)Text(stringResource(R.string.file_failed),Modifier.padding(12.dp),color=MaterialTheme.colorScheme.error)
         if(page.isEmpty()&&compact){
             Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)){
-                LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)){
+                LazyColumn(Modifier.weight(1f),state=storageScroll,verticalArrangement=Arrangement.spacedBy(2.dp)){
                     item{Text(tr("Storage"),Modifier.padding(vertical=6.dp),style=MaterialTheme.typography.titleSmall)}
                     items(volumes,key={it.root.path}){volume->
                         val space by produceState<Pair<Long,Long>?>(null,volume.root){value=withContext(Dispatchers.IO){runCatching{val stat=android.os.StatFs(volume.root.path);(stat.totalBytes-stat.availableBytes).coerceAtLeast(0L) to stat.totalBytes}.getOrNull()}}
@@ -155,7 +160,7 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
                     }
                     if(bookmarks.isNotEmpty()){item{Text(stringResource(R.string.browser_favorites),Modifier.padding(vertical=6.dp),style=MaterialTheme.typography.titleSmall)};items(bookmarks){key->Text(File(key.substringAfter('\n')).name,Modifier.fillMaxWidth().clickable{onOpenBookmark(key)}.padding(vertical=8.dp))}}
                 }
-                LazyColumn(Modifier.weight(1.5f),verticalArrangement=Arrangement.spacedBy(3.dp)){
+                LazyColumn(Modifier.weight(1.5f),state=categoryScroll,verticalArrangement=Arrangement.spacedBy(3.dp)){
                     item{Text(stringResource(R.string.files_categories),Modifier.padding(vertical=6.dp),style=MaterialTheme.typography.titleSmall)}
                     items(listOf(FileCategory.INSTALLERS,FileCategory.DOCUMENTS,FileCategory.IMAGES,FileCategory.VIDEOS,FileCategory.AUDIO,FileCategory.ARCHIVES,FileCategory.OTHER).chunked(2)){pair->Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
                         pair.forEach{category->Surface(Modifier.weight(1f).clickable{page=category.name;query=""},shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.surfaceContainerLow){Row(Modifier.padding(8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)){Icon(painterResource(categoryIcon(category)),null,Modifier.size(20.dp),tint=MaterialTheme.colorScheme.primary);Column(Modifier.weight(1f)){Text(categoryTitle(category),style=MaterialTheme.typography.labelLarge,maxLines=2);Text(if(catalog==null)"—"else stringResource(R.string.file_items,grouped[category].orEmpty().size),style=MaterialTheme.typography.labelSmall)}}}}
@@ -166,7 +171,7 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
                 }
             }
         }else if(page.isEmpty()){
-            LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+            LazyColumn(Modifier.weight(1f),state=homeScroll,contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                 item{Text(tr("Storage"),style=MaterialTheme.typography.titleMedium)}
                 items(volumes,key={it.root.path}){volume->
                     val space by produceState<Pair<Long,Long>?>(null,volume.root){value=withContext(Dispatchers.IO){runCatching{val stat=android.os.StatFs(volume.root.path);(stat.totalBytes-stat.availableBytes).coerceAtLeast(0L) to stat.totalBytes}.getOrNull()}}
@@ -216,7 +221,7 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
                 TextButton(onClick={sort=(sort+1)%3}){Text(stringResource(listOf(R.string.file_sort_date,R.string.file_sort_size,R.string.file_sort_name)[sort]))}
             }
             if(visible.isEmpty()&&catalog!=null)Text(stringResource(R.string.file_empty),Modifier.padding(16.dp))
-            LazyColumn(Modifier.weight(1f)){
+            LazyColumn(Modifier.weight(1f),state=resultScroll){
                 items(visible,key={it.entry.file.path}){file->
                     CatalogRow(file,{open(file)},{selected=file})
                 }

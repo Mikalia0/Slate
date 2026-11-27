@@ -2,6 +2,11 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## Unreleased — APK cloning and browser restoration
+
+- Clone authorized APKs with a different manifest package name, optional local automatic signing and a separate output file.
+- Preserve file list and grid positions and category navigation when returning from previews and APK tools.
+
 ## Unreleased — Persistent landscape navigation
 
 - Keep navigation, Settings and About in a single shared header, with fixed ordering on every main screen.
