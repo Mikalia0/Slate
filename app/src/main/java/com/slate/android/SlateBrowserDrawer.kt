@@ -66,6 +66,7 @@ internal fun SlateBrowserDrawer(volumes:List<Volume>,bookmarks:List<String>,hist
                 }.getOrNull()}}
                 DrawerEntry(tr(volume.label),R.drawable.ic_device_storage,space?.let{Formatter.formatFileSize(context,it.first)+" / "+Formatter.formatFileSize(context,it.second)},space?.takeIf{it.second>0}?.let{(it.first.toFloat()/it.second).coerceIn(0f,1f)}){onFolder(volume.root.path+"\n"+volume.root.path)}
             }
+            item{DrawerEntry("Downloads",R.drawable.ic_storage_folder){onCategory("downloads")}}
             if(shizuku)items(listOf("Android/data","Android/obb")){relative->
                 val root=android.os.Environment.getExternalStorageDirectory()
                 DrawerEntry(relative,R.drawable.ic_storage_folder){onFolder(root.path+"\n"+File(root,relative).path)}

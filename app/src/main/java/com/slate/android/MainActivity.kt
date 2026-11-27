@@ -215,7 +215,8 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     LaunchedEffect(screenKey){if(previousScreen!=screenKey){previousScreen=screenKey;screenAlpha.snapTo(.82f);screenAlpha.animateTo(1f,tween(120))}}
     val mainDestination=!about&&!rootData&&!showVolumes&&!showHistory&&!cleanup&&!apps&&!device&&!analyzer
     val deviceStatus=rememberDeviceStatus(active=device||(mainDestination&&destination==0),detailed=device)
-    var fileBrowsing by remember{mutableStateOf(false)}
+    var fileBrowserLocation by rememberSaveable{mutableStateOf<String?>(null)}
+    val fileBrowsing=fileBrowserLocation!=null
     var gallerySelecting by remember{mutableStateOf(false)}
     var fileNavigationBlocked by remember{mutableStateOf(false)}
     val navigationEnabled=destination!=1||!fileNavigationBlocked
@@ -245,7 +246,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
         } else if(mainDestination&&destination!=0) {
              toolState.SaveableStateProvider(destination){
                  when(destination){
-                     1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()},model=model,onBrowsingChanged={fileBrowsing=it},onSettings=onSettings,onDashboard={destination=0},onDestination={destination=it},onNavigationBlocked={fileNavigationBlocked=it},initialFolder=galleryFolder,onInitialFolderConsumed={galleryFolder=null})
+                     1 -> FileManagerScreen(granted,volumes,request,onChanged={model.invalidate()},model=model,browserLocation=fileBrowserLocation,onBrowserLocationChanged={fileBrowserLocation=it},onSettings=onSettings,onDashboard={destination=0},onDestination={destination=it},onNavigationBlocked={fileNavigationBlocked=it},initialFolder=galleryFolder,onInitialFolderConsumed={galleryFolder=null})
                      2 -> GalleryScreen(granted,request,onOpenFolder={item->
                          val volume=volumes.firstOrNull{v->if(item.volume=="external_primary")v.root==primary else v.root.name.equals(item.volume,true)}
                          val folder=volume?.let{java.io.File(it.root,item.relative)}
