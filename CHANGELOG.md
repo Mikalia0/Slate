@@ -1,3 +1,8 @@
+## Unreleased — Update delivery
+
+- Check a lightweight public update manifest instead of the GitHub REST releases API.
+- Cache update checks, preserve legacy release compatibility, and publish a SHA-256 manifest after each release.
+
 # Changelog
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.

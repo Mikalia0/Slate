@@ -38,8 +38,15 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private const val RELEASES = "https://api.github.com/repos/stevenmx2/Slate/releases?per_page=30"
+private const val UPDATE_MANIFEST = "https://raw.githubusercontent.com/stevenmx2/Slate/updates/update.json"
+private const val MANIFEST_CACHE_MS = 6L * 60 * 60 * 1000
+private const val MANUAL_CACHE_MS = 60L * 1000
+private val updateCheckMutex = Mutex()
 private const val MAX_APK_BYTES = 200L * 1024 * 1024
 private data class Update(val code: Long, val attempt: Long, val tag: String, val url: String, val size: Long, val digest: String?, val notes: String)
 
@@ -57,7 +64,11 @@ internal fun updateVersion(tag: String, notes: String = ""): Pair<Long,Long>? {
 
 private fun trusted(url: URL): Boolean =
     url.protocol == "https" && (url.port == -1 || url.port == 443) && url.userInfo == null &&
-    url.host.lowercase(java.util.Locale.ROOT) in setOf("api.github.com","github.com","release-assets.githubusercontent.com","objects.githubusercontent.com")
+    url.host.lowercase(java.util.Locale.ROOT) in setOf("api.github.com","github.com","release-assets.githubusercontent.com","objects.githubusercontent.com","raw.githubusercontent.com")
+
+private class UpdateHttpException(val status: Int, val retryAt: Long): java.io.IOException(
+    if(status==403 || status==429) "GitHub rate limit or access restriction" else "GitHub HTTP $status"
+)
 
 private fun connect(url: String, accept: String): HttpURLConnection {
     var next = URL(url)
@@ -76,7 +87,12 @@ private fun connect(url: String, accept: String): HttpURLConnection {
                 next = URL(next,location)
                 conn.disconnect()
             } else {
-                check(status == 200) { if(status==403 || status==429) "GitHub rate limit or access restriction" else "GitHub HTTP $status" }
+                if(status != 200) {
+                    val now=System.currentTimeMillis()
+                    val retry=conn.getHeaderField("Retry-After")?.toLongOrNull()?.coerceIn(0L,86400L)?.let{now+it*1000}
+                    val reset=conn.getHeaderField("X-RateLimit-Reset")?.toLongOrNull()?.takeIf{it>now/1000&&it<now/1000+86400}?.times(1000)
+                    throw UpdateHttpException(status,maxOf(retry?:0L,reset?:0L,now+MANUAL_CACHE_MS))
+                }
                 return conn
             }
         } catch (e: Exception) {
@@ -87,7 +103,7 @@ private fun connect(url: String, accept: String): HttpURLConnection {
     error("Too many redirects")
 }
 
-private suspend fun findUpdate(installed: Long): Update? = withContext(Dispatchers.IO) {
+private suspend fun findLegacyUpdate(installed: Long): Update? = withContext(Dispatchers.IO) {
     val conn = connect(RELEASES,"application/vnd.github+json")
     val data = try {
         conn.inputStream.buffered().use { input ->
@@ -141,6 +157,78 @@ private suspend fun findUpdate(installed: Long): Update? = withContext(Dispatche
     }catch(e:CancellationException){throw e}
     catch(_:Exception){latest.notes}
     latest.copy(notes=notes)
+}
+
+
+internal fun manifestVersion(tag:String,code:Long,attempt:Long,notes:String):Boolean =
+    updateVersion(tag,notes)?.let{it.first==code&&it.second==attempt}==true
+
+private fun parseUpdateManifest(raw:String):Update {
+    val json=JSONObject(raw)
+    require(json.getInt("schema")==1){"Unsupported update manifest"}
+    val tag=json.getString("tag")
+    val code=json.getLong("versionCode")
+    val attempt=json.getLong("attempt")
+    val notes=json.getString("notes")
+    val size=json.getLong("size")
+    val url=json.getString("url")
+    val digest=json.getString("sha256")
+    require(manifestVersion(tag,code,attempt,json.getString("versionNotes"))){"Invalid update version"}
+    require(url=="https://github.com/stevenmx2/Slate/releases/download/$tag/Slate.apk")
+    require(size in 1..MAX_APK_BYTES&&digest.matches(Regex("[0-9a-fA-F]{64}"))){"Invalid update metadata"}
+    return Update(code,attempt,tag,url,size,digest,notes.take(12000))
+}
+
+private suspend fun fetchUpdateManifest():String {
+    val conn=connect(UPDATE_MANIFEST,"application/json")
+    try {
+        return conn.inputStream.buffered().use{input->
+            val out=java.io.ByteArrayOutputStream()
+            val buf=ByteArray(8192)
+            while(true){
+                currentCoroutineContext().ensureActive()
+                val n=input.read(buf)
+                if(n<0)break
+                require(out.size()+n<=65536){"Unexpected update manifest size"}
+                out.write(buf,0,n)
+            }
+            out.toString("UTF-8")
+        }
+    }finally{conn.disconnect()}
+}
+
+private suspend fun findUpdate(context:Context,installed:Long,manual:Boolean):Update? = withContext(Dispatchers.IO){
+    updateCheckMutex.withLock {
+        val prefs=context.getSharedPreferences("slate_update_metadata",Context.MODE_PRIVATE)
+        val now=System.currentTimeMillis()
+        val cached=runCatching{parseUpdateManifest(prefs.getString("manifest",null).orEmpty())}.getOrNull()
+        val age=now-prefs.getLong("manifest_time",0L)
+        val ttl=if(manual)MANUAL_CACHE_MS else MANIFEST_CACHE_MS
+        if(cached!=null&&age in 0 until ttl)return@withLock cached.takeIf{it.code>installed}
+        try{
+            val raw=fetchUpdateManifest()
+            val latest=parseUpdateManifest(raw)
+            // Ignore stale CDN responses instead of rolling the known version backwards.
+            val chosen=if(cached!=null&&(cached.code>latest.code||(cached.code==latest.code&&cached.attempt>latest.attempt)))cached else latest
+            if(chosen===latest)prefs.edit().putString("manifest",raw).putLong("manifest_time",now).remove("legacy_retry").apply()
+            else prefs.edit().putLong("manifest_time",now).apply()
+            chosen.takeIf{it.code>installed}
+        }catch(e:UpdateHttpException){
+            if(e.status!=404||cached!=null)throw e
+            // Bootstrap only: installations before the first manifest was published.
+            // Do not fall back on raw access restrictions or malformed manifests.
+            val retry=prefs.getLong("legacy_retry",0L)
+            if(retry>now&&retry-now<=86400000L)throw java.io.IOException("GitHub update check temporarily limited. Try again later.")
+            try {
+                val result=findLegacyUpdate(installed)
+                prefs.edit().putLong("legacy_retry",now+MANUAL_CACHE_MS).apply()
+                result
+            }catch(legacy:UpdateHttpException){
+                if(legacy.status==403||legacy.status==429)prefs.edit().putLong("legacy_retry",legacy.retryAt).apply()
+                throw legacy
+            }
+        }
+    }
 }
 
 @Suppress("DEPRECATION")
@@ -289,7 +377,7 @@ internal fun UpdatePrompt(manualRequest: Int) {
         if(manual)visible=true
         job=scope.launch {
             try {
-                candidate=findUpdate(installed)
+                candidate=findUpdate(context,installed,manual)
                 apk=null
                 if(candidate!=null) visible=true
                 else if(manual) message="You're up to date."

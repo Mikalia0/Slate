@@ -13,4 +13,12 @@ class UpdateVersionTest {
         assertNull(updateVersion("v0.1.0","Version code: 999"))
         assertNull(updateVersion("v0.1.0","Version code: 1083\nVersion code: 1084"))
     }
+    @Test fun validatesManifestVersion() {
+        assertTrue(manifestVersion("dev-89-1",1089L,1L,"Version code: 1089"))
+        assertTrue(manifestVersion("v0.1.0",1083L,1L,"Version code: 1083"))
+        assertFalse(manifestVersion("dev-89-1",1090L,1L,"Version code: 1090"))
+        assertFalse(manifestVersion("dev-89-1",1089L,2L,"Version code: 1089"))
+        assertFalse(manifestVersion("v0.1.0",1083L,1L,"Version code: 1084"))
+        assertFalse(manifestVersion("../other",1083L,1L,"Version code: 1083"))
+    }
 }

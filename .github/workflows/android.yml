@@ -83,6 +83,7 @@ jobs:
           printf 'Version code: %s\n\n' "$code" > release-notes.md
           cat changelog.txt >> release-notes.md
           if ! gh release view "$stable" >/dev/null 2>&1; then
+            tag="$stable"
             gh release create "$stable" Slate.apk changelog.txt \
               --target "$GITHUB_SHA" --title "Slate $stable" --latest --notes-file release-notes.md
           else
@@ -91,6 +92,7 @@ jobs:
               --target "$GITHUB_SHA" --title "Slate $version · Build ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
               --prerelease --latest=false --notes-file release-notes.md
           fi
+          bash scripts/publish-update-manifest.sh "$tag" "$code"
       - name: Organize historical development releases
         env:
           GH_TOKEN: ${{ github.token }}
