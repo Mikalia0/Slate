@@ -1,0 +1,13 @@
+<resources>
+    <string name="browser_connections">Conexões</string>
+    <string name="connection_provider_desc">Acesse pastas disponibilizadas pelos aplicativos instalados.</string>
+    <string name="connection_usb">USB / OTG</string>
+    <string name="connection_usb_desc">Escolha uma unidade conectada no Android.</string>
+    <string name="connection_cloud">Nuvem (via provedor)</string>
+    <string name="connection_cloud_desc">Escolha um app de nuvem que ofereça acesso a pastas no seletor do Android.</string>
+    <string name="connection_sort_name">Nome</string>
+    <string name="connection_sort_size">Tamanho</string>
+    <string name="connection_sort_date">Data</string>
+    <string name="connection_sort_type">Tipo</string>
+    <string name="connection_descending">Decrescente</string>
+</resources>

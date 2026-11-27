@@ -1,0 +1,13 @@
+<resources>
+    <string name="browser_connections">Connections</string>
+    <string name="connection_provider_desc">Browse folders exposed by installed apps.</string>
+    <string name="connection_usb">USB / OTG</string>
+    <string name="connection_usb_desc">Choose a connected drive in Android.</string>
+    <string name="connection_cloud">Cloud storage (via provider)</string>
+    <string name="connection_cloud_desc">Choose a cloud app that supports folder access in the Android picker.</string>
+    <string name="connection_sort_name">Name</string>
+    <string name="connection_sort_size">Size</string>
+    <string name="connection_sort_date">Date</string>
+    <string name="connection_sort_type">Type</string>
+    <string name="connection_descending">Descending</string>
+</resources>

@@ -28,10 +28,13 @@ import com.slate.android.storage.FileCategory
 import com.slate.android.storage.fileCategory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.io.File
 
 internal data class ApkDetails(val label:String,val packageName:String,val version:String,val code:Long,val installedCode:Long?)
 private data class ApkPreview(val info:ApkDetails,val icon:Bitmap?)
+private val previewSlots=Semaphore(3)
 private val apkCache=object:LruCache<String,ApkPreview>(64){}
 private val filePreviews=object:LruCache<String,Bitmap>(12*1024*1024){
     override fun sizeOf(key:String,value:Bitmap)=value.allocationByteCount
@@ -96,7 +99,7 @@ internal fun FilePreview(entry:Entry,modifier:Modifier,tint:Color){
     val bitmap by produceState<Bitmap?>(null,entry.file.path,entry.modified,entry.bytes){
         value=null
         if(!entry.directory && category in setOf(FileCategory.IMAGES,FileCategory.VIDEOS,FileCategory.INSTALLERS)){
-            value=withContext(Dispatchers.IO){mediaPreview(context,entry.file,category)}
+            value=previewSlots.withPermit{withContext(Dispatchers.IO){mediaPreview(context,entry.file,category)}}
         }
     }
     val image=bitmap

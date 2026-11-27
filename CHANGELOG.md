@@ -1,3 +1,9 @@
+## Unreleased — File browsing and storage connections
+
+- Reuse bounded in-memory folder listings, folder counts and file catalogs, observe the active local folder and avoid full scans after read-only previews.
+- Share file row and icon components with Documents Providers, add grid/list view, breadcrumb navigation, sorting, selection, metadata and capability-aware actions.
+- Add a Connections section to the browser home and drawer for persistent Android folder grants, including compatible cloud providers and USB devices.
+
 ## Unreleased — APK signing
 
 - Provide a local default signing key, scheme selection, V1 filename, managed imported keys and per-package signing preferences.

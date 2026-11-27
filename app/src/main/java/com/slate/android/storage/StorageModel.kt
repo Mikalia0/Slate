@@ -49,11 +49,26 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     private var largestJob: Job? = null
     private val partialRoots=HashSet<File>()
 
-    internal suspend fun fileCatalog(volumes:List<Volume>):com.slate.android.FileCatalog {
+    private val catalogMutex=Mutex()
+    private var catalogEpoch=0L
+    private var catalogVersion=-1L
+    private var catalogTime=0L
+    private var catalogRoots=emptyList<String>()
+    private var browserCatalog:com.slate.android.FileCatalog?=null
+    internal fun invalidateFileCatalog(){catalogEpoch++}
+    internal fun cachedFileCatalog(volumes:List<Volume>):com.slate.android.FileCatalog? =
+        browserCatalog.takeIf{catalogRoots==volumes.map{it.root.path}.sorted()}
+    internal suspend fun fileCatalog(volumes:List<Volume>):com.slate.android.FileCatalog = catalogMutex.withLock {
+        val roots=volumes.map{it.root.path}.sorted()
+        val now=android.os.SystemClock.elapsedRealtime()
+        cachedFileCatalog(volumes)?.takeIf{catalogVersion==catalogEpoch&&now-catalogTime<60000}?.let{return@withLock it}
+        val epoch=catalogEpoch
         // A complete in-memory index can supply personal files without another disk walk.
         // Cleanup exclusions and partial indexes must not hide files in the manager.
-        val current=indexes[primary]?.takeIf{primary !in partialRoots && exclusions.absolute().isEmpty()}
-        return withContext(Dispatchers.IO){com.slate.android.buildFileCatalog(volumes,current)}
+        val current=indexes[primary]?.takeIf{catalogEpoch==0L && primary !in partialRoots && exclusions.absolute().isEmpty()}
+        val result=withContext(Dispatchers.IO){com.slate.android.buildFileCatalog(volumes,current)}
+        browserCatalog=result;catalogRoots=roots;catalogTime=android.os.SystemClock.elapsedRealtime();catalogVersion=epoch
+        result
     }
 
     internal suspend fun personalCategories():List<CategoryStats>? {
@@ -176,6 +191,7 @@ class StorageModel(app:Application) : AndroidViewModel(app) {
     }
 
     fun invalidate() {
+        invalidateFileCatalog()
         ++generation
         job?.cancel()
         largestJob?.cancel()

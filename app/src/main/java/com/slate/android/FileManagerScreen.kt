@@ -60,9 +60,13 @@ internal fun safeFile(root:File,file:File):Boolean=runCatching{
 internal fun validFileName(name:String)=name.isNotBlank()&&name!="."&&name!=".."&&name.none{it=='/'||it=='\\'||it.code<32}
 private data class FileRow(val file:File,val directory:Boolean,val size:Long,val modified:Long)
 private val folderSummarySlots=kotlinx.coroutines.sync.Semaphore(2)
+private val folderSummaries=android.util.LruCache<String,FolderSummary>(512)
+private val folderListings=object:android.util.LruCache<String,List<FileRow>>(12000){override fun sizeOf(key:String,value:List<FileRow>)=value.size.coerceAtLeast(1)}
 private data class FolderSummary(val count:String,val preview:File?)
 private fun folderSummary(root:File,folder:File,hidden:Boolean):FolderSummary?=runCatching{
     if(!safeFile(root,folder)||protectedAppPath(folder.toPath()))return@runCatching null
+    val cacheKey=root.path+"|"+folder.path+"|"+folder.lastModified()+"|"+hidden
+    folderSummaries.get(cacheKey)?.let{return@runCatching it}
     var count=0
     var scanned=0
     var preview:File?=null
@@ -79,7 +83,7 @@ private fun folderSummary(root:File,folder:File,hidden:Boolean):FolderSummary?=r
             if(count>1000)break
         }
     }
-    FolderSummary(if(count>1000)"1000+" else if(scanned>1500)"$count+" else count.toString(),preview)
+    FolderSummary(if(count>1000)"1000+" else if(scanned>1500)"$count+" else count.toString(),preview).also{folderSummaries.put(cacheKey,it)}
 }.getOrNull()
 
 private fun fileDay(time:Long):Long=Calendar.getInstance().apply{
@@ -91,10 +95,10 @@ private fun fileDay(time:Long):Long=Calendar.getInstance().apply{
 private fun BrowserFileIcon(row:FileRow,preview:File?,modifier:Modifier=Modifier.size(40.dp)){
     val color=MaterialTheme.colorScheme
     val ext=row.file.extension.lowercase()
-    val typeLabel=if(!row.directory&&ext in setOf("zip","rar","7z","tar","gz","xz","zst","tzst","bz2","dll","exe","msi","patch","diff","so","json","xml","ini","cfg","log","txt","pdf","bin","iso","sh","bat"))ext.uppercase() else null
-    Box(modifier.background(if(row.directory)color.primaryContainer else color.secondaryContainer,RoundedCornerShape(11.dp)),contentAlignment=Alignment.Center){
-        if(typeLabel!=null)Text(typeLabel,style=MaterialTheme.typography.labelSmall,color=color.onSecondaryContainer,maxLines=1)
-        else FilePreview(Entry(row.file,row.directory,row.size,0,0,row.modified),Modifier.size(if(row.directory)25.dp else 40.dp),if(row.directory)color.onPrimaryContainer else color.onSecondaryContainer)
+    Box(modifier,contentAlignment=Alignment.Center){
+        BrowserEntryIcon(row.directory,ext,Modifier.fillMaxSize()){
+            FilePreview(Entry(row.file,row.directory,row.size,0,0,row.modified),Modifier.size(if(row.directory)25.dp else 40.dp),if(row.directory)color.onPrimaryContainer else color.onSecondaryContainer)
+        }
         if(preview!=null)Box(Modifier.align(Alignment.BottomEnd).size(18.dp).background(color.surface,RoundedCornerShape(4.dp))){
             FilePreview(Entry(preview,false,0,0,0,row.modified),Modifier.fillMaxSize(),color.primary)
         }
@@ -129,6 +133,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     var descending by rememberSaveable{mutableStateOf(false)}
     var marked by remember{mutableStateOf<Set<String>>(emptySet())}
     var revision by remember{mutableIntStateOf(0)}
+    var catalogRevision by remember{mutableIntStateOf(0)}
     var query by rememberSaveable{mutableStateOf("")}
     var hidden by rememberSaveable{mutableStateOf(false)}
     var sort by rememberSaveable{mutableIntStateOf(0)}
@@ -140,7 +145,8 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     var overviewEpoch by remember{mutableIntStateOf(0)}
     var history by remember{mutableStateOf(readBrowserHistory(prefs))}
     var sources by remember{mutableStateOf(prefs.getStringSet("saf_sources",emptySet()).orEmpty().toSet())}
-    var safSource by remember{mutableStateOf<String?>(null)}
+    var safSource by rememberSaveable{mutableStateOf<String?>(null)}
+    var addSourceDialog by remember{mutableStateOf(false)}
     var editFavorites by remember{mutableStateOf(false)}
     var dualPane by rememberSaveable{mutableStateOf(prefs.getBoolean("dual_pane",false))}
     var otherPath by rememberSaveable{mutableStateOf(primary.path)}
@@ -180,8 +186,12 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     LaunchedEffect(showHome){browsingCallback(!showHome)}
     DisposableEffect(Unit){onDispose{browsingCallback(false)}}
     val availableVolumes=volumes.ifEmpty{listOf(Volume(primary,"Internal storage"))}
-    val catalog by produceState<FileCatalog?>(null,granted,availableVolumes,revision){
-        if(granted)value=model.fileCatalog(availableVolumes)else value=null
+    val catalog by produceState<FileCatalog?>(null,granted,availableVolumes,catalogRevision,showHome){
+        if(!granted)value=null
+        else if(showHome){
+            value=model.cachedFileCatalog(availableVolumes)
+            value=model.fileCatalog(availableVolumes)
+        }
     }
     fun go(file:File,volume:File=root){
         val key=tabKey(volume,file)
@@ -209,7 +219,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
             try{withContext(Dispatchers.IO){block()};selected=null;marked=emptySet()}
             catch(e:CancellationException){throw e}
             catch(_:Exception){message=context.getString(R.string.file_failed)}
-            finally{busy=false;revision++;onChanged()}
+            finally{busy=false;revision++;catalogRevision++;onChanged()}
         }
     }
     fun pasteInto(destinationRoot:File,destination:File){
@@ -239,33 +249,53 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 clipboard=null;marked=emptySet()
             }catch(e:CancellationException){clipboard=null;throw e}
             catch(_:Exception){message=context.getString(R.string.file_failed);clipboard=null}
-            finally{busy=false;transferring=false;transferJob=null;revision++;onChanged()}
+            finally{busy=false;transferring=false;transferJob=null;revision++;catalogRevision++;onChanged()}
         }
     }
-    var loadedPath by remember{mutableStateOf("")}
-    LaunchedEffect(path,rootPath,revision,granted,hidden,shizuku){
+    val folderKey="$rootPath|$path|$hidden"
+    // Never retain privileged listings after a permission change.
+    val cacheable=granted&&!protected
+    var loadedKey by remember{mutableStateOf("")}
+    var observedChange by remember{mutableLongStateOf(0L)}
+    LaunchedEffect(granted,shizuku){if(!granted){folderListings.evictAll();folderSummaries.evictAll()}}
+    DisposableEffect(path,cacheable,showHome,safSource){
+        val handler=android.os.Handler(android.os.Looper.getMainLooper())
+        val changed=Runnable{observedChange++;model.invalidateFileCatalog()}
+        val observer=if(cacheable&&!showHome&&safSource==null)runCatching{
+            @Suppress("DEPRECATION")
+            object:android.os.FileObserver(path,android.os.FileObserver.CREATE or android.os.FileObserver.DELETE or android.os.FileObserver.MOVED_FROM or android.os.FileObserver.MOVED_TO or android.os.FileObserver.CLOSE_WRITE or android.os.FileObserver.ATTRIB or android.os.FileObserver.DELETE_SELF or android.os.FileObserver.MOVE_SELF){
+                override fun onEvent(event:Int,name:String?){handler.removeCallbacks(changed);handler.postDelayed(changed,180)}
+            }.apply{startWatching()}
+        }.getOrNull()else null
+        onDispose{observer?.stopWatching();handler.removeCallbacks(changed)}
+    }
+    LaunchedEffect(folderKey,revision,observedChange,granted,shizuku,showHome,safSource){
+        if(showHome||safSource!=null)return@LaunchedEffect
         message=null
-        if(loadedPath!=path){rows=emptyList();loadedPath=path}
-        if(!granted&&!shizuku)return@LaunchedEffect
+        if(loadedKey!=folderKey){rows=if(cacheable)folderListings.get(folderKey).orEmpty()else emptyList();loadedKey=folderKey}
+        if((!granted&&!shizuku)||(protected&&!shizuku)){rows=emptyList();loading=false;return@LaunchedEffect}
         loading=true
         try{
             val relative=protectedRelative(folder,primary)
-            rows=if(relative!=null&&shizuku)withProtectedRead(context){client->
-                client.list(relative).filter{it.readable&&(hidden||!it.name.startsWith("."))}.map{FileRow(File(folder,it.name),it.directory,it.size,it.modified)}
+            val result=if(relative!=null&&shizuku)withProtectedRead(context){client->
+                client.list(relative).filter{it.readable&&(hidden||!it.name.startsWith(".") )}.map{FileRow(File(folder,it.name),it.directory,it.size,it.modified)}
             }else withContext(Dispatchers.IO){
                 check(safeFile(root,folder))
                 val list=folder.listFiles()?:error("unreadable")
                 list.asSequence().filter{hidden||!it.name.startsWith(".")}.filter{safeFile(root,it)}.map{FileRow(it,it.isDirectory,if(it.isFile)it.length()else 0L,it.lastModified())}.toList()
             }
+            rows=result
+            if(cacheable)folderListings.put(folderKey,result)
         }catch(e:CancellationException){throw e}
-        catch(_:Exception){message=context.getString(R.string.file_failed)}
+        catch(_:Exception){message=context.getString(R.string.file_failed);if(!cacheable)rows=emptyList()}
         finally{loading=false}
     }
     BackHandler(!showHome){if(!busy){when{marked.isNotEmpty()->marked=emptySet();selected!=null->selected=null;searching->{searching=false;query=""};else->if(folder==root)showHome=true else go(folder.parentFile?.takeIf{safeFile(root,it)}?:root)}}}
     if(safSource!=null){SlateSafBrowser(Uri.parse(safSource),onClose={safSource=null},onForget={val old=safSource; if(old!=null){sources=sources-old;prefs.edit().putStringSet("saf_sources",sources).apply();runCatching{val uri=Uri.parse(old);val grant=context.contentResolver.persistedUriPermissions.firstOrNull{it.uri==uri};if(grant!=null)context.contentResolver.releasePersistableUriPermission(uri,(if(grant.isReadPermission)Intent.FLAG_GRANT_READ_URI_PERMISSION else 0) or (if(grant.isWritePermission)Intent.FLAG_GRANT_WRITE_URI_PERMISSION else 0))}};safSource=null});return}
     if(toolsScreen){SlateDocumentsScreen(onClose={toolsScreen=false});return}
     viewer?.let{file->
-        SlateFileViewer(root,file,onClose={viewer=null;revision++;onChanged()},onExternal={openSharedFile(context,root,file,false)},initialApkTab=viewerTab)
+        val before=remember(file){Triple(file.length(),file.lastModified(),file.parentFile?.lastModified())}
+        SlateFileViewer(root,file,onClose={viewer=null;scope.launch{val changed=withContext(Dispatchers.IO){before!=Triple(file.length(),file.lastModified(),file.parentFile?.lastModified())};if(changed){revision++;catalogRevision++;onChanged()}}},onExternal={openSharedFile(context,root,file,false)},initialApkTab=viewerTab)
         return
     }
     val config=androidx.compose.ui.platform.LocalConfiguration.current
@@ -276,23 +306,23 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 volumes=availableVolumes,bookmarks=bookmarks.toList().sorted(),history=history,sources=sources.toList().sorted(),shizuku=shizuku,
                 onHome={if(!busy){closeDrawer();home()}},onDashboard={if(!busy){closeDrawer();onDashboard()}},
                 onFolder={key->val (volume,dir)=tabFiles(key);if(!busy&&((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null))){go(dir,volume);showHome=false};closeDrawer()},
-                onCategory={page->closeDrawer();home(page)},onAddStorage={closeDrawer();addStorage.launch(null)},
+                onCategory={page->closeDrawer();home(page)},onAddStorage={closeDrawer();addSourceDialog=true},
                 onSource={closeDrawer();safSource=it},onFavorites={closeDrawer();editFavorites=true},
                 onDocuments={closeDrawer();toolsScreen=true},onSettings={closeDrawer();onSettings()}
             )
     }
     val browserContent:@Composable ()->Unit={
     if(showHome){
-        overviewState.SaveableStateProvider(overviewEpoch){FilesOverview(granted,availableVolumes,catalog,request,onRefresh={onChanged();revision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;onChanged()},initialPage=overviewPage,onMenu={if(!expanded)openDrawer()},bookmarks=bookmarks.toList().sorted(),onOpenBookmark={key->val(volume,dir)=tabFiles(key);if((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null)){go(dir,volume);showHome=false}})}
+        overviewState.SaveableStateProvider(overviewEpoch){FilesOverview(granted,availableVolumes,catalog,request,onRefresh={onChanged();revision++;catalogRevision++},onOpenFolder={volume,folder->go(folder,volume);showHome=false},onChanged={revision++;catalogRevision++;onChanged()},initialPage=overviewPage,onMenu={if(!expanded)openDrawer()},bookmarks=bookmarks.toList().sorted(),onOpenBookmark={key->val(volume,dir)=tabFiles(key);if((safeFile(volume,dir)&&dir.isDirectory)||(shizuku&&protectedRelative(dir,primary)!=null)){go(dir,volume);showHome=false}},sources=sources.toList().sorted(),onSource={safSource=it},onAddSource={addSourceDialog=true})}
     }else Column(Modifier.fillMaxSize()){
         val rootLabel=tr(availableVolumes.firstOrNull{it.root.path==rootPath}?.label?:"Internal storage")
         val title=if(folder==root)rootLabel else folder.name
         val storage by produceState<Pair<Long,Long>?>(null,rootPath,revision,granted){
             value=withContext(Dispatchers.IO){runCatching{val total=root.totalSpace; if(total>0)(total-root.usableSpace).coerceIn(0,total) to total else null}.getOrNull()}
         }
-        val shown=remember(rows,query,sort,descending){
+        val shown=remember(rows,query,sort,descending,loadedKey,folderKey,granted,protected,shizuku){
             val comparator=when(sort){1->compareBy<FileRow>{it.size};2->compareBy<FileRow>{it.modified};3->compareBy<FileRow>{it.file.extension.lowercase()};else->compareBy<FileRow>{it.file.name.lowercase()}}
-            val filtered=rows.filter{it.file.name.contains(query,true)}
+            val filtered=(if(loadedKey==folderKey&&(if(protected)shizuku else granted))rows else if(cacheable)folderListings.get(folderKey).orEmpty()else emptyList()).filter{it.file.name.contains(query,true)}
             val order=if(descending)comparator.reversed()else comparator
             filtered.sortedWith(if(sort==2)order.thenBy{it.file.name.lowercase()}else compareByDescending<FileRow>{it.directory}.then(order))
         }
@@ -424,7 +454,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                 if(transferTotal>0)LinearProgressIndicator(progress={(transferBytes.toFloat()/transferTotal).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())
                 else LinearProgressIndicator(Modifier.fillMaxWidth())
             }
-        }else if(loading||busy)LinearProgressIndicator(Modifier.fillMaxWidth())
+        }else DelayedBrowserProgress(loading||busy)
         message?.let{Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)}
         fun tap(row:FileRow){
             if(marked.isNotEmpty())marked=if(row.file.path in marked)marked-row.file.path else marked+row.file.path
@@ -461,26 +491,15 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
                         }
                     }
                     items(entries,key={it.file.path}){row->
-                        val summary by produceState<FolderSummary?>(null,row.file.path,row.modified,revision,protected,hidden,rootPath){
+                        val summary by produceState<FolderSummary?>(null,row.file.path,row.modified,protected,hidden,rootPath){
                             value=null
                             if(row.directory&&!protected)value=folderSummarySlots.withPermit{withContext(Dispatchers.IO){folderSummary(root,row.file,hidden)}}
                         }
                         val active=row.file.path in marked
-                        Row(Modifier.fillMaxWidth().combinedClickable(enabled=!busy,onClick={tap(row)},onLongClick={marked=marked+row.file.path}).background(if(active)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface).heightIn(min=if(topTools)44.dp else 51.dp).padding(horizontal=8.dp,vertical=if(topTools)2.dp else 5.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                        val date=if(row.modified>0)DateUtils.getRelativeTimeSpanString(row.modified,System.currentTimeMillis(),DateUtils.MINUTE_IN_MILLIS,DateUtils.FORMAT_ABBREV_RELATIVE).toString()else "—"
+                        val meta=if(row.directory)summary?.count?.let{"($it)"}else Formatter.formatFileSize(context,row.size)
+                        BrowserEntryRow(row.file.name,date,meta,active,topTools,Modifier.combinedClickable(enabled=!busy,onClick={tap(row)},onLongClick={marked=marked+row.file.path})){
                             BrowserFileIcon(row,summary?.preview,Modifier.size(if(topTools)32.dp else 40.dp))
-                            if(topTools){
-                                Text(row.file.name,Modifier.weight(1f),maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodyMedium)
-                                Text(if(row.modified>0)DateUtils.getRelativeTimeSpanString(row.modified,System.currentTimeMillis(),DateUtils.MINUTE_IN_MILLIS,DateUtils.FORMAT_ABBREV_RELATIVE).toString()else "—",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
-                                val meta=if(row.directory)summary?.count?.let{"($it)"}else Formatter.formatFileSize(context,row.size)
-                                Text(meta.orEmpty(),Modifier.widthIn(min=64.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
-                            }else Column(Modifier.weight(1f)){
-                                Text(row.file.name,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodyLarge)
-                                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)){
-                                    Text(if(row.modified>0)DateUtils.getRelativeTimeSpanString(row.modified,System.currentTimeMillis(),DateUtils.MINUTE_IN_MILLIS,DateUtils.FORMAT_ABBREV_RELATIVE).toString()else "—",Modifier.weight(1f),maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                                    val metadata=if(row.directory)summary?.count?.let{"($it)"}else Formatter.formatFileSize(context,row.size)
-                                    if(metadata!=null)Text(metadata,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
-                                }
-                            }
                         }
                     }
                 }
@@ -514,6 +533,7 @@ internal fun FileManagerScreen(granted:Boolean,volumes:List<Volume>,request:()->
     }else ModalNavigationDrawer(drawerState=drawer,gesturesEnabled=!busy,drawerContent={
         ModalDrawerSheet(Modifier.widthIn(max=320.dp)){drawerBody()}
     }){browserContent()}
+    if(addSourceDialog)StorageConnectionDialog(onClose={addSourceDialog=false},onPick={addSourceDialog=false;addStorage.launch(null)})
     if(editFavorites)SlateFavoritesDialog(bookmarks.toList().sorted(),onClose={editFavorites=false},onRemove={key->bookmarks=bookmarks-key;prefs.edit().putStringSet("bookmarks",bookmarks).apply()})
     properties?.let{row->
         AlertDialog(onDismissRequest={properties=null},title={Text(stringResource(R.string.browser_properties))},text={

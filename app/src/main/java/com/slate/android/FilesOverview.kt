@@ -93,7 +93,7 @@ internal fun categoryIcon(category:FileCategory)=when(category){
 }
 
 @Composable
-internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCatalog?,request:()->Unit,onRefresh:()->Unit,onOpenFolder:(File,File)->Unit,onChanged:()->Unit,initialPage:String="",onMenu:()->Unit={},bookmarks:List<String> = emptyList(),onOpenBookmark:(String)->Unit={}){
+internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCatalog?,request:()->Unit,onRefresh:()->Unit,onOpenFolder:(File,File)->Unit,onChanged:()->Unit,initialPage:String="",onMenu:()->Unit={},bookmarks:List<String> = emptyList(),onOpenBookmark:(String)->Unit={},sources:List<String> = emptyList(),onSource:(String)->Unit={},onAddSource:()->Unit={}){
     val context=LocalContext.current
     val compact=useTopNavigation()
     val scope=rememberCoroutineScope()
@@ -127,7 +127,7 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
     val storageScroll=rememberLazyListState()
     val categoryScroll=rememberLazyListState()
     val resultScroll=key(page){rememberLazyListState()}
-    viewer?.let{item->SlateFileViewer(item.root,item.entry.file,onClose={viewer=null;onChanged()},onExternal={openSharedFile(context,item.root,item.entry.file,false)},initialApkTab=viewerTab);return}
+    viewer?.let{item->val before=remember(item){Triple(item.entry.file.length(),item.entry.file.lastModified(),item.entry.file.parentFile?.lastModified())};SlateFileViewer(item.root,item.entry.file,onClose={viewer=null;scope.launch{val f=item.entry.file;if(withContext(Dispatchers.IO){before!=Triple(f.length(),f.lastModified(),f.parentFile?.lastModified())})onChanged()}},onExternal={openSharedFile(context,item.root,item.entry.file,false)},initialApkTab=viewerTab);return}
     fun leave(){page="";query="";selected=null;failed=false}
     BackHandler(page.isNotEmpty()||busy){if(!busy)leave()}
     Column(Modifier.fillMaxSize()){
@@ -144,9 +144,11 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
             if(shizukuGranted())volumes.firstOrNull()?.let{volume->
                 listOf("Android/data","Android/obb").forEach{relative->TextButton(onClick={onOpenFolder(volume.root,File(volume.root,relative))}){Text(relative)}}
             }
+            Text(stringResource(R.string.browser_connections),Modifier.padding(horizontal=16.dp,vertical=6.dp),style=MaterialTheme.typography.titleMedium)
+            LazyColumn(Modifier.weight(1f)){items(sources,key={"source:"+it}){source->StorageConnectionRow(source){onSource(source)}};item{TextButton(onClick=onAddSource){Icon(Icons.Default.Add,null);Spacer(Modifier.width(6.dp));Text(stringResource(R.string.browser_add_storage))}}}
             return@Column
         }
-        if(catalog==null||busy)LinearProgressIndicator(Modifier.fillMaxWidth())
+        DelayedBrowserProgress(catalog==null||busy)
         if(failed)Text(stringResource(R.string.file_failed),Modifier.padding(12.dp),color=MaterialTheme.colorScheme.error)
         if(page.isEmpty()&&compact){
             Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)){
@@ -158,6 +160,9 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
                             Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(22.dp));Column(Modifier.weight(1f)){Text(tr(volume.label),style=MaterialTheme.typography.bodyMedium);space?.let{Text(Formatter.formatFileSize(context,it.first)+" / "+Formatter.formatFileSize(context,it.second),style=MaterialTheme.typography.bodySmall)}};Icon(Icons.Default.KeyboardArrowRight,null)
                         }
                     }
+                    item{Text(stringResource(R.string.browser_connections),Modifier.padding(vertical=6.dp),style=MaterialTheme.typography.titleSmall)}
+                    items(sources,key={"source:"+it}){source->StorageConnectionRow(source){onSource(source)}}
+                    item{TextButton(onClick=onAddSource){Icon(Icons.Default.Add,null);Spacer(Modifier.width(6.dp));Text(stringResource(R.string.browser_add_storage))}}
                     if(bookmarks.isNotEmpty()){item{Text(stringResource(R.string.browser_favorites),Modifier.padding(vertical=6.dp),style=MaterialTheme.typography.titleSmall)};items(bookmarks){key->Text(File(key.substringAfter('\n')).name,Modifier.fillMaxWidth().clickable{onOpenBookmark(key)}.padding(vertical=8.dp))}}
                 }
                 LazyColumn(Modifier.weight(1.5f),state=categoryScroll,verticalArrangement=Arrangement.spacedBy(3.dp)){
@@ -179,6 +184,9 @@ internal fun FilesOverview(granted:Boolean,volumes:List<Volume>,catalog:FileCata
                         space?.let{(used,total)->Text(Formatter.formatFileSize(context,used)+" / "+Formatter.formatFileSize(context,total))}
                     },trailingContent={Icon(Icons.Default.KeyboardArrowRight,null)},modifier=Modifier.clickable{onOpenFolder(volume.root,volume.root)})
                 }
+                item{Text(stringResource(R.string.browser_connections),style=MaterialTheme.typography.titleMedium)}
+                items(sources,key={"source:"+it}){source->StorageConnectionRow(source){onSource(source)}}
+                item{TextButton(onClick=onAddSource){Icon(Icons.Default.Add,null);Spacer(Modifier.width(6.dp));Text(stringResource(R.string.browser_add_storage))}}
                 item{Text(stringResource(R.string.files_categories),style=MaterialTheme.typography.titleMedium)}
                 val categories=listOf(FileCategory.INSTALLERS,FileCategory.DOCUMENTS,FileCategory.IMAGES,FileCategory.VIDEOS,FileCategory.AUDIO,FileCategory.ARCHIVES,FileCategory.OTHER)
                 items(categories.chunked(2)){pair->

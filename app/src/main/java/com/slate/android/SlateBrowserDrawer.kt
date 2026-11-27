@@ -70,9 +70,9 @@ internal fun SlateBrowserDrawer(volumes:List<Volume>,bookmarks:List<String>,hist
                 val root=android.os.Environment.getExternalStorageDirectory()
                 DrawerEntry(relative,R.drawable.ic_storage_folder){onFolder(root.path+"\n"+File(root,relative).path)}
             }
+            item{HorizontalDivider();DrawerHeading(stringResource(R.string.browser_connections))}
             items(sources,key={"saf:"+it}){uri->
-                val label by produceState<String?>(null,uri){value=withContext(Dispatchers.IO){runCatching{DocumentFile.fromTreeUri(context,Uri.parse(uri))?.name}.getOrNull()}}
-                DrawerEntry(label?:stringResource(R.string.browser_document_source),R.drawable.ic_storage_folder){onSource(uri)}
+                StorageConnectionRow(uri){onSource(uri)}
             }
             item{DrawerEntry(stringResource(R.string.browser_add_storage),R.drawable.ic_storage_folder,onClick=onAddStorage)}
             item{HorizontalDivider();DrawerHeading(stringResource(R.string.files_categories))}
