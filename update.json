@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "tag": "dev-94-1",
-  "versionCode": 1094,
+  "tag": "dev-95-1",
+  "versionCode": 1095,
   "attempt": 1,
-  "url": "https://github.com/stevenmx2/Slate/releases/download/dev-94-1/Slate.apk",
-  "size": 15935897,
-  "sha256": "6bcd42e8fa6e9298b5bc4c4f78a3a7e90652c41b0be737b92b387e6bf3b497f5",
-  "notes": "- Mark the newest published build as the latest release\n",
-  "versionNotes": "Version code: 1094"
+  "url": "https://github.com/stevenmx2/Slate/releases/download/dev-95-1/Slate.apk",
+  "size": 15937781,
+  "sha256": "3852e28dfd4919a842666ecf2a1aab5c9c7528cb42f895a4a7e3a05e6d9becf5",
+  "notes": "- Refine onboarding and default to system AMOLED appearance\n",
+  "versionNotes": "Version code: 1095"
 }
