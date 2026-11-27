@@ -1,0 +1,1 @@
+<resources><string name="gallery_today">Hoje</string><string name="gallery_yesterday">Ontem</string><plurals name="gallery_selected_count"><item quantity="one">%d selecionado</item><item quantity="other">%d selecionados</item></plurals></resources>

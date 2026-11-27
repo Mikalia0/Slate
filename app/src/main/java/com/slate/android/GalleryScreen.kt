@@ -49,6 +49,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -208,6 +210,9 @@ private fun MediaViewer(items:List<MediaItem>,initial:Int,favorites:Set<String>,
     var viewerMenu by remember{mutableStateOf(false)}
     var slideshow by remember{mutableStateOf(false)}
     var fullResolution by remember{mutableStateOf(false)}
+    val strip=rememberLazyListState(initialFirstVisibleItemIndex=(initial-2).coerceAtLeast(0))
+    val pagerScope=rememberCoroutineScope()
+    LaunchedEffect(pager.currentPage){strip.animateScrollToItem((pager.currentPage-2).coerceAtLeast(0))}
     LaunchedEffect(slideshow,pager.currentPage){if(slideshow){delay(3500);pager.animateScrollToPage((pager.currentPage+1)%items.size)}}
     Dialog(onDismissRequest=onClose,properties=DialogProperties(usePlatformDefaultWidth=false,decorFitsSystemWindows=true)){
         Surface(Modifier.fillMaxSize(),color=Color.Black){
@@ -273,6 +278,11 @@ private fun MediaViewer(items:List<MediaItem>,initial:Int,favorites:Set<String>,
                         }
                     }
                 }
+                if(chrome&&items.size>1&&LocalConfiguration.current.screenHeightDp>=420)LazyRow(state=strip,modifier=Modifier.fillMaxWidth(),contentPadding=PaddingValues(horizontal=8.dp,vertical=3.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)){
+                    items(items.size,key={items[it].uri.toString()}){index->
+                        MediaTile(items[index],Modifier.size(48.dp).then(if(index==pager.currentPage)Modifier.border(2.dp,MaterialTheme.colorScheme.primary,RoundedCornerShape(3.dp))else Modifier),thumbSize=96){pagerScope.launch{pager.animateScrollToPage(index)}}
+                    }
+                }
                 if(chrome)Row(Modifier.fillMaxWidth().padding(8.dp),horizontalArrangement=Arrangement.SpaceEvenly){
                     IconButton(onClick={shareMedia(context,listOf(current))}){Icon(Icons.Default.Share,stringResource(R.string.gallery_share),tint=Color.White)}
                     IconButton(onClick={onFavorite(current.uri.toString())}){Icon(if(current.uri.toString() in favorites)Icons.Default.Favorite else Icons.Default.FavoriteBorder,stringResource(R.string.gallery_favorites),tint=Color.White)}
@@ -284,7 +294,7 @@ private fun MediaViewer(items:List<MediaItem>,initial:Int,favorites:Set<String>,
         if(details){
         val exif by produceState<List<String>>(emptyList(),current.uri){value=withContext(Dispatchers.IO){galleryExif(context,current)}}
         AlertDialog(onDismissRequest={details=false},title={Text(stringResource(R.string.gallery_details))},text={
-            Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
+            Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(6.dp)){
                 Text(current.name);Text(current.folder);Text(Formatter.formatFileSize(context,current.bytes))
                 Text(DateFormat.getDateTimeInstance().format(Date(current.date*1000)))
                 Text("${current.width} × ${current.height}")
@@ -296,7 +306,7 @@ private fun MediaViewer(items:List<MediaItem>,initial:Int,favorites:Set<String>,
 }
 
 @Composable
-internal fun GalleryScreen(granted:Boolean,request:()->Unit,onOpenFolder:(MediaItem)->Unit={},onChanged:()->Unit={}){
+internal fun GalleryScreen(granted:Boolean,request:()->Unit,onOpenFolder:(MediaItem)->Unit={},onChanged:()->Unit={},onSelectionChanged:(Boolean)->Unit={}){
     val context=LocalContext.current
     val lifecycle=LocalLifecycleOwner.current.lifecycle
     val scope=rememberCoroutineScope()
@@ -346,6 +356,9 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit,onOpenFolder:(MediaI
     var search by rememberSaveable{mutableStateOf(false)}
     var query by rememberSaveable{mutableStateOf("")}
     var selected by remember{mutableStateOf<Set<String>>(emptySet())}
+    val selectionCallback by rememberUpdatedState(onSelectionChanged)
+    SideEffect{selectionCallback(selected.isNotEmpty())}
+    DisposableEffect(Unit){onDispose{selectionCallback(false)}}
     var preview by remember{mutableStateOf<String?>(null)}
     var deletion by remember{mutableStateOf<List<MediaItem>>(emptyList())}
     var deletionDay by remember{mutableStateOf<String?>(null)}
@@ -368,7 +381,9 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit,onOpenFolder:(MediaI
         pendingDelete=arrayListOf();deleting=false
     }
     fun favorite(key:String){
-        favorites=if(key in favorites)favorites-key else favorites+key
+        val item=media.firstOrNull{it.uri.toString()==key}
+        val legacy=item?.takeIf{it.volume=="external_primary"}?.let{ContentUris.withAppendedId(if(it.video)MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI,it.id).toString()}
+        favorites=if(key in favorites)favorites-key-legacy.orEmpty() else favorites+key
         prefs.edit().putStringSet("favorites",favorites).apply()
     }
     fun toggle(key:String){selected=if(key in selected)selected-key else selected+key}
@@ -388,7 +403,9 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit,onOpenFolder:(MediaI
     val visible=remember(media,bucket,filter,favorites,query,sort,hiddenAlbums,showHidden,duplicateKeys){val source=media.filter{(showHidden||it.bucket !in hiddenAlbums)&&(bucket==null||it.bucket==bucket)&&(duplicateKeys==null||it.uri.toString() in duplicateKeys.orEmpty())&&(query.isBlank()||it.name.contains(query,true)||it.folder.contains(query,true))&&when(filter){1->!it.video;2->it.video;3->it.uri.toString() in favorites;4->!it.video&&it.folder.contains("screenshot",true);5->it.video&&(it.folder.contains("screen",true)||it.name.contains("screenrecord",true));else->true}};when(sort){1->source.sortedBy{it.date};2->source.sortedByDescending{it.bytes};3->source.sortedBy{it.name.lowercase()};else->source.sortedByDescending{it.date}}}
     val groups=remember(media,query,hiddenAlbums,showHidden,sort){val groups=media.filter{showHidden||it.bucket !in hiddenAlbums}.groupBy{it.bucket}.values.filter{group->query.isBlank()||group.any{it.folder.contains(query,true)||it.name.contains(query,true)}};when(sort){1->groups.sortedBy{it.first().date};2->groups.sortedByDescending{it.sumOf{m->m.bytes}};3->groups.sortedBy{it.first().folder.lowercase()};else->groups.sortedByDescending{it.first().date}}}
     val allLabel=stringResource(R.string.gallery_all)
-    val days=remember(visible,sort,allLabel){val format=DateFormat.getDateInstance();if(sort>=2)mapOf(allLabel to visible)else visible.groupBy{format.format(Date(it.date*1000))}}
+    val todayLabel=stringResource(R.string.gallery_today)
+    val yesterdayLabel=stringResource(R.string.gallery_yesterday)
+    val days=remember(visible,sort,allLabel,todayLabel,yesterdayLabel){val format=DateFormat.getDateInstance();val now=java.util.Calendar.getInstance();val today=format.format(now.time);now.add(java.util.Calendar.DAY_OF_YEAR,-1);val yesterday=format.format(now.time);if(sort>=2)mapOf(allLabel to visible)else visible.groupBy{val day=format.format(Date(it.date*1000));when(day){today->todayLabel;yesterday->yesterdayLabel;else->day}}}
     val scrollAnchors=remember(albumGrid,groups,days,currentColumns){
         galleryRowAnchors(if(albumGrid)listOf(groups.size)else days.values.map{it.size},currentColumns,!albumGrid)
     }
@@ -397,7 +414,7 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit,onOpenFolder:(MediaI
     Column(Modifier.fillMaxSize()){
         Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){
             if(bucket!=null||selected.isNotEmpty()||duplicateKeys!=null)IconButton(onClick={if(selected.isNotEmpty())selected=emptySet()else if(duplicateKeys!=null)duplicateKeys=null else bucket=null}){Icon(Icons.Default.ArrowBack,null)}
-            Text(if(selected.isNotEmpty())stringResource(R.string.tool_selected,selected.size)else if(bucket!=null)media.firstOrNull{it.bucket==bucket}?.folder.orEmpty()else stringResource(R.string.tool_gallery),Modifier.weight(1f),style=if(compact)MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
+            Text(if(selected.isNotEmpty())androidx.compose.ui.res.pluralStringResource(R.plurals.gallery_selected_count,selected.size,selected.size)else if(bucket!=null)media.firstOrNull{it.bucket==bucket}?.folder.orEmpty()else stringResource(R.string.tool_gallery),Modifier.weight(1f),style=if(compact)MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
             if(selected.isNotEmpty()){
                 IconButton(onClick={val all=visible.map{it.uri.toString()}.toSet();selected=if(selected==all)emptySet()else all}){Icon(Icons.Default.Check,stringResource(R.string.cache_select_all))}
                 IconButton(onClick={shareMedia(context,media.filter{it.uri.toString() in selected})}){Icon(Icons.Default.Share,null)}

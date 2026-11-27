@@ -216,11 +216,12 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
     LaunchedEffect(screenKey){if(previousScreen!=screenKey){previousScreen=screenKey;screenAlpha.snapTo(.82f);screenAlpha.animateTo(1f,tween(120))}}
     val mainDestination=!about&&!rootData&&!showVolumes&&!showHistory&&!cleanup&&!apps&&!device&&!analyzer
     var fileBrowsing by remember{mutableStateOf(false)}
+    var gallerySelecting by remember{mutableStateOf(false)}
     var fileNavigationBlocked by remember{mutableStateOf(false)}
     val navigationEnabled=destination!=1||!fileNavigationBlocked
     BackHandler(mainDestination&&destination!=0){if(navigationEnabled)destination=0}
     Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing,bottomBar={
-        if(!topNavigation&&mainDestination&&!(destination==1&&fileBrowsing))SlateBottomNavigation(destination){destination=it}
+        if(!topNavigation&&mainDestination&&!(destination==1&&fileBrowsing)&&!(destination==2&&gallerySelecting))SlateBottomNavigation(destination){destination=it}
     }){padding->
         Column(Modifier.fillMaxSize().padding(padding)){
             if(topNavigation&&mainDestination)SlateLandscapeHeader(destination,{destination=it},onSettings,{about=true},navigationEnabled)
@@ -250,7 +251,7 @@ private fun Slate(granted: Boolean, volumes: List<Volume>, request: () -> Unit, 
                          val folder=volume?.let{java.io.File(it.root,item.relative)}
                          if(volume!=null&&folder!=null&&item.relative.isNotBlank()&&safeFile(volume.root,folder)&&folder.isDirectory){galleryFolder=volume.root.path+"\n"+folder.path;destination=1}
                          else android.widget.Toast.makeText(context,context.getString(R.string.gallery_folder_unavailable),android.widget.Toast.LENGTH_SHORT).show()
-                     },onChanged={model.invalidate()})
+                     },onChanged={model.invalidate()},onSelectionChanged={gallerySelecting=it})
                      3 -> MonitorsScreen()
                  }
              }
