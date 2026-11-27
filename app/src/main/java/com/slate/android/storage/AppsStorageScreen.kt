@@ -131,6 +131,8 @@ internal fun AppsStorageScreen(onBack:()->Unit,reviewFolder:(File)->Unit,initial
     val selected=rows.firstOrNull{it.packageName==selectedPackage}
     LaunchedEffect(loaded,selectedPackage,selected){if(loaded && selectedPackage!=null && selected==null)selectedPackage=null}
     val listState=androidx.compose.foundation.lazy.rememberLazyListState()
+    var debloater by rememberSaveable{mutableStateOf(false)}
+    if(debloater){SlateDebloater(onBack={debloater=false;usage.invalidate();usage.refresh(true);onCacheChanged()});return}
     BackHandler(selectedPackage!=null){selectedPackage=null}
     val wide=androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp>=800
     if(selected!=null&&!wide){
@@ -142,6 +144,7 @@ internal fun AppsStorageScreen(onBack:()->Unit,reviewFolder:(File)->Unit,initial
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")}
             Text(tr("App storage"),modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
+            TextButton(onClick={debloater=true}){Text(androidx.compose.ui.res.stringResource(R.string.debloat_title))}
             IconButton(onClick={usage.refresh(true)},enabled=allowed&&!busy){Icon(Icons.Default.Refresh,"Refresh")}
         }
         ClearAllAppCaches(enabled=!busy,onChanged={usage.invalidate();usage.refresh(true);onCacheChanged()})
@@ -266,7 +269,7 @@ private fun AppUsageDetails(row:AppUsage,fmt:(Long)->String,onBack:()->Unit,revi
 }
 
 @Composable
-private fun AppIcon(packageName:String) {
+internal fun AppIcon(packageName:String) {
     val context=LocalContext.current
     val image by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null,packageName){
         value=withContext(Dispatchers.IO){runCatching{context.packageManager.getApplicationIcon(packageName).toBitmap(96,96).asImageBitmap()}.getOrNull()}

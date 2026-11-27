@@ -1,0 +1,25 @@
+<resources>
+    <string name="debloat_title">Debloater</string>
+    <string name="debloat_recommended">Recommended</string>
+    <string name="debloat_advanced">Advanced</string>
+    <string name="debloat_expert">Expert</string>
+    <string name="debloat_unsafe">Unsafe</string>
+    <string name="debloat_unknown">Unknown</string>
+    <string name="debloat_protected">Protected</string>
+    <string name="debloat_installed">Installed</string>
+    <string name="debloat_removed">Disabled / removed</string>
+    <string name="debloat_search">Search packages</string>
+    <string name="debloat_all">All</string>
+    <string name="debloat_update">Update recommendations</string>
+    <string name="debloat_cached">Using cached recommendations; update failed.</string>
+    <string name="debloat_load_failed">Unable to load recommendations. Check your connection and refresh.</string>
+    <string name="debloat_no_info">No community description available.</string>
+    <string name="debloat_source">Community information from UAD-NG; classifications are not guarantees.</string>
+    <string name="debloat_app_info">App information</string>
+    <string name="debloat_disable">Disable</string>
+    <string name="debloat_remove">Remove for user</string>
+    <string name="debloat_restore">Restore</string>
+    <string name="debloat_warning">Changing system apps can break device features. Review each description. Removal applies only to the current user and keeps app data when Android allows it.</string>
+    <string name="debloat_restore_warning">Restore or enable the selected system packages for this user.</string>
+    <string name="debloat_result">Completed: %1$d / %2$d</string>
+</resources>

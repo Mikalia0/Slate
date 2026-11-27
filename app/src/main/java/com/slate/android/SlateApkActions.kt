@@ -107,7 +107,7 @@ private data class ApkQuickInfo(val label:String,val pkg:String,val version:Stri
                 p.installed?.let{Text(t("Installed: ","Instalado: ")+it,style=MaterialTheme.typography.bodySmall)}
             }
             HorizontalDivider()
-            val actions=listOf(Triple(t("Information","Informações"),Icons.Default.Info,0),Triple(t("Explore APK","Explorar APK"),Icons.Default.List,1),Triple(t("APK tools","Ferramentas APK"),Icons.Default.Build,2),Triple(stringResource(R.string.apk_clone),Icons.Default.ContentCopy,3))
+            val actions=listOf(Triple(t("Information","Informações"),Icons.Default.Info,0),Triple(t("Explore APK","Explorar APK"),Icons.Default.List,1),Triple(t("APK tools","Ferramentas APK"),Icons.Default.Build,2),Triple(stringResource(R.string.apk_clone),Icons.Default.List,3))
             actions.forEach{(title,icon,tab)->
                 Row(Modifier.fillMaxWidth().clickable{onInspect(tab)}.heightIn(min=46.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
                     Icon(icon,null,tint=MaterialTheme.colorScheme.primary);Text(title,Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium);Icon(Icons.Default.KeyboardArrowRight,null)

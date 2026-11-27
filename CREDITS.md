@@ -21,3 +21,8 @@ Adreno KGSL memstore utilization fallback adapted from Winlator-Ludashi commit [
 - [ARSCLib](https://github.com/REAndroid/ARSCLib) — APK resources and binary manifest editing.
 - [Apache Commons Compress](https://commons.apache.org/proper/commons-compress/), [XZ for Java](https://tukaani.org/xz/java.html), [zstd-jni](https://github.com/luben/zstd-jni) and [Junrar](https://github.com/junrar/junrar) — archive extraction backends.
 - [MP Manager](https://github.com/AbdurazaaqMohammed/MP-Manager) — functional reference, no source copied.
+
+### Debloater
+
+- [Canta](https://github.com/samolego/Canta) — feature reference.
+- [Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation) — community package descriptions and risk classifications (downloaded from upstream at runtime).

@@ -2,6 +2,12 @@
 
 Changes are listed newest first. Each signed development release also includes changes since the previous build.
 
+## Unreleased — System app debloater
+
+- Add a Debloater entry to Apps with UAD-NG descriptions and risk classifications, package search, batch review, current-user removal, disabling and restoration via Shizuku.
+- Cache the community database after its first successful download; keep unknown and unsafe packages read-only.
+- Fix APK clone menu icon compilation.
+
 ## Unreleased — Shizuku APK installation
 
 - Choose between the Android package installer and authorized Shizuku shell installation, including Shizuku started with ADB.
