@@ -1,5 +1,5 @@
 SLcom/slate/android/MainActivity;->onCreate(Landroid/os/Bundle;)V
 SLcom/slate/android/MainActivity;->onResume()V
-SLcom/slate/android/MainActivityKt;->**
-SLcom/slate/android/AppearanceKt;->**
-SLcom/slate/android/HomeKt;->**
+SLcom/slate/android/MainActivityKt;->**(**)**
+SLcom/slate/android/AppearanceKt;->**(**)**
+SLcom/slate/android/HomeKt;->**(**)**
