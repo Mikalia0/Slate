@@ -31,8 +31,11 @@ android {
     }
     buildTypes.getByName("release") {
         isDebuggable = false
-        isMinifyEnabled = true
-        isShrinkResources = true
+        // Keep production builds unminified until framework callback compatibility
+        // has been verified on devices (LayoutInflater.Factory2 startup crash).
+        val optimizeRelease = providers.gradleProperty("slateOptimizeRelease").orNull == "true"
+        isMinifyEnabled = optimizeRelease
+        isShrinkResources = optimizeRelease
         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"),"proguard-rules.pro")
     }
     buildTypes.create("benchmark") {

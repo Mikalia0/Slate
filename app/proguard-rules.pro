@@ -22,3 +22,11 @@
 -dontwarn javax.management.**
 -dontwarn org.slf4j.**
 -keepattributes Signature,InnerClasses,EnclosingMethod,*Annotation*
+
+# Framework invokes these callbacks through LayoutInflater.Factory2, outside the app.
+# Retain AppCompat implementation for experimental minified builds.
+-keep class androidx.appcompat.app.** { *; }
+-keepclassmembers class * implements android.view.LayoutInflater$Factory2 {
+    public android.view.View onCreateView(android.view.View, java.lang.String, android.content.Context, android.util.AttributeSet);
+    public android.view.View onCreateView(java.lang.String, android.content.Context, android.util.AttributeSet);
+}
