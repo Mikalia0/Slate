@@ -31,7 +31,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 
-internal enum class SlateTheme(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark"), AMOLED("AMOLED") }
+internal enum class SlateTheme(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
+internal fun migrateTheme(saved:String?):SlateTheme=if(saved=="AMOLED")SlateTheme.DARK else runCatching{SlateTheme.valueOf(saved?:"SYSTEM")}.getOrDefault(SlateTheme.SYSTEM)
+internal fun migrateAmoled(savedMode:String?,savedAmoled:Boolean?):Boolean=savedAmoled?: (savedMode!="DARK"&&savedMode!="LIGHT")
 
 // Each theme owns its complete Material 3 palette, not just the primary accent.
 internal enum class SlatePalette(val label:Int,val description:Int){
@@ -72,8 +74,8 @@ private fun staticScheme(palette:SlatePalette,dark:Boolean):ColorScheme{
         surfaceContainerLow=Color(t.low),surfaceContainer=Color(t.container),surfaceContainerHigh=Color(t.high),surfaceContainerHighest=Color(t.highest)
     )
 }
-internal fun themeUsesAmoled(mode:SlateTheme,systemDark:Boolean):Boolean =
-    mode==SlateTheme.AMOLED||(mode==SlateTheme.SYSTEM&&systemDark)
+internal fun themeUsesAmoled(mode:SlateTheme,systemDark:Boolean,enabled:Boolean):Boolean =
+    enabled&&when(mode){SlateTheme.SYSTEM->systemDark;SlateTheme.LIGHT->false;SlateTheme.DARK->true}
 
 private fun ColorScheme.amoled():ColorScheme=copy(
     background=Color.Black,surface=Color.Black,surfaceDim=Color.Black,surfaceContainerLowest=Color.Black,
@@ -91,9 +93,10 @@ private fun paletteScheme(palette:SlatePalette,dark:Boolean,amoled:Boolean=false
     return if(amoled)scheme.amoled()else scheme
 }
 @Composable
-internal fun SlateAppearance(mode:SlateTheme,palette:SlatePalette,activity:ComponentActivity,content:@Composable ()->Unit){
-    val dark=when(mode){SlateTheme.SYSTEM->isSystemInDarkTheme();SlateTheme.LIGHT->false;else->true}
-    val colors=paletteScheme(palette,dark,themeUsesAmoled(mode,dark))
+internal fun SlateAppearance(mode:SlateTheme,palette:SlatePalette,amoled:Boolean,activity:ComponentActivity,content:@Composable ()->Unit){
+    val systemDark=isSystemInDarkTheme()
+    val dark=when(mode){SlateTheme.SYSTEM->systemDark;SlateTheme.LIGHT->false;SlateTheme.DARK->true}
+    val colors=paletteScheme(palette,dark,themeUsesAmoled(mode,systemDark,amoled))
     SideEffect{
         val style=if(dark)SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)else SystemBarStyle.light(android.graphics.Color.TRANSPARENT,android.graphics.Color.TRANSPARENT)
         activity.enableEdgeToEdge(statusBarStyle=style,navigationBarStyle=style)
@@ -125,24 +128,20 @@ private fun ThemePreview(scheme:ColorScheme){
     }
 }
 @Composable
-internal fun ThemeOptions(mode:SlateTheme,palette:SlatePalette,onMode:(SlateTheme)->Unit,onPalette:(SlatePalette)->Unit){
-    val dark=when(mode){SlateTheme.SYSTEM->isSystemInDarkTheme();SlateTheme.LIGHT->false;else->true}
+internal fun ThemeOptions(mode:SlateTheme,palette:SlatePalette,amoled:Boolean,onMode:(SlateTheme)->Unit,onPalette:(SlatePalette)->Unit,onAmoled:(Boolean)->Unit){
+    val systemDark=isSystemInDarkTheme()
+    val dark=when(mode){SlateTheme.SYSTEM->systemDark;SlateTheme.LIGHT->false;SlateTheme.DARK->true}
     Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(10.dp)){
         Text(stringResource(R.string.palette_mode),style=MaterialTheme.typography.titleSmall)
-        SlateTheme.entries.chunked(2).forEach{row->
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                row.forEach{option->
-                    FilterChip(selected=mode==option,onClick={onMode(option)},label={Text(tr(option.label))},modifier=Modifier.weight(1f),leadingIcon=if(mode==option){{Icon(Icons.Default.Check,null,Modifier.size(16.dp))}}else null)
-                }
-            }
-        }
-        if(mode==SlateTheme.SYSTEM)Text(stringResource(R.string.setup_system_amoled),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        DisplayModeSelector(mode,onMode)
+        AmoledOption(amoled,onAmoled)
+        HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
         Text(stringResource(R.string.palette_title),style=MaterialTheme.typography.titleSmall)
         SlatePalette.entries.filter{it!=SlatePalette.WALLPAPER}.chunked(2).forEach{row->
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
                 row.forEach{option->
                     val selected=palette==option
-                    val scheme=paletteScheme(option,dark,themeUsesAmoled(mode,dark))
+                    val scheme=paletteScheme(option,dark,themeUsesAmoled(mode,systemDark,amoled))
                     OutlinedCard(onClick={onPalette(option)},modifier=Modifier.weight(1f),
                         colors=CardDefaults.outlinedCardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer),
                         border=BorderStroke(if(selected)2.dp else 1.dp,if(selected)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)){
@@ -160,7 +159,7 @@ internal fun ThemeOptions(mode:SlateTheme,palette:SlatePalette,onMode:(SlateThem
         }
         if(Build.VERSION.SDK_INT>=31){
             val selected=palette==SlatePalette.WALLPAPER
-            val scheme=paletteScheme(SlatePalette.WALLPAPER,dark,themeUsesAmoled(mode,dark))
+            val scheme=paletteScheme(SlatePalette.WALLPAPER,dark,themeUsesAmoled(mode,systemDark,amoled))
             OutlinedCard(onClick={onPalette(SlatePalette.WALLPAPER)},modifier=Modifier.fillMaxWidth(),border=BorderStroke(if(selected)2.dp else 1.dp,if(selected)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)){
                 Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
                     Row(horizontalArrangement=Arrangement.spacedBy(3.dp)){
@@ -189,125 +188,113 @@ private fun SetupFeature(icon:Int,title:String,subtitle:String){
         }
     }
 }
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SetupTheme(mode:SlateTheme,palette:SlatePalette,onMode:(SlateTheme)->Unit,onPalette:(SlatePalette)->Unit){
-    val systemDark=isSystemInDarkTheme()
-    val dark=when(mode){SlateTheme.SYSTEM->systemDark;SlateTheme.LIGHT->false;else->true}
-    val scheme=paletteScheme(palette,dark,themeUsesAmoled(mode,systemDark))
-    Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)){
-        OutlinedCard(Modifier.fillMaxWidth(),colors=CardDefaults.outlinedCardColors(containerColor=MaterialTheme.colorScheme.surfaceContainerLow)){
-            Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                ThemePreview(scheme)
-                Text(stringResource(R.string.setup_live_preview),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+private fun DisplayModeSelector(mode:SlateTheme,onMode:(SlateTheme)->Unit){
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()){
+        SlateTheme.entries.forEachIndexed{index,option->
+            SegmentedButton(selected=option==mode,onClick={onMode(option)},shape=SegmentedButtonDefaults.itemShape(index=index,count=SlateTheme.entries.size),icon={}){Text(tr(option.label),maxLines=1,style=MaterialTheme.typography.labelLarge)}
         }
-        Text(stringResource(R.string.palette_mode),style=MaterialTheme.typography.titleSmall)
-        SlateTheme.entries.chunked(2).forEach{options->
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                options.forEach{option->
-                    FilterChip(selected=option==mode,onClick={onMode(option)},label={Text(tr(option.label))},modifier=Modifier.weight(1f),leadingIcon=if(option==mode){{Icon(Icons.Default.Check,null,Modifier.size(16.dp))}}else null)
-                }
-            }
+    }
+}
+@Composable
+private fun AmoledOption(enabled:Boolean,onChange:(Boolean)->Unit){
+    Row(Modifier.fillMaxWidth().padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)){
+            Text("AMOLED",style=MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.appearance_amoled_desc),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if(mode==SlateTheme.SYSTEM)Text(stringResource(R.string.setup_system_amoled),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(stringResource(R.string.palette_title),style=MaterialTheme.typography.titleSmall)
-        SlatePalette.entries.filter{it!=SlatePalette.WALLPAPER||Build.VERSION.SDK_INT>=31}.chunked(2).forEach{options->
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                options.forEach{option->
-                    val preview=paletteScheme(option,dark,themeUsesAmoled(mode,systemDark))
-                    FilterChip(selected=option==palette,onClick={onPalette(option)},modifier=Modifier.weight(1f),label={Text(stringResource(option.label),maxLines=2)},leadingIcon={Box(Modifier.size(14.dp).background(preview.primary,CircleShape))})
-                }
-                if(options.size==1)Spacer(Modifier.weight(1f))
-            }
-        }
+        Switch(checked=enabled,onCheckedChange=onChange)
     }
 }
 
 @Composable
-internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,palette:SlatePalette,onMode:(SlateTheme)->Unit,onPalette:(SlatePalette)->Unit,privilege:PrivilegeMode,onPrivilege:(PrivilegeMode)->Unit,rootAuthorized:Boolean,onRootChanged:(Boolean)->Unit,finish:()->Unit){
+internal fun Onboarding(granted:Boolean,request:()->Unit,mode:SlateTheme,amoled:Boolean,onMode:(SlateTheme)->Unit,onAmoled:(Boolean)->Unit,privilege:PrivilegeMode,onPrivilege:(PrivilegeMode)->Unit,rootAuthorized:Boolean,onRootChanged:(Boolean)->Unit,finish:()->Unit){
     var page by androidx.compose.runtime.saveable.rememberSaveable{mutableIntStateOf(0)}
-    BackHandler(page>0){page--}
-    val title=when(page){0->tr("Welcome to Slate");1->tr("Permissions");else->tr("Make it yours")}
-    val subtitle=when(page){0->tr("Understand your storage and device in one place.");1->tr("Only grant the access needed for the tools you use.");else->tr("Choose your appearance. You can change it in Settings.")}
-    val hero:@Composable (Boolean)->Unit={wide->
-        Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(if(wide)10.dp else 12.dp)){
-            if(page==0){
-                Surface(Modifier.size(if(wide)68.dp else 84.dp),shape=MaterialTheme.shapes.extraLarge,color=MaterialTheme.colorScheme.surfaceContainer){
-                    Box(contentAlignment=Alignment.Center){Image(painterResource(R.drawable.ic_slate),null,Modifier.size(if(wide)48.dp else 60.dp))}
-                }
-            }
-            Text(title,style=if(wide)MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge)
-            Text(subtitle,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            if(page==0&&wide)Text(tr("Your files and measurements stay on your device."),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+    var privilegeDialog by remember{mutableStateOf(false)}
+    BackHandler(page>0){page=0}
+    val welcome=page==0
+    val hero:@Composable ()->Unit={
+        Column(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(8.dp)){
+            Image(painterResource(R.drawable.ic_slate),null,Modifier.size(72.dp))
+            Text("Slate",style=MaterialTheme.typography.headlineLarge)
+            Text(stringResource(R.string.setup_short_welcome),style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
-    val body:@Composable (Boolean)->Unit={wide->
-        Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(10.dp)){
-            when(page){
-                0->{
-                    Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
-                        Column(Modifier.padding(horizontal=14.dp,vertical=7.dp)){
-                            SetupFeature(R.drawable.ic_device_storage,tr("Storage analyzer"),tr("Find large files and explore folders."))
-                            HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
-                            SetupFeature(R.drawable.ic_device_cpu,tr("Device information"),tr("Hardware, battery, display and Android."))
-                            HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
-                            SetupFeature(R.drawable.ic_storage_folder,stringResource(R.string.setup_files),stringResource(R.string.setup_files_desc))
+    val features:@Composable ()->Unit={
+        Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+            Column(Modifier.padding(horizontal=14.dp,vertical=5.dp)){
+                SetupFeature(R.drawable.ic_device_storage,tr("Storage analyzer"),tr("Find large files and explore folders."))
+                HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+                SetupFeature(R.drawable.ic_device_cpu,tr("Device information"),tr("Hardware, battery, display and Android."))
+                HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+                SetupFeature(R.drawable.ic_storage_folder,stringResource(R.string.setup_files),stringResource(R.string.setup_files_desc))
+            }
+        }
+    }
+    val permissions:@Composable ()->Unit={
+        Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)){
+            Text(stringResource(R.string.setup_configuration),style=MaterialTheme.typography.headlineMedium)
+            Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+                Column(Modifier.padding(horizontal=12.dp,vertical=6.dp)){
+                    Row(Modifier.fillMaxWidth().padding(vertical=7.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
+                        Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(24.dp),tint=MaterialTheme.colorScheme.primary)
+                        Column(Modifier.weight(1f)){
+                            Text(tr("Storage access"),style=MaterialTheme.typography.titleSmall)
+                            Text(if(granted)tr("Granted")else stringResource(R.string.setup_storage_short),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        if(granted)Icon(Icons.Default.Check,tr("Granted"),tint=MaterialTheme.colorScheme.primary)else TextButton(onClick=request){Text(tr("Allow"))}
                     }
-                    if(!wide)Text(tr("Your files and measurements stay on your device."),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
-                }
-                1->{
-                    OutlinedCard(Modifier.fillMaxWidth(),colors=CardDefaults.outlinedCardColors(containerColor=MaterialTheme.colorScheme.surfaceContainerLow)){
-                        Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
-                            Icon(painterResource(R.drawable.ic_device_storage),null,Modifier.size(25.dp),tint=MaterialTheme.colorScheme.primary)
-                            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)){
-                                Text(tr("Storage access"),style=MaterialTheme.typography.titleSmall)
-                                Text(tr(if(granted)"Granted"else"Required to scan shared files and folders."),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            if(granted)Icon(Icons.Default.Check,tr("Granted"),tint=MaterialTheme.colorScheme.primary)else FilledTonalButton(onClick=request){Text(tr("Allow"))}
+                    HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
+                    Row(Modifier.fillMaxWidth().clickable{privilegeDialog=true}.padding(vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
+                        Icon(Icons.Default.Build,null,Modifier.size(24.dp),tint=MaterialTheme.colorScheme.primary)
+                        Column(Modifier.weight(1f)){
+                            Text("Shizuku / Root",style=MaterialTheme.typography.titleSmall)
+                            Text(if(privilege==PrivilegeMode.NONE)stringResource(R.string.setup_optional)else stringResource(privilege.title),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        Icon(Icons.Default.KeyboardArrowRight,null)
                     }
-                    PrivilegeOptions(privilege,onPrivilege,rootAuthorized,onRootChanged)
-                    Text(tr("You can continue without storage access and enable it later."),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                else->SetupTheme(mode,palette,onMode,onPalette)
+            }
+        }
+    }
+    val appearance:@Composable ()->Unit={
+        Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)){
+            Text(tr("Appearance"),style=MaterialTheme.typography.titleMedium)
+            Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainer)){
+                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+                    DisplayModeSelector(mode,onMode)
+                    AmoledOption(amoled,onAmoled)
+                }
             }
         }
     }
     Scaffold(containerColor=MaterialTheme.colorScheme.background,contentWindowInsets=WindowInsets.safeDrawing){padding->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding),contentAlignment=Alignment.TopCenter){
-            val wide=maxWidth>=640.dp&&maxWidth>maxHeight
-            val compact=maxHeight<440.dp
-            Column(Modifier.widthIn(max=if(wide)980.dp else 520.dp).fillMaxSize().padding(horizontal=if(compact)16.dp else 22.dp,vertical=if(compact)4.dp else 12.dp)){
-                Row(Modifier.fillMaxWidth().height(44.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                    if(page>0)IconButton(onClick={page--},modifier=Modifier.size(40.dp)){Icon(Icons.Default.ArrowBack,tr("Back"))}
-                    else Image(painterResource(R.drawable.ic_slate),null,Modifier.size(30.dp))
-                    Text("Slate",style=MaterialTheme.typography.titleMedium)
+            val wide=maxWidth>=600.dp&&maxWidth>maxHeight
+            Column(Modifier.widthIn(max=if(wide)920.dp else 500.dp).fillMaxSize().padding(horizontal=20.dp,vertical=8.dp)){
+                Row(Modifier.fillMaxWidth().height(40.dp),verticalAlignment=Alignment.CenterVertically){
+                    if(!welcome)IconButton(onClick={page=0},modifier=Modifier.size(40.dp)){Icon(Icons.Default.ArrowBack,tr("Back"))}
                     Spacer(Modifier.weight(1f))
-                    Text(stringResource(R.string.setup_step,page+1,3),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.setup_step,if(welcome)1 else 2,2),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Row(Modifier.fillMaxWidth().padding(bottom=if(compact)6.dp else 14.dp),horizontalArrangement=Arrangement.spacedBy(5.dp)){
-                    repeat(3){index->Box(Modifier.weight(1f).height(4.dp).background(if(index<=page)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,CircleShape))}
-                }
-                key(page,wide){
-                    if(wide){
-                        Row(Modifier.weight(1f).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(22.dp)){
-                            Column(Modifier.weight(.85f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(vertical=4.dp),verticalArrangement=Arrangement.Center){hero(true)}
-                            Column(Modifier.weight(1.15f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom=4.dp)){body(true)}
-                        }
-                    }else{
-                        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom=8.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
-                            hero(false);body(false)
-                        }
+                key(welcome,wide){
+                    if(wide)Row(Modifier.weight(1f).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(18.dp),verticalAlignment=Alignment.CenterVertically){
+                        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.Center){if(welcome)hero()else permissions()}
+                        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.Center){if(welcome)features()else appearance()}
+                    }else Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical=8.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
+                        if(welcome){hero();features()}else{permissions();appearance()}
                     }
                 }
-                Row(Modifier.fillMaxWidth().padding(top=6.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
-                    if(page==2)TextButton(onClick=finish){Text(stringResource(R.string.setup_use_current))}
-                    Button(onClick={if(page==2)finish()else page++},modifier=Modifier.weight(1f).height(48.dp)){
-                        Text(tr(if(page==2)"Finish setup"else"Continue"));Spacer(Modifier.width(8.dp));Icon(if(page==2)Icons.Default.Check else Icons.Default.KeyboardArrowRight,null)
-                    }
+                Button(onClick={if(welcome)page=1 else finish()},modifier=Modifier.fillMaxWidth().padding(top=6.dp).height(48.dp)){
+                    Text(if(welcome)stringResource(R.string.setup_start)else tr("Finish setup"))
                 }
             }
         }
     }
+    if(privilegeDialog)AlertDialog(onDismissRequest={privilegeDialog=false},title={Text("Shizuku / Root")},text={
+        Column(Modifier.verticalScroll(rememberScrollState())){
+            PrivilegeOptions(privilege,onPrivilege,rootAuthorized,onRootChanged)
+        }
+    },confirmButton={TextButton(onClick={privilegeDialog=false}){Text(tr("Close"))}})
 }

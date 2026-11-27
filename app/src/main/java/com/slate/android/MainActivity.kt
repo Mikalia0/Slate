@@ -86,7 +86,10 @@ class MainActivity : AppCompatActivity() {
         volumes = storageVolumes(this)
         setContent {
             val prefs = remember { getSharedPreferences("appearance", MODE_PRIVATE) }
-            var mode by remember { mutableStateOf(runCatching { SlateTheme.valueOf(prefs.getString("theme","SYSTEM") ?: "SYSTEM") }.getOrDefault(SlateTheme.SYSTEM)) }
+            val savedMode=remember{prefs.getString("theme",null)}
+            var mode by remember{mutableStateOf(migrateTheme(savedMode))}
+            var amoled by remember{mutableStateOf(migrateAmoled(savedMode,if(prefs.contains("amoled"))prefs.getBoolean("amoled",true)else null))}
+            LaunchedEffect(Unit){prefs.edit().putString("theme",mode.name).putBoolean("amoled",amoled).apply()}
             var palette by remember { mutableStateOf(if(!prefs.getBoolean("setup",false)&&!prefs.contains("palette")&&!prefs.contains("accent")&&!prefs.contains("dynamic")&&Build.VERSION.SDK_INT>=31)SlatePalette.WALLPAPER else migratePalette(prefs.getString("palette",null),prefs.getString("accent",null),prefs.getBoolean("dynamic",false))) }
             var setup by remember { mutableStateOf(prefs.getBoolean("setup",false)) }
             val storageModel:StorageModel = viewModel()
@@ -106,9 +109,10 @@ class MainActivity : AppCompatActivity() {
             var manualUpdateRequest by remember { mutableIntStateOf(0) }
             val onMode: (SlateTheme)->Unit = { mode=it; prefs.edit().putString("theme",it.name).apply() }
             val onPalette:(SlatePalette)->Unit={palette=it;prefs.edit().putString("palette",it.name).apply()}
-            SlateAppearance(mode,palette,this@MainActivity) {
+            val onAmoled:(Boolean)->Unit={amoled=it;prefs.edit().putBoolean("amoled",it).apply()}
+            SlateAppearance(mode,palette,amoled,this@MainActivity) {
                 when {
-                    !setup -> Onboarding(granted,::requestStorage,mode,palette,onMode,onPalette,privilege,onPrivilege,rootAuthorized,{rootAuthorized=it}) { setup=true; prefs.edit().putBoolean("setup",true).putString("theme",mode.name).putString("palette",palette.name).apply() }
+                    !setup -> Onboarding(granted,::requestStorage,mode,amoled,onMode,onAmoled,privilege,onPrivilege,rootAuthorized,{rootAuthorized=it}) { setup=true; prefs.edit().putBoolean("setup",true).putString("theme",mode.name).putString("palette",palette.name).apply() }
                     settings -> {
                         BackHandler { settings=false }
                         Scaffold(contentWindowInsets=WindowInsets.safeDrawing) { padding ->
@@ -117,7 +121,7 @@ class MainActivity : AppCompatActivity() {
                                     labels=listOf(tr("Appearance"),tr("Permissions"),tr("Settings"),tr("Cleanup"),tr("Updates")),
                                     onBack={settings=false},
                                     sections=listOf<@Composable ()->Unit>(
-                                        {LanguageSettings();HorizontalDivider();ThemeOptions(mode,palette,onMode,onPalette)},
+                                        {LanguageSettings();HorizontalDivider();ThemeOptions(mode,palette,amoled,onMode,onPalette,onAmoled)},
                                         {ListItem(headlineContent={Text(tr("Storage access"))},supportingContent={Text(tr(if(granted)"Granted" else "Not granted"))},trailingContent={TextButton(onClick=::requestStorage){Text(tr("Manage"))}});PrivilegeOptions(privilege,onPrivilege,rootAuthorized,onRootChanged={rootAuthorized=it})},
                                         {DashboardSettings(dashboard)},
                                         {ScheduledCleanupSettings();HorizontalDivider();ExclusionEditor(storageModel.exclusions,onChanged={storageModel.invalidate()})},
