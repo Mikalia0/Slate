@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -42,6 +43,7 @@ import java.util.Locale
     var label by remember{mutableStateOf("")}
     var version by remember{mutableStateOf("")}
     var code by remember{mutableStateOf("")}
+    var autoSign by remember{mutableStateOf(true)}
     var tab by remember{mutableIntStateOf(0)}
     fun load(uri:Uri){
         scope.launch{
@@ -71,7 +73,7 @@ import java.util.Locale
         val source=input
         if(uri!=null&&source!=null)scope.launch{
             busy=true;status=null
-            try{withContext(Dispatchers.IO){editManifest(context,source,uri,label,version,code)};status=tr("Unsigned copy saved. Sign it in Slate before installing.","Cópia sem assinatura salva. Assine no Slate antes de instalar.")}
+            try{withContext(Dispatchers.IO){editManifest(context,source,uri,label,version,code,autoSign)};status=if(autoSign)tr("Signed copy saved.","Cópia assinada salva.")else tr("Unsigned copy saved.","Cópia sem assinatura salva.")}
             catch(e:CancellationException){throw e}catch(e:Exception){status=tr("Editing failed. ","Falha na edição. ")+e.message.orEmpty()}
             finally{busy=false}
         }
@@ -121,10 +123,11 @@ import java.util.Locale
                 }
             }else if(isApk){
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
-                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){Icon(Icons.Default.Info,null);Text(tr("Creates a new unsigned APK.","Cria um novo APK sem assinatura."))}
+                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){Icon(Icons.Default.Info,null);Text(tr("Creates a separate APK copy.","Cria uma cópia separada do APK."))}
                     OutlinedTextField(value=label,onValueChange={label=it},label={Text(tr("Application label (optional)","Nome do aplicativo (opcional)"))},singleLine=true,modifier=Modifier.fillMaxWidth())
                     OutlinedTextField(value=version,onValueChange={version=it},label={Text(tr("Version name","Nome da versão"))},singleLine=true,modifier=Modifier.fillMaxWidth())
                     OutlinedTextField(value=code,onValueChange={code=it},label={Text(tr("Version code","Código da versão"))},singleLine=true,modifier=Modifier.fillMaxWidth())
+                    ApkAutoSignToggle(autoSign,{autoSign=it},enabled=!busy)
                     Button(enabled=!busy&&manifest!=null&&(code.isBlank()||code.toIntOrNull()?.let{it>0}==true),onClick={save.launch(source.name.substringBeforeLast('.')+"-edited.apk")},modifier=Modifier.fillMaxWidth()){Text(tr("Save copy","Salvar cópia"))}
                 }
             }else{

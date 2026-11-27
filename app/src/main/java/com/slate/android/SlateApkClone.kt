@@ -21,29 +21,6 @@ import java.util.zip.ZipFile
 internal fun validClonePackage(name:String):Boolean =
     name.length<=255&&name.split('.').size>=2&&name.split('.').all{it.matches(Regex("[A-Za-z][A-Za-z0-9_]*"))}
 
-private fun cloneSigningConfig():ApkSigner.SignerConfig {
-    // Stable, app-local signing identity; no private key export.
-    val alias="slate.apk.clone.v1"
-    val store=KeyStore.getInstance("AndroidKeyStore").apply{load(null)}
-    synchronized(cloneKeyLock){
-        if(!store.containsAlias(alias)){
-            KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA,"AndroidKeyStore").apply{
-                initialize(KeyGenParameterSpec.Builder(alias,KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
-                    .setKeySize(2048)
-                    .setDigests(KeyProperties.DIGEST_SHA256,KeyProperties.DIGEST_SHA512,KeyProperties.DIGEST_SHA1)
-                    .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1,KeyProperties.SIGNATURE_PADDING_RSA_PSS)
-                    .setCertificateSubject(javax.security.auth.x500.X500Principal("CN=Slate APK clone"))
-                    .build())
-                generateKeyPair()
-            }
-        }
-        val key=store.getKey(alias,null) as PrivateKey
-        val chain=checkNotNull(store.getCertificateChain(alias)).map{it as X509Certificate}
-        return ApkSigner.SignerConfig.Builder("Slate",key,chain).build()
-    }
-}
-private val cloneKeyLock=Any()
-
 // ARSCLib releases use either getValueAsString or getDataAsString.
 private fun cloneAttributeString(attribute:ResXmlAttribute):String?{
     val method=attribute.javaClass.methods.firstOrNull{it.name=="getValueAsString"&&it.parameterCount==0}
@@ -108,11 +85,8 @@ internal fun cloneSlateApk(context:Context,root:File,file:File,newPackage:String
         val result=checkNotNull(pm.getPackageArchiveInfo(stage.path,0))
         require(result.packageName==newPackage){"Invalid cloned manifest"}
         val output=if(autoSign){
-            val target=Files.createTempFile(parent.toPath(),".slate-clone-signed-",".apk").toFile()
+            val target=signEditedApk(context,file,stage,true)
             signed=target
-            ApkSigner.Builder(listOf(cloneSigningConfig())).setInputApk(stage).setOutputApk(target)
-                .setV1SigningEnabled(true).setV2SigningEnabled(true).setV3SigningEnabled(true).build().sign()
-            require(ApkVerifier.Builder(target).build().verify().isVerified){"Clone signature verification failed"}
             target
         }else stage
         for(i in 0..9999){

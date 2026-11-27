@@ -164,10 +164,14 @@ private data class ArchiveItem(val name:String,val bytes:Long,val directory:Bool
         TextButton(enabled=folderName.isNotBlank()&&folderName !in listOf(".","..")&&!folderName.contains('/')&&!folderName.contains('\\'),onClick={newFolder=false;pending=ZipChange(null,path+folderName+"/")}){Text(t("Create","Criar"))}
     },dismissButton={TextButton(onClick={newFolder=false}){Text(tr("Cancel"))}})
     pending?.let{change->
+        var autoSign by remember(change){mutableStateOf(true)}
         AlertDialog(onDismissRequest={pending=null},title={Text(if(apk)t("Save modified APK copy","Salvar cópia modificada")else t("Update archive","Atualizar arquivo compactado"))},text={
-            Text(if(apk)t("A separate unsigned APK will be created. Sign it before installing.","Uma cópia sem assinatura será criada. Assine antes de instalar.")else t("The archive will be rebuilt and replaced only after successful completion.","O arquivo será reconstruído e substituído somente após a conclusão com sucesso."))
+            Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+                Text(if(apk)t("A separate APK copy will be created.","Uma cópia separada do APK será criada.")else t("The archive will be rebuilt and replaced only after successful completion.","O arquivo será reconstruído e substituído somente após a conclusão com sucesso."))
+                if(apk)ApkAutoSignToggle(autoSign,{autoSign=it})
+            }
         },confirmButton={TextButton(onClick={pending=null;runTask{
-            val dest=withContext(Dispatchers.IO){rewriteSlateZip(context,root,file,change)}
+            val dest=withContext(Dispatchers.IO){rewriteSlateZip(context,root,file,change,autoSign)}
             MediaScannerConnection.scanFile(context,arrayOf(dest.path),null,null)
             revision++;status=context.getString(R.string.slate_created,dest.name)
         }}){Text(t("Apply","Aplicar"))}},dismissButton={TextButton(onClick={pending=null}){Text(tr("Cancel"))}})

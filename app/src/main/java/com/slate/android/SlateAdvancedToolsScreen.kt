@@ -64,21 +64,18 @@ import java.util.zip.ZipFile
         value=withContext(Dispatchers.IO){runCatching{inspectSlateApk(context,file)}}
     }
     val details=inspection?.getOrNull()
-    var tab by remember{mutableIntStateOf(if(initialTab==3)2 else initialTab.coerceIn(0,2))}
+    var tab by remember{mutableIntStateOf(if(initialTab>=3)2 else initialTab.coerceIn(0,2))}
     var cloneDialog by remember{mutableStateOf(initialTab==3)}
     var clonePackage by remember{mutableStateOf("")}
     var autoSign by remember{mutableStateOf(true)}
+    var providerAutoSign by remember{mutableStateOf(true)}
     LaunchedEffect(details?.pkg){if(clonePackage.isBlank()&&details!=null)clonePackage=details.pkg+".clone"}
     var advanced by remember{mutableStateOf(false)}
     if(advanced){BackHandler{advanced=false};SlateAdvancedScreen(file){advanced=false};return}
-    var signDialog by remember{mutableStateOf(false)}
+    var signDialog by remember{mutableStateOf(initialTab==4)}
     var providerDialog by remember{mutableStateOf(false)}
     var signing by remember{mutableStateOf(false)}
     var status by remember{mutableStateOf<String?>(null)}
-    var keyUri by remember{mutableStateOf<android.net.Uri?>(null)}
-    var password by remember{mutableStateOf("")}
-    var alias by remember{mutableStateOf("")}
-    val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->keyUri=uri}
     BackHandler(signing){}
     Column(Modifier.fillMaxSize()){
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){IconButton(onClick=onClose,enabled=!signing){Icon(Icons.Default.ArrowBack,stringResource(R.string.browser_back))};Text(file.name,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)}
@@ -133,9 +130,9 @@ import java.util.zip.ZipFile
             1->Box(Modifier.weight(1f)){SlateArchiveScreen(root,file,external)}
             else->LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
                 item{ToolHeading(stringResource(R.string.apk_tools),stringResource(R.string.apk_tools_description))}
-                item{ToolRow(stringResource(R.string.apk_clone),stringResource(R.string.apk_clone_desc),R.drawable.ic_file_apk,enabled=!signing&&details!=null){clonePackage=details?.pkg.orEmpty()+".clone";cloneDialog=true}}
+                item{ToolRow(stringResource(R.string.apk_clone),stringResource(R.string.apk_clone_desc),R.drawable.ic_file_apk,enabled=!signing&&details!=null){clonePackage=details?.pkg.orEmpty()+".clone";autoSign=true;cloneDialog=true}}
                 item{ToolRow(stringResource(R.string.apk_manifest_tools),stringResource(R.string.apk_manifest_tools_desc),R.drawable.ic_file_apk,enabled=!signing){advanced=true}}
-                item{ToolRow(stringResource(R.string.apk_inject_provider),stringResource(R.string.apk_inject_provider_desc),R.drawable.ic_storage_folder,enabled=!signing){providerDialog=true}}
+                item{ToolRow(stringResource(R.string.apk_inject_provider),stringResource(R.string.apk_inject_provider_desc),R.drawable.ic_storage_folder,enabled=!signing){providerAutoSign=true;providerDialog=true}}
                 item{ToolRow(stringResource(R.string.apk_sign),stringResource(R.string.apk_sign_desc),R.drawable.ic_file_apk,enabled=!signing){signDialog=true}}
                 item{ToolRow(stringResource(R.string.apk_certificates),stringResource(R.string.apk_cert_desc),R.drawable.ic_storage_file,enabled=!signing){tab=0}}
                 item{ToolRow(stringResource(R.string.apk_contents),stringResource(R.string.apk_contents_desc),R.drawable.ic_file_archive,enabled=!signing){tab=1}}
@@ -150,10 +147,7 @@ import java.util.zip.ZipFile
     if(cloneDialog)AlertDialog(onDismissRequest={cloneDialog=false},title={Text(stringResource(R.string.apk_clone))},text={
         Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
             OutlinedTextField(clonePackage,{clonePackage=it.trim()},label={Text(stringResource(R.string.apk_clone_package))},singleLine=true,isError=clonePackage.isNotEmpty()&&(!validClonePackage(clonePackage)||clonePackage==details?.pkg))
-            Row(verticalAlignment=Alignment.CenterVertically){
-                Text(stringResource(R.string.apk_clone_auto_sign),Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium)
-                Switch(checked=autoSign,onCheckedChange={autoSign=it})
-            }
+            ApkAutoSignToggle(autoSign,{autoSign=it})
             Text(stringResource(R.string.apk_clone_warning),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
     },confirmButton={
@@ -171,41 +165,31 @@ import java.util.zip.ZipFile
             }
         }){Text(stringResource(R.string.apk_clone))}
     },dismissButton={TextButton(onClick={cloneDialog=false}){Text(tr("Cancel"))}})
-    if(providerDialog)AlertDialog(onDismissRequest={providerDialog=false},title={Text(stringResource(R.string.apk_inject_provider))},text={Text(stringResource(R.string.apk_inject_provider_confirm))},confirmButton={
+    if(providerDialog)AlertDialog(onDismissRequest={providerDialog=false},title={Text(stringResource(R.string.apk_inject_provider))},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text(stringResource(R.string.apk_provider_autosign_info));ApkAutoSignToggle(providerAutoSign,{providerAutoSign=it})}},confirmButton={
         TextButton(onClick={
             providerDialog=false
             scope.launch{
                 signing=true;status=null
                 try{
-                    val dest=withContext(Dispatchers.IO){injectExternalDocumentsProvider(context,root,file)}
+                    val dest=withContext(Dispatchers.IO){injectExternalDocumentsProvider(context,root,file,providerAutoSign)}
                     MediaScannerConnection.scanFile(context,arrayOf(dest.path),null,null)
-                    status=context.getString(R.string.apk_provider_created,dest.name)
+                    status=context.getString(R.string.slate_created,dest.name)
                 }catch(e:CancellationException){throw e}catch(e:Exception){status=e.message?:context.getString(R.string.slate_tool_failed)}
                 finally{signing=false}
             }
         }){Text(stringResource(R.string.apk_inject_provider))}
     },dismissButton={TextButton(onClick={providerDialog=false}){Text(tr("Cancel"))}})
-    if(signDialog)AlertDialog(onDismissRequest={signDialog=false;password="";keyUri=null;alias=""},title={Text(stringResource(R.string.apk_sign))},text={
-        Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
-            Text(stringResource(R.string.apk_sign_desc),style=MaterialTheme.typography.bodySmall)
-            OutlinedButton(onClick={picker.launch(arrayOf("*/*"))}){Text(if(keyUri==null)stringResource(R.string.apk_choose_key)else stringResource(R.string.apk_key_selected))}
-            OutlinedTextField(value=password,onValueChange={password=it},label={Text(stringResource(R.string.apk_password))},singleLine=true,visualTransformation=PasswordVisualTransformation(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Password))
-            OutlinedTextField(value=alias,onValueChange={alias=it},label={Text(stringResource(R.string.apk_alias))},singleLine=true)
+    if(signDialog)ApkSignDialog(details?.pkg,onClose={signDialog=false},onSign={options->
+        signDialog=false
+        scope.launch{
+            signing=true;status=null
+            try{
+                val dest=withContext(Dispatchers.IO){signSlateApk(root,file,options)}
+                MediaScannerConnection.scanFile(context,arrayOf(dest.path),null,null)
+                status=context.getString(R.string.slate_created,dest.name)
+            }catch(e:CancellationException){throw e}catch(e:Exception){status=e.message?:context.getString(R.string.slate_tool_failed)}
+            finally{signing=false}
         }
-    },dismissButton={TextButton(onClick={signDialog=false;password="";keyUri=null;alias=""}){Text(tr("Cancel"))}},confirmButton={
-        TextButton(enabled=keyUri!=null,onClick={
-            val uri=checkNotNull(keyUri);val secret=password.toCharArray();val keyAlias=alias
-            signDialog=false;password="";keyUri=null;alias=""
-            scope.launch{
-                signing=true;status=null
-                try{
-                    val dest=withContext(Dispatchers.IO){signSlateApk(context,root,file,uri,secret,keyAlias)}
-                    MediaScannerConnection.scanFile(context,arrayOf(dest.path),null,null)
-                    status=context.getString(R.string.slate_created,dest.name)
-                }catch(e:CancellationException){throw e}catch(_:Exception){status=context.getString(R.string.slate_tool_failed)}
-                finally{secret.fill('\u0000');signing=false}
-            }
-        }){Text(stringResource(R.string.apk_sign))}
     })
 }
 

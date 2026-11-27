@@ -1,0 +1,12 @@
+<resources>
+    <string name="apk_sign_default">Default</string>
+    <string name="apk_sign_key">Signing key</string>
+    <string name="apk_sign_scheme">Scheme</string>
+    <string name="apk_sign_custom_v1">Customize V1 signature filename</string>
+    <string name="apk_sign_v1_name">Filename (1–8 characters)</string>
+    <string name="apk_sign_remember">Remember signing options for this package</string>
+    <string name="apk_sign_identity_warning">The local default key is not the original developer key. Re-signing can prevent updates over an installed app. Imported keys are stored in Android Keystore.</string>
+    <string name="apk_sign_manage">Manage keys</string>
+    <string name="apk_sign_import">Import PKCS12 key</string>
+    <string name="apk_provider_autosign_info">Create a separate APK with a read-only external documents provider. The original is preserved.</string>
+</resources>

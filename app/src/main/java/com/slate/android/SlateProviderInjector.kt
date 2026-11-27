@@ -13,7 +13,7 @@ import java.util.zip.ZipFile
  * The input is never changed. The output must be signed by its owner.
  */
 @Suppress("DEPRECATION")
-internal fun injectExternalDocumentsProvider(context:Context,root:File,file:File):File{
+internal fun injectExternalDocumentsProvider(context:Context,root:File,file:File,autoSign:Boolean=true):File{
     require(safeFile(root,file)&&file.isFile&&!com.slate.android.storage.protectedAppPath(file.toPath()))
     val parent=checkNotNull(file.parentFile)
     require(safeFile(root,parent)&&parent.canWrite())
@@ -31,6 +31,7 @@ internal fun injectExternalDocumentsProvider(context:Context,root:File,file:File
     val payload=context.assets.open("slate-provider/classes.dex").use{it.readBytes()}
     require(payload.size in 100..262144)
     val tmp=Files.createTempFile(parent.toPath(),".slate-provider-",".apk").toFile()
+    var signed:File?=null
     try{
         val module=ApkModule.loadApkFile(file)
         try{
@@ -52,11 +53,9 @@ internal fun injectExternalDocumentsProvider(context:Context,root:File,file:File
         val updated=checkNotNull(context.packageManager.getPackageArchiveInfo(tmp.path,PackageManager.GET_PROVIDERS))
         require(updated.packageName==info.packageName&&updated.providers.orEmpty().any{it.authority==authority&&it.permissionIsDocumentsProvider()})
         ZipFile(tmp).use{require(it.getEntry(dexName)!=null)}
-        for(index in 0..9999){
-            val dest=File(parent,file.nameWithoutExtension+"-documents"+(if(index==0)""else "-$index")+".apk")
-            try{Files.move(tmp.toPath(),dest.toPath());return dest}catch(_:java.nio.file.FileAlreadyExistsException){}
-        }
-        error("No available APK name")
-    }finally{tmp.delete()}
+        val output=signEditedApk(context,file,tmp,autoSign)
+        if(output!=tmp)signed=output
+        return publishApkCopy(output,parent,file.nameWithoutExtension+"-documents")
+    }finally{tmp.delete();signed?.delete()}
 }
 private fun android.content.pm.ProviderInfo.permissionIsDocumentsProvider()=readPermission=="android.permission.MANAGE_DOCUMENTS"&&exported&&grantUriPermissions

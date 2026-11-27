@@ -18,7 +18,7 @@ internal fun checkedArchiveName(name:String):String {
     return name
 }
 internal data class ZipChange(val from:String?,val to:String?,val data:ByteArray?=null,val source:Uri?=null)
-internal suspend fun rewriteSlateZip(context:Context,root:File,archive:File,change:ZipChange):File {
+internal suspend fun rewriteSlateZip(context:Context,root:File,archive:File,change:ZipChange,autoSign:Boolean=true):File {
     require(safeFile(root,archive)&&archive.isFile&&archive.canRead()&&!com.slate.android.storage.protectedAppPath(archive.toPath()))
     val parent=checkNotNull(archive.parentFile)
     require(safeFile(root,parent)&&parent.canWrite())
@@ -27,6 +27,7 @@ internal suspend fun rewriteSlateZip(context:Context,root:File,archive:File,chan
     val originalSize=archive.length();val originalTime=archive.lastModified()
     val apk=archive.extension.equals("apk",true)
     val stage=Files.createTempFile(parent.toPath(),".slate-zip-",".tmp").toFile()
+    var signed:File?=null
     var total=0L
     val max=32L*1024*1024*1024
     val buffer=ByteArray(64*1024)
@@ -76,16 +77,14 @@ internal suspend fun rewriteSlateZip(context:Context,root:File,archive:File,chan
         coroutineContext.ensureActive()
         require(archive.length()==originalSize&&archive.lastModified()==originalTime)
         if(apk){
-            for(i in 0..9999){
-                val dest=File(parent,archive.nameWithoutExtension+"-edited"+(if(i==0)""else "-$i")+".apk")
-                try{Files.move(stage.toPath(),dest.toPath());return dest}catch(_:java.nio.file.FileAlreadyExistsException){}
-            }
-            error("No available APK name")
+            val output=signEditedApk(context,archive,stage,autoSign)
+            if(output!=stage)signed=output
+            return publishApkCopy(output,parent,archive.nameWithoutExtension+"-edited")
         }
         // Atomic replacement: if the filesystem cannot do it, leave the source unchanged.
         Files.move(stage.toPath(),archive.toPath(),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING)
         return archive
-    }finally{stage.delete()}
+    }finally{stage.delete();signed?.delete()}
 }
 
 internal suspend fun copyArchiveEntry(context:Context,archive:File,name:String,dest:Uri){

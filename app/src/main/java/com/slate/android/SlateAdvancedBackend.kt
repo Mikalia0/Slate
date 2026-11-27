@@ -44,11 +44,12 @@ internal fun readManifest(input:InputFile):ManifestInfo{
         return ManifestInfo(m.serializeToXml(),"",m.versionName.orEmpty(),m.versionCode?.toString().orEmpty())
     }finally{apk.close()}
 }
-internal fun editManifest(context:Context,input:InputFile,destination:Uri,label:String,version:String,code:String){
+internal fun editManifest(context:Context,input:InputFile,destination:Uri,label:String,version:String,code:String,autoSign:Boolean=true){
     require(label.length<=200&&version.length<=100)
     val number=code.toIntOrNull()?.also{require(it>0)}
     require(code.isBlank()||number!=null)
     val tmp=File.createTempFile("edited-",".apk",context.cacheDir)
+    var signed:File?=null
     try{
         val apk=ApkModule.loadApkFile(input.file)
         try{
@@ -56,11 +57,14 @@ internal fun editManifest(context:Context,input:InputFile,destination:Uri,label:
             if(label.isNotBlank())manifest.setApplicationLabel(label)
             if(version.isNotBlank())manifest.setVersionName(version)
             if(number!=null)manifest.setVersionCode(number)
+            java.util.zip.ZipFile(input.file).use{zip->zip.entries().asSequence().map{it.name}.filter{it.uppercase(java.util.Locale.ROOT).let{n->n.startsWith("META-INF/")&&(n.endsWith(".SF")||n.endsWith(".RSA")||n.endsWith(".DSA")||n.endsWith(".EC")||n=="META-INF/MANIFEST.MF")}}.toList().forEach{apk.removeInputSource(it)}}
             apk.setApkSignatureBlock(null)
             apk.writeApk(tmp)
         }finally{apk.close()}
-        checkNotNull(context.contentResolver.openOutputStream(destination,"wt")).use{out->tmp.inputStream().use{it.copyTo(out)}}
-    }finally{tmp.delete()}
+        val output=signEditedApk(context,input.file,tmp,autoSign)
+        if(output!=tmp)signed=output
+        checkNotNull(context.contentResolver.openOutputStream(destination,"wt")).use{out->output.inputStream().use{it.copyTo(out)}}
+    }finally{tmp.delete();signed?.delete()}
 }
 internal fun readHex(input:InputFile):String=input.file.inputStream().use{stream->
     val bytes=ByteArray(16*1024)

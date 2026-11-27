@@ -1,0 +1,12 @@
+<resources>
+    <string name="apk_sign_default">Padrão</string>
+    <string name="apk_sign_key">Chave de assinatura</string>
+    <string name="apk_sign_scheme">Esquema</string>
+    <string name="apk_sign_custom_v1">Personalizar nome da assinatura V1</string>
+    <string name="apk_sign_v1_name">Nome do arquivo (1–8 caracteres)</string>
+    <string name="apk_sign_remember">Lembrar opções de assinatura deste pacote</string>
+    <string name="apk_sign_identity_warning">A chave local padrão não é a chave do desenvolvedor original. Uma nova assinatura pode impedir a atualização sobre o app instalado. Chaves importadas ficam no Android Keystore.</string>
+    <string name="apk_sign_manage">Gerenciar chaves</string>
+    <string name="apk_sign_import">Importar chave PKCS12</string>
+    <string name="apk_provider_autosign_info">Cria uma cópia do APK com um provedor de documentos externos somente leitura. O original é preservado.</string>
+</resources>

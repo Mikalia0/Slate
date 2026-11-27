@@ -1,3 +1,8 @@
+## Unreleased — APK signing
+
+- Provide a local default signing key, scheme selection, V1 filename, managed imported keys and per-package signing preferences.
+- Enable optional auto-signing by default for clone, provider injection, manifest editing and APK archive changes.
+
 ## Unreleased — First-run appearance
 
 - Refine the first-run flow with a compact live preview, step progress and adaptive landscape layout.
