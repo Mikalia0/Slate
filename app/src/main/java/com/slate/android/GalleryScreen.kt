@@ -233,6 +233,7 @@ private fun MediaViewer(items:List<MediaItem>,initial:Int,favorites:Set<String>,
                                 DropdownMenuItem(text={Text(stringResource(R.string.gallery_wallpaper))},onClick={viewerMenu=false;onAction("wallpaper",current)})
                                 DropdownMenuItem(text={Text(stringResource(R.string.gallery_private_share))},onClick={viewerMenu=false;onAction("private",current)})
                             }
+                            DropdownMenuItem(text={Text(stringResource(R.string.gallery_details))},onClick={viewerMenu=false;details=true})
                             DropdownMenuItem(text={Text(stringResource(R.string.gallery_slideshow))},onClick={slideshow=!slideshow;viewerMenu=false},trailingIcon={if(slideshow)Icon(Icons.Default.Check,null)})
                             DropdownMenuItem(text={Text(stringResource(R.string.gallery_rename))},onClick={viewerMenu=false;onAction("rename",current)})
                             DropdownMenuItem(text={Text(stringResource(R.string.gallery_open_folder))},onClick={viewerMenu=false;onAction("folder",current)})
@@ -292,17 +293,7 @@ private fun MediaViewer(items:List<MediaItem>,initial:Int,favorites:Set<String>,
                 }
             }
         }
-        if(details){
-        val exif by produceState<List<String>>(emptyList(),current.uri){value=withContext(Dispatchers.IO){galleryExif(context,current)}}
-        AlertDialog(onDismissRequest={details=false},title={Text(stringResource(R.string.gallery_details))},text={
-            Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(6.dp)){
-                Text(current.name);Text(current.folder);Text(Formatter.formatFileSize(context,current.bytes))
-                Text(DateFormat.getDateTimeInstance().format(Date(current.date*1000)))
-                Text("${current.width} × ${current.height}")
-                if(current.video)Text(videoDuration(current.duration))
-                exif.forEach{Text(it,style=MaterialTheme.typography.bodySmall)}
-            }
-        },confirmButton={TextButton(onClick={details=false}){Text(tr("Close"))}})}
+        if(details)GalleryDetailsDialog(listOf(current),onClose={details=false})
     }
 }
 
@@ -327,6 +318,7 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit,onOpenFolder:(MediaI
     var duplicateKeys by remember{mutableStateOf<Set<String>?>(null)}
     var scanning by remember{mutableStateOf(false)}
     var editItem by remember{mutableStateOf<MediaItem?>(null)}
+    var infoItems by remember{mutableStateOf<List<MediaItem>>(emptyList())}
     var task by remember{mutableStateOf<GalleryTask?>(null)}
     var operationBusy by remember{mutableStateOf(false)}
     var albumAction by remember{mutableStateOf<String?>(null)}
@@ -424,7 +416,7 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit,onOpenFolder:(MediaI
                 IconButton(onClick={val all=visible.map{it.uri.toString()}.toSet();selected=if(selected==all)emptySet()else all}){Icon(Icons.Default.Check,stringResource(R.string.cache_select_all))}
                 IconButton(onClick={shareMedia(context,media.filter{it.uri.toString() in selected})}){Icon(Icons.Default.Share,null)}
                 IconButton(enabled=!deleting&&!operationBusy,onClick={deletionDay=null;deletion=media.filter{it.uri.toString() in selected}}){Icon(Icons.Default.Delete,null)}
-                Box{IconButton(onClick={menu=true}){Icon(Icons.Default.MoreVert,null)};DropdownMenu(menu,{menu=false}){val targets=media.filter{it.uri.toString() in selected};DropdownMenuItem(text={Text(stringResource(R.string.gallery_add_favorites))},onClick={favorites=favorites+selected;prefs.edit().putStringSet("favorites",favorites).apply();menu=false;selected=emptySet()});if(targets.size==1)DropdownMenuItem(text={Text(stringResource(R.string.gallery_rename))},onClick={task=GalleryTask("rename",targets,targets.first().name);menu=false});if(Build.VERSION.SDK_INT>=29){DropdownMenuItem(text={Text(stringResource(R.string.gallery_copy_album))},onClick={task=GalleryTask("copy",targets,"");menu=false});DropdownMenuItem(text={Text(stringResource(R.string.gallery_move_album))},onClick={task=GalleryTask("move",targets,"");menu=false})}}}
+                Box{IconButton(onClick={menu=true}){Icon(Icons.Default.MoreVert,null)};DropdownMenu(menu,{menu=false}){val targets=media.filter{it.uri.toString() in selected};DropdownMenuItem(text={Text(stringResource(R.string.gallery_details))},onClick={infoItems=targets;menu=false});if(targets.size==1&&!targets.first().video)DropdownMenuItem(text={Text(stringResource(R.string.gallery_edit))},onClick={editItem=targets.first();menu=false});DropdownMenuItem(text={Text(stringResource(R.string.gallery_add_favorites))},onClick={favorites=favorites+selected;prefs.edit().putStringSet("favorites",favorites).apply();menu=false;selected=emptySet()});if(targets.size==1)DropdownMenuItem(text={Text(stringResource(R.string.gallery_rename))},onClick={task=GalleryTask("rename",targets,targets.first().name);menu=false});if(Build.VERSION.SDK_INT>=29){DropdownMenuItem(text={Text(stringResource(R.string.gallery_copy_album))},onClick={task=GalleryTask("copy",targets,"");menu=false});DropdownMenuItem(text={Text(stringResource(R.string.gallery_move_album))},onClick={task=GalleryTask("move",targets,"");menu=false})}}}
             }else{
                 IconButton(onClick={search=!search;if(!search)query=""}){Icon(Icons.Default.Search,tr("Search"))}
                 IconButton(onClick={filterMenu=true}){Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_browser_sort),stringResource(R.string.gallery_filter))}
@@ -553,6 +545,7 @@ internal fun GalleryScreen(granted:Boolean,request:()->Unit,onOpenFolder:(MediaI
         }
     },confirmButton={TextButton(onClick={filterMenu=false}){Text(tr("Close"))}})
     albumAction?.let{key->AlertDialog(onDismissRequest={albumAction=null},title={Text(media.firstOrNull{it.bucket==key}?.folder.orEmpty())},text={Text(stringResource(R.string.gallery_hide_desc))},confirmButton={TextButton(onClick={hiddenAlbums=if(key in hiddenAlbums)hiddenAlbums-key else hiddenAlbums+key;prefs.edit().putStringSet("hidden_albums",hiddenAlbums).apply();albumAction=null}){Text(stringResource(if(key in hiddenAlbums)R.string.gallery_unhide else R.string.gallery_hide))}},dismissButton={TextButton(onClick={albumAction=null}){Text(tr("Cancel"))}})}
+    if(infoItems.isNotEmpty())GalleryDetailsDialog(infoItems,onClose={infoItems=emptyList()})
     task?.let{t->GalleryTaskDialog(t,media,onClose={task=null},onConfirm={submit(it)})}
     editItem?.let{item->GalleryImageEditor(item,onClose={editItem=null},onSaved={editItem=null;synchronized(thumbnails){gallerySnapshot=null};revision++;onChanged()})}
     if(deletion.isNotEmpty())AlertDialog(onDismissRequest={deletion=emptyList();deletionDay=null},title={Text(if(deletionDay!=null)stringResource(R.string.gallery_delete_day)else tr("Delete"))},text={Text(deletionDay?.let{stringResource(R.string.gallery_delete_day_confirm,it,deletion.size)}?:stringResource(R.string.gallery_delete_confirm,deletion.size))},dismissButton={TextButton(onClick={deletion=emptyList();deletionDay=null}){Text(tr("Cancel"))}},confirmButton={

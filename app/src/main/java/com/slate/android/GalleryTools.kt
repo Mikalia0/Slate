@@ -189,3 +189,24 @@ internal suspend fun galleryDuplicates(context:Context,items:List<MediaItem>,sim
     }
     return output
 }
+
+internal suspend fun savePhotoEdits(context:Context,item:MediaItem,edit:PhotoEdits,jpeg:Boolean,quality:Int,destination:Uri?=null){
+    val original=galleryDecode(context,item,8000)
+    try{
+        val edited=renderPhoto(original,edit)
+        try{
+            val resolver=context.contentResolver
+            val format=if(jpeg)Bitmap.CompressFormat.JPEG else Bitmap.CompressFormat.PNG
+            val ext=if(jpeg)".jpg" else ".png"
+            val mime=if(jpeg)"image/jpeg" else "image/png"
+            if(destination!=null){checkNotNull(resolver.openOutputStream(destination,"wt")).use{check(edited.compress(format,quality.coerceIn(60,100),it))}}
+            else{
+                require(Build.VERSION.SDK_INT>=29)
+                val values=ContentValues().apply{put(MediaStore.MediaColumns.DISPLAY_NAME,item.name.substringBeforeLast('.')+"-edited"+ext);put(MediaStore.MediaColumns.MIME_TYPE,mime);put(MediaStore.MediaColumns.RELATIVE_PATH,"Pictures/Slate/");put(MediaStore.MediaColumns.IS_PENDING,1)}
+                val uri=checkNotNull(resolver.insert(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),values))
+                try{checkNotNull(resolver.openOutputStream(uri,"w")).use{check(edited.compress(format,quality.coerceIn(60,100),it))};check(resolver.update(uri,ContentValues().apply{put(MediaStore.MediaColumns.IS_PENDING,0)},null,null)==1)}
+                catch(e:Throwable){runCatching{resolver.delete(uri,null,null)};throw e}
+            }
+        }finally{edited.recycle()}
+    }finally{original.recycle()}
+}
