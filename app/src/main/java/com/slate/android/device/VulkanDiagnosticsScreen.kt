@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.*
@@ -160,11 +161,11 @@ private fun parse(rows:List<String>)=rows.mapNotNull{val parts=it.split('\t',lim
         }
         Row(Modifier.fillMaxWidth().padding(vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)){
             val pages=listOf(vkText("Info","Info"),vkText("Compare","Comparar"),"Drivers",vkText("Tests","Testes"))
-            val icons=listOf(Icons.Default.Info,Icons.Default.CompareArrows,Icons.Default.Folder,Icons.Default.Speed)
+            val icons=listOf(R.drawable.ic_device_overview,R.drawable.ic_browser_sort,R.drawable.ic_storage_folder,R.drawable.ic_device_gpu)
             pages.forEachIndexed{i,label->
                 Surface(onClick={page=i;error=null},enabled=!busy,modifier=Modifier.weight(1f),shape=MaterialTheme.shapes.medium,color=if(page==i)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow){
                     Column(Modifier.padding(vertical=9.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)){
-                        Icon(icons[i],null,Modifier.size(20.dp),tint=if(page==i)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(painterResource(icons[i]),null,Modifier.size(20.dp),tint=if(page==i)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(label,style=MaterialTheme.typography.labelSmall,maxLines=1)
                     }
                 }
@@ -180,7 +181,7 @@ private fun parse(rows:List<String>)=rows.mapNotNull{val parts=it.split('\t',lim
             Row(verticalAlignment=Alignment.CenterVertically){
                 if(section!=0||page==1)OutlinedTextField(query,{query=it},Modifier.weight(1f),singleLine=true,leadingIcon={Icon(Icons.Default.Search,null)},placeholder={Text(vkText("Search","Pesquisar"))},shape=MaterialTheme.shapes.large)
                 else Text(vkText("GPU capabilities","Capacidades da GPU"),Modifier.weight(1f),style=MaterialTheme.typography.titleSmall)
-                IconButton(enabled=!busy&&a.isNotEmpty(),onClick=copyReport){Icon(Icons.Default.ContentCopy,vkText("Copy report","Copiar relatório"))}
+                IconButton(enabled=!busy&&a.isNotEmpty(),onClick=copyReport){Icon(painterResource(R.drawable.ic_browser_copy),vkText("Copy report","Copiar relatório"))}
                 IconButton(enabled=!busy,onClick={reports.remove(active.id);reports.remove(other.id);generation++}){Icon(Icons.Default.Refresh,vkText("Refresh","Atualizar"))}
             }
             if(page==1)Row(verticalAlignment=Alignment.CenterVertically){Checkbox(onlyDifferences,{onlyDifferences=it});Text(vkText("Differences only","Apenas diferenças"))}
